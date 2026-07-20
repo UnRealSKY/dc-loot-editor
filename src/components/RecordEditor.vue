@@ -85,37 +85,61 @@ function removeMember(i: number) {
 
 <template>
   <section v-if="record">
-    <div class="editor-toolbar">
-      <button type="button" @click="showImport = true">重新貼上匯入</button>
-      <button type="button" @click="showExport = true">複製回 DC</button>
-    </div>
-    <div class="header-fields">
-      <label>標題*<input :value="record.title" required :class="{ 'field-invalid': titleError }" @input="patch({ title: ($event.target as HTMLInputElement).value })" />
-        <span v-if="titleError" class="field-error">標題為必填</span>
-      </label>
-      <label>日期<input type="date" :value="record.date" @input="patch({ date: ($event.target as HTMLInputElement).value })" /></label>
-      <label>王名
-        <AutocompleteInput :model-value="record.boss" :suggestions="history.bosses.value"
-          @update:model-value="patch({ boss: $event })" />
-      </label>
-      <label>人數<input type="number" :value="record.memberCount" style="width:4em"
-        @input="patch({ memberCount: Number(($event.target as HTMLInputElement).value) })" /></label>
+    <div class="editor-top">
+      <router-link to="/" class="btn btn-ghost btn-sm back">← 返回列表</router-link>
+      <div class="spacer" />
+      <button type="button" class="btn btn-sm" @click="showImport = true">重新貼上匯入</button>
+      <button type="button" class="btn btn-primary btn-sm" @click="showExport = true">複製回 DC</button>
     </div>
 
-    <p v-if="memberCountMismatch" class="warn">人數（{{ record.memberCount }}）與團員列數（{{ record.members.length }}）不一致，分配可能有誤</p>
+    <div class="card">
+      <div class="section-head"><h3>基本資料</h3></div>
+      <div class="header-fields">
+        <label class="field field-title">
+          <span class="field-label">標題 <em>*</em></span>
+          <input :value="record.title" required :class="{ 'field-invalid': titleError }"
+            placeholder="例：2026-07-19 混龍" @input="patch({ title: ($event.target as HTMLInputElement).value })" />
+          <span v-if="titleError" class="field-error">標題為必填</span>
+        </label>
+        <label class="field">
+          <span class="field-label">日期</span>
+          <input type="date" :value="record.date" @input="patch({ date: ($event.target as HTMLInputElement).value })" />
+        </label>
+        <label class="field">
+          <span class="field-label">王名</span>
+          <AutocompleteInput :model-value="record.boss" :suggestions="history.bosses.value"
+            placeholder="王名" @update:model-value="patch({ boss: $event })" />
+        </label>
+        <label class="field field-n">
+          <span class="field-label">人數</span>
+          <input type="number" :value="record.memberCount"
+            @input="patch({ memberCount: Number(($event.target as HTMLInputElement).value) })" />
+        </label>
+      </div>
+    </div>
 
-    <h3>團員</h3>
-    <ul class="members">
-      <li v-for="(m, i) in record.members" :key="m.id">
-        <AutocompleteInput :model-value="m.handle" :suggestions="history.handles.value"
-          placeholder="@handle" @update:model-value="updateMember(i, { handle: $event })" />
-        <button type="button" @click="updateMember(i, { settle: m.settle === 'settled' ? 'pending' : 'settled' })">
-          {{ m.settle === 'settled' ? ':ok:' : ':orange_square:' }}
-        </button>
-        <button type="button" @click="removeMember(i)">✕</button>
-      </li>
-    </ul>
-    <button type="button" @click="addMember">＋ 新增團員</button>
+    <div class="card">
+      <div class="section-head">
+        <h3>團員</h3>
+        <div class="spacer" />
+        <button type="button" class="btn btn-sm" @click="addMember">＋ 新增團員</button>
+      </div>
+      <p v-if="memberCountMismatch" class="alert alert-warn">
+        人數（{{ record.memberCount }}）與團員列數（{{ record.members.length }}）不一致，分配可能有誤
+      </p>
+      <p v-if="!record.members.length" class="muted">尚無團員。</p>
+      <ul class="members">
+        <li v-for="(m, i) in record.members" :key="m.id" class="member-row">
+          <AutocompleteInput class="member-handle" :model-value="m.handle" :suggestions="history.handles.value"
+            placeholder="@handle" @update:model-value="updateMember(i, { handle: $event })" />
+          <button type="button" class="chip" :class="m.settle === 'settled' ? 'chip-ok' : 'chip-pending'"
+            @click="updateMember(i, { settle: m.settle === 'settled' ? 'pending' : 'settled' })">
+            {{ m.settle === 'settled' ? '✓ 已結清' : '● 待結清' }}
+          </button>
+          <button type="button" class="btn btn-icon btn-danger" title="移除" @click="removeMember(i)">✕</button>
+        </li>
+      </ul>
+    </div>
 
     <LootTable :model-value="record.lootItems" @update:model-value="setLootItems" />
     <PurchaseTable :model-value="record.purchases" :members="record.members"
@@ -125,15 +149,22 @@ function removeMember(i: number) {
     <ImportDialog :open="showImport" @close="showImport = false" @imported="applyImport" />
     <ExportDialog :open="showExport" :record="record" @close="showExport = false" />
   </section>
-  <p v-else>找不到此紀錄。</p>
+  <div v-else class="empty">找不到此紀錄。</div>
 </template>
 
 <style scoped>
-.editor-toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
-.header-fields { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
-.header-fields label { display: flex; flex-direction: column; font-size: 0.85em; }
-.members { list-style: none; padding: 0; }
-.members li { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
-.field-error { color: #c00; font-size: 0.8em; }
-.warn { color: #c60; font-size: 0.85em; margin: 4px 0; }
+.editor-top { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.editor-top .spacer { flex: 1; }
+.back { text-decoration: none; }
+
+.header-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field-title { grid-column: 1 / -1; }
+.field-n { max-width: 120px; }
+.field-label { font-size: 12.5px; font-weight: 550; color: var(--text-muted); }
+.field-label em { color: var(--danger); font-style: normal; }
+
+.members { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.member-row { display: flex; gap: 8px; align-items: center; }
+.member-handle { flex: 1; max-width: 320px; }
 </style>

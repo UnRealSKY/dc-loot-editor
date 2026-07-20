@@ -17,23 +17,27 @@ const value = computed(() => purchaseValue(props.modelValue))
 
 <template>
   <tr>
-    <td>
+    <td class="buyer-cell">
       <AutocompleteInput :model-value="modelValue.buyer" :suggestions="memberHandles"
         placeholder="@買家" @update:model-value="patch({ buyer: $event })" />
     </td>
-    <td>
+    <td class="name-cell">
       <AutocompleteInput :model-value="modelValue.name" :suggestions="history.itemNames.value"
         placeholder="品名" @update:model-value="patch({ name: $event })" />
     </td>
-    <td><input type="number" :value="modelValue.unitPrice" style="width:6em"
+    <td><input type="number" class="cell-num" :value="modelValue.unitPrice" placeholder="單價"
       @input="patch({ unitPrice: Number(($event.target as HTMLInputElement).value) })" /></td>
-    <td><input type="number" :value="modelValue.qty" style="width:4em"
+    <td><input type="number" class="cell-num sm" :value="modelValue.qty"
       @input="patch({ qty: Number(($event.target as HTMLInputElement).value) })" /></td>
-    <td class="val">{{ value }}</td>
-    <td><button type="button" @click="emit('remove')">✕</button></td>
+    <td class="num val">{{ value }}</td>
+    <td><button type="button" class="btn btn-icon btn-danger" title="移除" @click="emit('remove')">✕</button></td>
   </tr>
 </template>
 
 <style scoped>
-.val { text-align: right; font-variant-numeric: tabular-nums; }
+.buyer-cell { min-width: 150px; }
+.name-cell { min-width: 140px; }
+.cell-num { width: 6em; }
+.cell-num.sm { width: 4.5em; }
+.val { font-weight: 650; white-space: nowrap; }
 </style>

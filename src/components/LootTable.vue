@@ -22,22 +22,29 @@ function add() {
 </script>
 
 <template>
-  <div>
-    <h3>總表</h3>
-    <table>
-      <thead>
-        <tr><th>狀態</th><th>品名</th><th>單價</th><th>數量</th><th>剪刀價</th><th>剪刀數</th><th>註解</th><th>淨額</th><th></th><th>歷史</th></tr>
-      </thead>
-      <tbody>
-        <LootRow
-          v-for="(it, i) in modelValue"
-          :key="it.id"
-          :model-value="it"
-          @update:model-value="updateAt(i, $event)"
-          @remove="removeAt(i)"
-        />
-      </tbody>
-    </table>
-    <button type="button" @click="add">＋ 新增項目</button>
+  <div class="card">
+    <div class="section-head">
+      <h3>總表</h3>
+      <span class="count">{{ modelValue.length }} 項</span>
+      <div class="spacer" />
+      <button type="button" class="btn btn-sm" @click="add">＋ 新增項目</button>
+    </div>
+    <p v-if="!modelValue.length" class="muted">尚無項目。</p>
+    <div v-else class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>狀態</th><th>品名</th><th class="num">單價</th><th class="num">數量</th><th class="num">剪刀價</th><th class="num">剪刀數</th><th>註解</th><th class="num">淨額</th><th></th></tr>
+        </thead>
+        <tbody>
+          <LootRow
+            v-for="(it, i) in modelValue"
+            :key="it.id"
+            :model-value="it"
+            @update:model-value="updateAt(i, $event)"
+            @remove="removeAt(i)"
+          />
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
