@@ -13,7 +13,7 @@ const STATUS_CYCLE: LootStatus[] = ['ok', 'cart', 'struck']
 const STATUS_META: Record<LootStatus, { cls: string; label: string }> = {
   ok: { cls: 'chip-ok', label: '✓ 出售' },
   cart: { cls: 'chip-cart', label: '🛒 待售' },
-  struck: { cls: 'chip-struck', label: '劃除' },
+  struck: { cls: 'chip-struck', label: '不計入' },
 }
 
 function patch(part: Partial<LootItem>) {
