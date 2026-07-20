@@ -25,21 +25,28 @@ function add() {
 </script>
 
 <template>
-  <div>
-    <h3>內購區</h3>
-    <table>
-      <thead><tr><th>買家</th><th>品名</th><th>單價</th><th>數量</th><th>金額</th><th></th></tr></thead>
-      <tbody>
-        <PurchaseRow
-          v-for="(p, i) in modelValue"
-          :key="p.id"
-          :model-value="p"
-          :member-handles="memberHandles"
-          @update:model-value="updateAt(i, $event)"
-          @remove="removeAt(i)"
-        />
-      </tbody>
-    </table>
-    <button type="button" @click="add">＋ 新增內購</button>
+  <div class="card">
+    <div class="section-head">
+      <h3>內購區</h3>
+      <span class="count">{{ modelValue.length }} 筆</span>
+      <div class="spacer" />
+      <button type="button" class="btn btn-sm" @click="add">＋ 新增內購</button>
+    </div>
+    <p v-if="!modelValue.length" class="muted">尚無內購。</p>
+    <div v-else class="table-wrap">
+      <table>
+        <thead><tr><th>買家</th><th>品名</th><th class="num">單價</th><th class="num">數量</th><th class="num">金額</th><th></th></tr></thead>
+        <tbody>
+          <PurchaseRow
+            v-for="(p, i) in modelValue"
+            :key="p.id"
+            :model-value="p"
+            :member-handles="memberHandles"
+            @update:model-value="updateAt(i, $event)"
+            @remove="removeAt(i)"
+          />
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>

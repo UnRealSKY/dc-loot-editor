@@ -56,9 +56,12 @@ function choose(s: string) {
 <style scoped>
 .autocomplete { position: relative; }
 .suggestions {
-  position: absolute; z-index: 10; left: 0; right: 0; margin: 0; padding: 0;
-  list-style: none; background: #fff; border: 1px solid #ccc; max-height: 200px; overflow-y: auto;
+  position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 4px);
+  margin: 0; padding: 4px; list-style: none;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
+  max-height: 220px; overflow-y: auto; min-width: 140px;
 }
-.suggestion { padding: 4px 8px; cursor: pointer; }
-.suggestion:hover { background: #eef; }
+.suggestion { padding: 6px 10px; cursor: pointer; border-radius: 6px; font-size: 14px; white-space: nowrap; }
+.suggestion:hover { background: var(--primary-soft); color: var(--primary-hover); }
 </style>

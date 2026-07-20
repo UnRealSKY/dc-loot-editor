@@ -10,7 +10,11 @@ const emit = defineEmits<{ 'update:modelValue': [v: LootItem]; remove: [] }>()
 
 const history = useHistory()
 const STATUS_CYCLE: LootStatus[] = ['ok', 'cart', 'struck']
-const STATUS_LABEL: Record<LootStatus, string> = { ok: ':ok:', cart: ':shopping_cart:', struck: '劃線' }
+const STATUS_META: Record<LootStatus, { cls: string; label: string }> = {
+  ok: { cls: 'chip-ok', label: '✓ 出售' },
+  cart: { cls: 'chip-cart', label: '🛒 待售' },
+  struck: { cls: 'chip-struck', label: '劃除' },
+}
 
 function patch(part: Partial<LootItem>) {
   emit('update:modelValue', { ...props.modelValue, ...part })
@@ -31,8 +35,12 @@ const priceHints = computed(() =>
 
 <template>
   <tr>
-    <td><button type="button" @click="cycleStatus">{{ STATUS_LABEL[modelValue.status] }}</button></td>
     <td>
+      <button type="button" class="chip" :class="STATUS_META[modelValue.status].cls" @click="cycleStatus">
+        {{ STATUS_META[modelValue.status].label }}
+      </button>
+    </td>
+    <td class="name-cell">
       <AutocompleteInput
         :model-value="modelValue.name"
         :suggestions="history.itemNames.value"
@@ -41,18 +49,37 @@ const priceHints = computed(() =>
         @select="onNameSelect"
       />
     </td>
-    <td><input type="number" :value="modelValue.unitPrice ?? ''" @input="patch({ unitPrice: ($event.target as HTMLInputElement).value === '' ? null : Number(($event.target as HTMLInputElement).value) })" style="width:6em" autocomplete="off" /></td>
-    <td><input type="number" :value="modelValue.qty" @input="patch({ qty: Number(($event.target as HTMLInputElement).value) })" style="width:4em" /></td>
-    <td><input type="number" :value="modelValue.scissorUnitPrice ?? ''" placeholder="剪刀價" @input="patch({ scissorUnitPrice: Number(($event.target as HTMLInputElement).value) || undefined })" style="width:5em" /></td>
-    <td><input type="number" :value="modelValue.scissorCount ?? ''" placeholder="剪刀數" @input="patch({ scissorCount: Number(($event.target as HTMLInputElement).value) || undefined })" style="width:4em" /></td>
-    <td><input :value="modelValue.note ?? ''" placeholder="註解" @input="patch({ note: ($event.target as HTMLInputElement).value || undefined })" /></td>
-    <td class="net">{{ net }}</td>
-    <td><button type="button" @click="emit('remove')">✕</button></td>
-    <td class="hints">{{ priceHints.join(' / ') }}</td>
+    <td>
+      <input type="number" class="cell-num" :value="modelValue.unitPrice ?? ''"
+        :title="priceHints.length ? '歷史：' + priceHints.join(' / ') : ''"
+        placeholder="單價" autocomplete="off"
+        @input="patch({ unitPrice: ($event.target as HTMLInputElement).value === '' ? null : Number(($event.target as HTMLInputElement).value) })" />
+    </td>
+    <td>
+      <input type="number" class="cell-num sm" :value="modelValue.qty"
+        @input="patch({ qty: Number(($event.target as HTMLInputElement).value) })" />
+    </td>
+    <td>
+      <input type="number" class="cell-num" :value="modelValue.scissorUnitPrice ?? ''" placeholder="剪刀價"
+        @input="patch({ scissorUnitPrice: Number(($event.target as HTMLInputElement).value) || undefined })" />
+    </td>
+    <td>
+      <input type="number" class="cell-num sm" :value="modelValue.scissorCount ?? ''" placeholder="剪刀數"
+        @input="patch({ scissorCount: Number(($event.target as HTMLInputElement).value) || undefined })" />
+    </td>
+    <td>
+      <input class="cell-note" :value="modelValue.note ?? ''" placeholder="註解"
+        @input="patch({ note: ($event.target as HTMLInputElement).value || undefined })" />
+    </td>
+    <td class="num net">{{ net }}</td>
+    <td><button type="button" class="btn btn-icon btn-danger" title="移除" @click="emit('remove')">✕</button></td>
   </tr>
 </template>
 
 <style scoped>
-.net { text-align: right; font-variant-numeric: tabular-nums; }
-.hints { color: #999; font-size: 0.75em; }
+.name-cell { min-width: 150px; }
+.cell-num { width: 6em; }
+.cell-num.sm { width: 4.5em; }
+.cell-note { min-width: 110px; }
+.net { font-weight: 650; white-space: nowrap; }
 </style>
