@@ -1,3 +1,77 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useRecordsStore } from '../store/records'
+import { useHistory } from '../store/history'
+import type { LootRecord, LootItem, Member } from '../types'
+import LootTable from './LootTable.vue'
+import AutocompleteInput from './AutocompleteInput.vue'
+
+const route = useRoute()
+const store = useRecordsStore()
+const history = useHistory()
+
+const record = computed<LootRecord | undefined>(() => store.get(route.params.id as string))
+
+function patch(part: Partial<LootRecord>) {
+  if (record.value) store.upsert({ ...record.value, ...part })
+}
+function setLootItems(items: LootItem[]) {
+  patch({ lootItems: items })
+}
+function setMembers(members: Member[]) {
+  patch({ members })
+}
+function addMember() {
+  if (!record.value) return
+  setMembers([...record.value.members, { handle: '', settle: 'pending' }])
+}
+function updateMember(i: number, part: Partial<Member>) {
+  if (!record.value) return
+  const next = [...record.value.members]
+  next[i] = { ...next[i], ...part }
+  setMembers(next)
+}
+function removeMember(i: number) {
+  if (!record.value) return
+  setMembers(record.value.members.filter((_, idx) => idx !== i))
+}
+</script>
+
 <template>
-  <p>編輯頁（待實作）</p>
+  <section v-if="record">
+    <div class="header-fields">
+      <label>標題*<input :value="record.title" @input="patch({ title: ($event.target as HTMLInputElement).value })" /></label>
+      <label>日期<input type="date" :value="record.date" @input="patch({ date: ($event.target as HTMLInputElement).value })" /></label>
+      <label>王名
+        <AutocompleteInput :model-value="record.boss" :suggestions="history.bosses.value"
+          @update:model-value="patch({ boss: $event })" />
+      </label>
+      <label>人數<input type="number" :value="record.memberCount" style="width:4em"
+        @input="patch({ memberCount: Number(($event.target as HTMLInputElement).value) })" /></label>
+    </div>
+
+    <h3>團員</h3>
+    <ul class="members">
+      <li v-for="(m, i) in record.members" :key="i">
+        <AutocompleteInput :model-value="m.handle" :suggestions="history.handles.value"
+          placeholder="@handle" @update:model-value="updateMember(i, { handle: $event })" />
+        <button type="button" @click="updateMember(i, { settle: m.settle === 'settled' ? 'pending' : 'settled' })">
+          {{ m.settle === 'settled' ? ':ok:' : ':orange_square:' }}
+        </button>
+        <button type="button" @click="removeMember(i)">✕</button>
+      </li>
+    </ul>
+    <button type="button" @click="addMember">＋ 新增團員</button>
+
+    <LootTable :model-value="record.lootItems" @update:model-value="setLootItems" />
+  </section>
+  <p v-else>找不到此紀錄。</p>
 </template>
+
+<style scoped>
+.header-fields { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.header-fields label { display: flex; flex-direction: column; font-size: 0.85em; }
+.members { list-style: none; padding: 0; }
+.members li { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+</style>
