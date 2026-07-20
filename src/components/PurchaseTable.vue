@@ -28,7 +28,7 @@ function add() {
   <div>
     <h3>內購區</h3>
     <table>
-      <thead><tr><th>買家</th><th>品名</th><th>數量</th><th>單價</th><th>金額</th><th></th></tr></thead>
+      <thead><tr><th>買家</th><th>品名</th><th>單價</th><th>數量</th><th>金額</th><th></th></tr></thead>
       <tbody>
         <PurchaseRow
           v-for="(p, i) in modelValue"

@@ -26,7 +26,7 @@ function add() {
     <h3>總表</h3>
     <table>
       <thead>
-        <tr><th>狀態</th><th>品名</th><th>數量</th><th>單價</th><th>剪數</th><th>剪價</th><th>註解</th><th>淨額</th><th></th><th>歷史</th></tr>
+        <tr><th>狀態</th><th>品名</th><th>單價</th><th>數量</th><th>剪刀價</th><th>剪刀數</th><th>註解</th><th>淨額</th><th></th><th>歷史</th></tr>
       </thead>
       <tbody>
         <LootRow
