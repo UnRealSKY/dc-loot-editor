@@ -4,6 +4,7 @@ export type LootStatus = 'ok' | 'cart' | 'struck'  // :ok: / :shopping_cart: / å
 export interface Member {
   handle: string           // ä¾‹ "@.unrealsky"
   settle: SettleStatus
+  id?: string
 }
 
 export interface LootItem {
@@ -14,6 +15,7 @@ export interface LootItem {
   scissorCount?: number
   scissorUnitPrice?: number
   note?: string
+  id?: string
 }
 
 export interface Purchase {

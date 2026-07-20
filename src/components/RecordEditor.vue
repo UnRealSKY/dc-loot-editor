@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRecordsStore } from '../store/records'
 import { useHistory } from '../store/history'
@@ -16,6 +16,21 @@ const record = computed<LootRecord | undefined>(() => store.get(route.params.id 
 function patch(part: Partial<LootRecord>) {
   if (record.value) store.upsert({ ...record.value, ...part })
 }
+
+const titleError = computed(() => !record.value || !record.value.title.trim())
+
+function ensureIds() {
+  const r = record.value
+  if (!r) return
+  const needs = r.lootItems.some((it) => !it.id) || r.members.some((m) => !m.id)
+  if (!needs) return
+  store.upsert({
+    ...r,
+    lootItems: r.lootItems.map((it) => (it.id ? it : { ...it, id: crypto.randomUUID() })),
+    members: r.members.map((m) => (m.id ? m : { ...m, id: crypto.randomUUID() })),
+  })
+}
+watch(() => route.params.id, ensureIds, { immediate: true })
 function setLootItems(items: LootItem[]) {
   patch({ lootItems: items })
 }
@@ -24,7 +39,7 @@ function setMembers(members: Member[]) {
 }
 function addMember() {
   if (!record.value) return
-  setMembers([...record.value.members, { handle: '', settle: 'pending' }])
+  setMembers([...record.value.members, { handle: '', settle: 'pending', id: crypto.randomUUID() }])
 }
 function updateMember(i: number, part: Partial<Member>) {
   if (!record.value) return
@@ -41,7 +56,9 @@ function removeMember(i: number) {
 <template>
   <section v-if="record">
     <div class="header-fields">
-      <label>標題*<input :value="record.title" @input="patch({ title: ($event.target as HTMLInputElement).value })" /></label>
+      <label>標題*<input :value="record.title" required :class="{ 'field-invalid': titleError }" @input="patch({ title: ($event.target as HTMLInputElement).value })" />
+        <span v-if="titleError" class="field-error">標題為必填</span>
+      </label>
       <label>日期<input type="date" :value="record.date" @input="patch({ date: ($event.target as HTMLInputElement).value })" /></label>
       <label>王名
         <AutocompleteInput :model-value="record.boss" :suggestions="history.bosses.value"
@@ -53,7 +70,7 @@ function removeMember(i: number) {
 
     <h3>團員</h3>
     <ul class="members">
-      <li v-for="(m, i) in record.members" :key="i">
+      <li v-for="(m, i) in record.members" :key="m.id">
         <AutocompleteInput :model-value="m.handle" :suggestions="history.handles.value"
           placeholder="@handle" @update:model-value="updateMember(i, { handle: $event })" />
         <button type="button" @click="updateMember(i, { settle: m.settle === 'settled' ? 'pending' : 'settled' })">
@@ -74,4 +91,5 @@ function removeMember(i: number) {
 .header-fields label { display: flex; flex-direction: column; font-size: 0.85em; }
 .members { list-style: none; padding: 0; }
 .members li { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+.field-error { color: #c00; font-size: 0.8em; }
 </style>
