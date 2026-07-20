@@ -18,8 +18,14 @@ const value = computed(() => purchaseValue(props.modelValue))
 <template>
   <tr>
     <td class="buyer-cell">
-      <AutocompleteInput :model-value="modelValue.buyer" :suggestions="memberHandles"
-        placeholder="@買家" @update:model-value="patch({ buyer: $event })" />
+      <select :value="modelValue.buyer"
+        @change="patch({ buyer: ($event.target as HTMLSelectElement).value })">
+        <option value="">選擇團員…</option>
+        <option v-for="h in memberHandles" :key="h" :value="h">{{ h }}</option>
+        <option v-if="modelValue.buyer && !memberHandles.includes(modelValue.buyer)" :value="modelValue.buyer">
+          {{ modelValue.buyer }}（非團員）
+        </option>
+      </select>
     </td>
     <td class="name-cell">
       <AutocompleteInput :model-value="modelValue.name" :suggestions="history.itemNames.value"
