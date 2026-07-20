@@ -23,6 +23,7 @@ export interface Purchase {
   name: string
   qty: number
   unitPrice: number
+  id?: string
 }
 
 export interface LootRecord {
