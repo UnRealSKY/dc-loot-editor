@@ -28,9 +28,8 @@ export interface Purchase {
 
 export interface LootRecord {
   id: string
-  title: string
   date: string             // YYYY-MM-DD
-  boss: string
+  boss: string             // 王名，即紀錄標題（列表顯示用）
   memberCount: number
   members: Member[]
   lootItems: LootItem[]
