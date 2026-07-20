@@ -148,7 +148,7 @@ button { font-family: inherit; }
 .chip:hover { filter: brightness(.96); }
 .chip-ok { background: var(--success-soft); color: var(--success); }
 .chip-cart { background: var(--info-soft); color: var(--info); }
-.chip-struck { background: #f3f4f6; color: #9ca3af; text-decoration: line-through; }
+.chip-struck { background: #f3f4f6; color: #9ca3af; }
 .chip-pending { background: var(--warn-soft); color: var(--warn); }
 
 /* ---- Alerts ---- */
