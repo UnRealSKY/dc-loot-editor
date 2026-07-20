@@ -53,3 +53,22 @@ describe('serialize', () => {
     expect(out).toContain('* :orange_square: @xiangjiaojiu: 653 + 1000/4 = 903')
   })
 })
+
+describe('serialize N=1', () => {
+  const soloRecord: LootRecord = {
+    id: '2', title: 'solo', date: '2026-07-20', boss: '單人王', memberCount: 1,
+    members: [{ handle: '@me', settle: 'pending' }],
+    lootItems: [{ status: 'ok', name: '道具', qty: 1, unitPrice: 1000 }],
+    purchases: [{ buyer: '@other', name: '內購物品', qty: 1, unitPrice: 500 }],
+    createdAt: '', updatedAt: '',
+  }
+  const out = serialize(soloRecord)
+
+  it('不應出現 /0（others 除以 N-1 應被 N=1 守衛跳過）', () => {
+    expect(out).not.toContain('/0')
+  })
+  it('成員分配行以正確的 = 數值結尾', () => {
+    // n=1: base=1000/1=1000; others=500-0=500 但因 n=1 被跳過; own=0 亦不列入 → income=1000
+    expect(out).toContain('* :orange_square: @me: 1000 = 1000')
+  })
+})

@@ -1,5 +1,5 @@
 import type { LootRecord, LootItem, SettleStatus } from '../types'
-import { netTotal, computeIncomes, purchaseValue } from '../calc/distribution'
+import { netTotal, computeIncomes } from '../calc/distribution'
 
 function lootLine(it: LootItem): string {
   if (it.status === 'struck') {
@@ -39,7 +39,7 @@ export function serialize(record: LootRecord): string {
     const inc = incomeByHandle.get(m.handle)
     if (!inc) continue
     let expr = `${baseDisplay}`
-    if (inc.others > 0) expr += ` + ${inc.others}/${n - 1}`
+    if (n > 1 && inc.others > 0) expr += ` + ${inc.others}/${n - 1}`
     if (inc.own > 0) expr += ` - ${inc.own}`
     lines.push(`* ${settleEmoji(m.settle)} ${m.handle}: ${expr} = ${Math.round(inc.income)}`)
   }

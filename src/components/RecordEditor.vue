@@ -22,6 +22,9 @@ function patch(part: Partial<LootRecord>) {
 }
 
 const titleError = computed(() => !record.value || !record.value.title.trim())
+const memberCountMismatch = computed(
+  () => !!record.value && record.value.memberCount !== record.value.members.length,
+)
 
 function ensureIds() {
   const r = record.value
@@ -99,6 +102,8 @@ function removeMember(i: number) {
         @input="patch({ memberCount: Number(($event.target as HTMLInputElement).value) })" /></label>
     </div>
 
+    <p v-if="memberCountMismatch" class="warn">人數（{{ record.memberCount }}）與團員列數（{{ record.members.length }}）不一致，分配可能有誤</p>
+
     <h3>團員</h3>
     <ul class="members">
       <li v-for="(m, i) in record.members" :key="m.id">
@@ -130,4 +135,5 @@ function removeMember(i: number) {
 .members { list-style: none; padding: 0; }
 .members li { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
 .field-error { color: #c00; font-size: 0.8em; }
+.warn { color: #c60; font-size: 0.85em; margin: 4px 0; }
 </style>
