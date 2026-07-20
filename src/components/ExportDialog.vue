@@ -8,11 +8,17 @@ const emit = defineEmits<{ close: [] }>()
 
 const md = computed(() => serialize(props.record))
 const copied = ref(false)
+const copyFailed = ref(false)
 
 async function copy() {
-  await navigator.clipboard.writeText(md.value)
-  copied.value = true
-  setTimeout(() => (copied.value = false), 1500)
+  try {
+    await navigator.clipboard.writeText(md.value)
+    copied.value = true
+    setTimeout(() => (copied.value = false), 1500)
+  } catch {
+    copyFailed.value = true
+    setTimeout(() => (copyFailed.value = false), 1500)
+  }
 }
 </script>
 
@@ -22,7 +28,7 @@ async function copy() {
       <h3>複製回 DC</h3>
       <textarea :value="md" rows="16" readonly></textarea>
       <div class="actions">
-        <button type="button" @click="copy">{{ copied ? '已複製 ✓' : '複製' }}</button>
+        <button type="button" @click="copy">{{ copyFailed ? '複製失敗' : copied ? '已複製 ✓' : '複製' }}</button>
         <button type="button" @click="emit('close')">關閉</button>
       </div>
     </div>

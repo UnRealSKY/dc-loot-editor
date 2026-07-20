@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { parse } from '../format/parse'
 import type { LootRecord } from '../types'
 
-defineProps<{ open: boolean }>()
+const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: []; imported: [v: LootRecord] }>()
 
 const text = ref('')
@@ -13,6 +13,15 @@ function doImport() {
   text.value = ''
   emit('close')
 }
+
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (!isOpen) {
+      text.value = ''
+    }
+  }
+)
 </script>
 
 <template>
