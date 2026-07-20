@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRecordsStore } from '../store/records'
 import { useHistory } from '../store/history'
@@ -8,6 +8,8 @@ import LootTable from './LootTable.vue'
 import AutocompleteInput from './AutocompleteInput.vue'
 import PurchaseTable from './PurchaseTable.vue'
 import DistributionPanel from './DistributionPanel.vue'
+import ExportDialog from './ExportDialog.vue'
+import ImportDialog from './ImportDialog.vue'
 
 const route = useRoute()
 const store = useRecordsStore()
@@ -37,6 +39,22 @@ function ensureIds() {
   })
 }
 watch(() => route.params.id, ensureIds, { immediate: true })
+
+const showExport = ref(false)
+const showImport = ref(false)
+function applyImport(parsed: LootRecord) {
+  if (!record.value) return
+  store.upsert({
+    ...record.value,
+    date: parsed.date,
+    boss: parsed.boss,
+    memberCount: parsed.memberCount,
+    members: parsed.members,
+    lootItems: parsed.lootItems,
+    purchases: parsed.purchases,
+  })
+  ensureIds() // 為剛匯入的資料列補上穩定 id（迴圈安全，手動呼叫）
+}
 function setLootItems(items: LootItem[]) {
   patch({ lootItems: items })
 }
@@ -64,6 +82,10 @@ function removeMember(i: number) {
 
 <template>
   <section v-if="record">
+    <div class="editor-toolbar">
+      <button type="button" @click="showImport = true">重新貼上匯入</button>
+      <button type="button" @click="showExport = true">複製回 DC</button>
+    </div>
     <div class="header-fields">
       <label>標題*<input :value="record.title" required :class="{ 'field-invalid': titleError }" @input="patch({ title: ($event.target as HTMLInputElement).value })" />
         <span v-if="titleError" class="field-error">標題為必填</span>
@@ -94,11 +116,15 @@ function removeMember(i: number) {
     <PurchaseTable :model-value="record.purchases" :members="record.members"
       @update:model-value="setPurchases" />
     <DistributionPanel :record="record" />
+
+    <ImportDialog :open="showImport" @close="showImport = false" @imported="applyImport" />
+    <ExportDialog :open="showExport" :record="record" @close="showExport = false" />
   </section>
   <p v-else>找不到此紀錄。</p>
 </template>
 
 <style scoped>
+.editor-toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
 .header-fields { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
 .header-fields label { display: flex; flex-direction: column; font-size: 0.85em; }
 .members { list-style: none; padding: 0; }
