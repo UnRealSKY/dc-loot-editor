@@ -41,10 +41,10 @@ const priceHints = computed(() =>
         @select="onNameSelect"
       />
     </td>
-    <td><input type="number" :value="modelValue.qty" @input="patch({ qty: Number(($event.target as HTMLInputElement).value) })" style="width:4em" /></td>
     <td><input type="number" :value="modelValue.unitPrice ?? ''" @input="patch({ unitPrice: ($event.target as HTMLInputElement).value === '' ? null : Number(($event.target as HTMLInputElement).value) })" style="width:6em" autocomplete="off" /></td>
-    <td><input type="number" :value="modelValue.scissorCount ?? ''" placeholder="剪數" @input="patch({ scissorCount: Number(($event.target as HTMLInputElement).value) || undefined })" style="width:4em" /></td>
-    <td><input type="number" :value="modelValue.scissorUnitPrice ?? ''" placeholder="剪價" @input="patch({ scissorUnitPrice: Number(($event.target as HTMLInputElement).value) || undefined })" style="width:5em" /></td>
+    <td><input type="number" :value="modelValue.qty" @input="patch({ qty: Number(($event.target as HTMLInputElement).value) })" style="width:4em" /></td>
+    <td><input type="number" :value="modelValue.scissorUnitPrice ?? ''" placeholder="剪刀價" @input="patch({ scissorUnitPrice: Number(($event.target as HTMLInputElement).value) || undefined })" style="width:5em" /></td>
+    <td><input type="number" :value="modelValue.scissorCount ?? ''" placeholder="剪刀數" @input="patch({ scissorCount: Number(($event.target as HTMLInputElement).value) || undefined })" style="width:4em" /></td>
     <td><input :value="modelValue.note ?? ''" placeholder="註解" @input="patch({ note: ($event.target as HTMLInputElement).value || undefined })" /></td>
     <td class="net">{{ net }}</td>
     <td><button type="button" @click="emit('remove')">✕</button></td>

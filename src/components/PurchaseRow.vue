@@ -25,10 +25,10 @@ const value = computed(() => purchaseValue(props.modelValue))
       <AutocompleteInput :model-value="modelValue.name" :suggestions="history.itemNames.value"
         placeholder="品名" @update:model-value="patch({ name: $event })" />
     </td>
-    <td><input type="number" :value="modelValue.qty" style="width:4em"
-      @input="patch({ qty: Number(($event.target as HTMLInputElement).value) })" /></td>
     <td><input type="number" :value="modelValue.unitPrice" style="width:6em"
       @input="patch({ unitPrice: Number(($event.target as HTMLInputElement).value) })" /></td>
+    <td><input type="number" :value="modelValue.qty" style="width:4em"
+      @input="patch({ qty: Number(($event.target as HTMLInputElement).value) })" /></td>
     <td class="val">{{ value }}</td>
     <td><button type="button" @click="emit('remove')">✕</button></td>
   </tr>
