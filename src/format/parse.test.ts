@@ -1,0 +1,71 @@
+import { describe, it, expect } from 'vitest'
+import { parse } from './parse'
+import { serialize } from './serialize'
+import type { LootRecord } from '../types'
+
+const sample = [
+  '## 2026-07-19 混龍 / 5',
+  '* :ok: 附加大師x6: 475x6',
+  '* ~~:shopping_cart: 上衣命60%x1: (價格太低不計入)~~',
+  '* :ok: 手攻60%x2: 288x2 - 80(剪刀)x2',
+  '',
+  '## 內購區',
+  '@.unrealsky: 龍鍊x2 = 500x2',
+  '',
+  '## 分配',
+  '總共: 3266 / 5 = 653',
+  '* :ok: @.unrealsky: 653 - 1000 = -347',
+  '* :orange_square: @xiangjiaojiu: 653 + 1000/4 = 903',
+].join('\n')
+
+describe('parse header', () => {
+  const r = parse(sample)
+  it('date/boss/memberCount', () => {
+    expect(r.date).toBe('2026-07-19')
+    expect(r.boss).toBe('混龍')
+    expect(r.memberCount).toBe(5)
+  })
+})
+
+describe('parse loot items', () => {
+  const r = parse(sample)
+  it('一般項目', () => {
+    expect(r.lootItems[0]).toMatchObject({ status: 'ok', name: '附加大師', qty: 6, unitPrice: 475 })
+  })
+  it('劃線項目 + 註解', () => {
+    expect(r.lootItems[1]).toMatchObject({ status: 'struck', name: '上衣命60%', qty: 1, note: '(價格太低不計入)' })
+  })
+  it('剪刀項目', () => {
+    expect(r.lootItems[2]).toMatchObject({
+      status: 'ok', name: '手攻60%', qty: 2, unitPrice: 288, scissorUnitPrice: 80, scissorCount: 2,
+    })
+  })
+})
+
+describe('parse purchases', () => {
+  const r = parse(sample)
+  it('內購一筆', () => {
+    expect(r.purchases[0]).toMatchObject({ buyer: '@.unrealsky', name: '龍鍊', qty: 2, unitPrice: 500 })
+  })
+})
+
+describe('parse members（來自分配區）', () => {
+  const r = parse(sample)
+  it('handle 與結清狀態', () => {
+    expect(r.members).toEqual([
+      { handle: '@.unrealsky', settle: 'settled' },
+      { handle: '@xiangjiaojiu', settle: 'pending' },
+    ])
+  })
+})
+
+describe('round-trip', () => {
+  it('parse → serialize 產生等價標準格式的核心欄位', () => {
+    const r: LootRecord = { ...parse(sample), id: '1', title: 't', createdAt: '', updatedAt: '' }
+    const out = serialize(r)
+    expect(out).toContain('* :ok: 附加大師x6: 475x6')
+    expect(out).toContain('* ~~:shopping_cart: 上衣命60%x1: (價格太低不計入)~~')
+    expect(out).toContain('* :ok: 手攻60%x2: 288x2 - 80(剪刀)x2')
+    expect(out).toContain('@.unrealsky: 龍鍊x2 = 500x2')
+  })
+})
