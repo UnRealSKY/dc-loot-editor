@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 
 const props = defineProps<{
   modelValue: string
@@ -12,32 +12,19 @@ const emit = defineEmits<{
 }>()
 
 const open = ref(false)
-const query = ref(props.modelValue)
-
-watch(
-  () => props.modelValue,
-  (v) => {
-    query.value = v
-  },
-)
 
 const filtered = computed(() => {
-  const q = query.value.trim()
+  const q = props.modelValue.trim()
   if (!q) return props.suggestions.slice(0, 20)
   return props.suggestions.filter((s) => s.startsWith(q)).slice(0, 20)
 })
 
 function onInput(e: Event) {
-  const value = (e.target as HTMLInputElement).value
-  query.value = value
+  emit('update:modelValue', (e.target as HTMLInputElement).value)
   open.value = true
-  if (value !== props.modelValue) {
-    emit('update:modelValue', value)
-  }
 }
 
 function choose(s: string) {
-  query.value = s
   emit('update:modelValue', s)
   emit('select', s)
   open.value = false
@@ -47,7 +34,7 @@ function choose(s: string) {
 <template>
   <div class="autocomplete">
     <input
-      :value="query"
+      :value="modelValue"
       :placeholder="placeholder"
       @input="onInput"
       @focus="open = true"
