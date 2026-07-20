@@ -37,7 +37,6 @@ export const useRecordsStore = defineStore('records', () => {
   function create(partial: Partial<LootRecord> = {}): LootRecord {
     const ts = nowIso()
     const rec: LootRecord = {
-      title: '',
       date: '',
       boss: '',
       memberCount: 0,
@@ -67,7 +66,7 @@ export const useRecordsStore = defineStore('records', () => {
   function duplicate(id: string): LootRecord | undefined {
     const src = get(id)
     if (!src) return undefined
-    return create({ ...structuredClone(toRaw(src)), title: `${src.title} (複製)` })
+    return create({ ...structuredClone(toRaw(src)), boss: `${src.boss} (複製)` })
   }
 
   return { records, get, create, upsert, remove, duplicate }

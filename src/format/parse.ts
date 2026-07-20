@@ -43,7 +43,7 @@ function parseLoot(line: string): LootItem | null {
 
 export function parse(md: string): LootRecord {
   const record: LootRecord = {
-    id: '', title: '', date: '', boss: '', memberCount: 0,
+    id: '', date: '', boss: '', memberCount: 0,
     members: [], lootItems: [], purchases: [], createdAt: '', updatedAt: '',
   }
   let section: Section = 'none'

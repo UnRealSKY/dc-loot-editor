@@ -61,7 +61,7 @@ describe('parse members（來自分配區）', () => {
 
 describe('round-trip', () => {
   it('parse → serialize 產生等價標準格式的核心欄位', () => {
-    const r: LootRecord = { ...parse(sample), id: '1', title: 't', createdAt: '', updatedAt: '' }
+    const r: LootRecord = { ...parse(sample), id: '1', createdAt: '', updatedAt: '' }
     const out = serialize(r)
     expect(out).toContain('* :ok: 附加大師x6: 475x6')
     expect(out).toContain('* ~~:shopping_cart: 上衣命60%x1: (價格太低不計入)~~')

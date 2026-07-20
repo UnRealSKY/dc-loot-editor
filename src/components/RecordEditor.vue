@@ -21,7 +21,7 @@ function patch(part: Partial<LootRecord>) {
   if (record.value) store.upsert({ ...record.value, ...part })
 }
 
-const titleError = computed(() => !record.value || !record.value.title.trim())
+const bossError = computed(() => !record.value || !record.value.boss.trim())
 const memberCountMismatch = computed(
   () => !!record.value && record.value.memberCount !== record.value.members.length,
 )
@@ -96,19 +96,15 @@ function removeMember(i: number) {
       <div class="section-head"><h3>基本資料</h3></div>
       <div class="header-fields">
         <label class="field field-title">
-          <span class="field-label">標題 <em>*</em></span>
-          <input :value="record.title" required :class="{ 'field-invalid': titleError }"
-            placeholder="例：2026-07-19 混龍" @input="patch({ title: ($event.target as HTMLInputElement).value })" />
-          <span v-if="titleError" class="field-error">標題為必填</span>
+          <span class="field-label">王名 <em>*</em></span>
+          <AutocompleteInput :model-value="record.boss" :suggestions="history.bosses.value"
+            :class="{ invalid: bossError }" placeholder="例：混龍"
+            @update:model-value="patch({ boss: $event })" />
+          <span v-if="bossError" class="field-error">王名為必填</span>
         </label>
         <label class="field">
           <span class="field-label">日期</span>
           <input type="date" :value="record.date" @input="patch({ date: ($event.target as HTMLInputElement).value })" />
-        </label>
-        <label class="field">
-          <span class="field-label">王名</span>
-          <AutocompleteInput :model-value="record.boss" :suggestions="history.bosses.value"
-            placeholder="王名" @update:model-value="patch({ boss: $event })" />
         </label>
         <label class="field field-n">
           <span class="field-label">人數</span>
@@ -160,6 +156,7 @@ function removeMember(i: number) {
 .header-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field-title { grid-column: 1 / -1; }
+.field-title .invalid :deep(input) { border-color: var(--danger); }
 .field-n { max-width: 120px; }
 .field-label { font-size: 12.5px; font-weight: 550; color: var(--text-muted); }
 .field-label em { color: var(--danger); font-style: normal; }

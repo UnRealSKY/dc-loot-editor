@@ -11,13 +11,13 @@ beforeEach(() => {
 function seed() {
   const store = useRecordsStore()
   store.create({
-    title: 'r1', date: '2026-07-19', boss: '混龍',
+    date: '2026-07-19', boss: '混龍',
     members: [{ handle: '@a', settle: 'settled' }],
     lootItems: [{ status: 'ok', name: '楓祝30', qty: 1, unitPrice: 6400 }],
     purchases: [],
   })
   store.create({
-    title: 'r2', date: '2026-07-20', boss: '闇黑龍王',
+    date: '2026-07-20', boss: '闇黑龍王',
     members: [{ handle: '@b', settle: 'pending' }],
     lootItems: [{ status: 'ok', name: '楓祝30', qty: 1, unitPrice: 6800 }],
     purchases: [],
@@ -52,7 +52,7 @@ describe('history', () => {
     const store = useRecordsStore()
     // 高頻品出現 3 次，低頻品出現 1 次
     store.create({
-      title: 'r-freq', date: '2026-07-19', boss: '高頻龍',
+      date: '2026-07-19', boss: '高頻龍',
       members: [{ handle: '@freq', settle: 'settled' }],
       lootItems: [
         { status: 'ok', name: '高頻品', qty: 1, unitPrice: 1000 },
@@ -61,7 +61,7 @@ describe('history', () => {
       purchases: [],
     })
     store.create({
-      title: 'r-freq2', date: '2026-07-20', boss: '高頻龍2',
+      date: '2026-07-20', boss: '高頻龍2',
       members: [{ handle: '@freq2', settle: 'settled' }],
       lootItems: [
         { status: 'ok', name: '高頻品', qty: 1, unitPrice: 1200 },
@@ -69,7 +69,7 @@ describe('history', () => {
       purchases: [],
     })
     store.create({
-      title: 'r-low', date: '2026-07-20', boss: '低頻龍',
+      date: '2026-07-20', boss: '低頻龍',
       members: [{ handle: '@low', settle: 'settled' }],
       lootItems: [
         { status: 'ok', name: '低頻品', qty: 1, unitPrice: 2000 },

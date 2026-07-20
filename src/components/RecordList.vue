@@ -12,7 +12,7 @@ const sorted = computed(() =>
 )
 
 function createNew() {
-  const r = store.create({ title: '未命名分寶' })
+  const r = store.create()
   router.push(`/edit/${r.id}`)
 }
 
@@ -20,7 +20,7 @@ function importPaste() {
   const md = window.prompt('貼上 DC 內容：')
   if (!md) return
   const parsed = parse(md)
-  const r = store.create({ ...parsed, title: parsed.boss || '匯入的分寶' })
+  const r = store.create({ ...parsed })
   router.push(`/edit/${r.id}`)
 }
 
@@ -50,9 +50,8 @@ function duplicate(id: string) {
     <ul v-else class="record-list">
       <li v-for="r in sorted" :key="r.id" class="record-card">
         <router-link :to="`/edit/${r.id}`" class="record-main">
-          <span class="record-title">{{ r.title || '(無標題)' }}</span>
+          <span class="record-title">{{ r.boss || '(未命名)' }}</span>
           <span class="record-meta">
-            <span v-if="r.boss">{{ r.boss }}</span>
             <span v-if="r.date">{{ r.date }}</span>
             <span v-if="r.memberCount">{{ r.memberCount }} 人</span>
           </span>

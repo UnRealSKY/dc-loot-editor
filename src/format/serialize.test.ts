@@ -3,7 +3,7 @@ import { serialize } from './serialize'
 import type { LootRecord } from '../types'
 
 const record: LootRecord = {
-  id: '1', title: 't', date: '2026-07-19', boss: '混龍', memberCount: 5,
+  id: '1', date: '2026-07-19', boss: '混龍', memberCount: 5,
   members: [
     { handle: '@.unrealsky', settle: 'settled' },
     { handle: '@xiangjiaojiu', settle: 'pending' },
@@ -56,7 +56,7 @@ describe('serialize', () => {
 
 describe('serialize N=1', () => {
   const soloRecord: LootRecord = {
-    id: '2', title: 'solo', date: '2026-07-20', boss: '單人王', memberCount: 1,
+    id: '2', date: '2026-07-20', boss: '單人王', memberCount: 1,
     members: [{ handle: '@me', settle: 'pending' }],
     lootItems: [{ status: 'ok', name: '道具', qty: 1, unitPrice: 1000 }],
     purchases: [{ buyer: '@other', name: '內購物品', qty: 1, unitPrice: 500 }],
