@@ -69,3 +69,50 @@ describe('round-trip', () => {
     expect(out).toContain('@.unrealsky: 龍鍊x2 = 500x2')
   })
 })
+
+describe('畸形行韌性', () => {
+  it('混合畸形行與有效行不拋出異常，有效記錄正確提取', () => {
+    const malformedInput = [
+      '## 2026-07-20 測試副本 / 3',
+      '這是一段亂寫的文字沒有格式',
+      '* :ok: 附加大師x6: 475x6',
+      '* :ok: 壞掉的行',
+      '隨便一行不符合格式',
+      '* :ok: 手攻60%x2: 288x2',
+      '',
+      '## 內購區',
+      'abc不符合購買格式',
+      '@.user1: 龍鍊x2 = 500x2',
+      '又是垃圾行',
+      '@.user2:這樣也不對',
+      '',
+      '## 分配',
+      '* :ok: @.user1: 1000',
+      '* :ok: @.user3: 800',
+    ].join('\n')
+
+    // 不拋出異常
+    expect(() => parse(malformedInput)).not.toThrow()
+
+    const result = parse(malformedInput)
+
+    // 有效的頭部欄位被正確提取
+    expect(result.date).toBe('2026-07-20')
+    expect(result.boss).toBe('測試副本')
+    expect(result.memberCount).toBe(3)
+
+    // 有效的掠奪行被提取（2 行有效）
+    expect(result.lootItems).toHaveLength(2)
+    expect(result.lootItems[0]).toMatchObject({ status: 'ok', name: '附加大師', qty: 6, unitPrice: 475 })
+    expect(result.lootItems[1]).toMatchObject({ status: 'ok', name: '手攻60%', qty: 2, unitPrice: 288 })
+
+    // 有效的購買行被提取（1 行有效）
+    expect(result.purchases).toHaveLength(1)
+    expect(result.purchases[0]).toMatchObject({ buyer: '@.user1', name: '龍鍊', qty: 2, unitPrice: 500 })
+
+    // 有效的分配行被提取（2 行有效）
+    expect(result.members).toHaveLength(2)
+    expect(result.members[0]).toMatchObject({ handle: '@.user1', settle: 'settled' })
+    expect(result.members[1]).toMatchObject({ handle: '@.user3', settle: 'settled' })
+  })
+})
