@@ -43,8 +43,35 @@ describe('records store', () => {
     const store = useRecordsStore()
     const r = store.create({ title: 'A' })
     const copy = store.duplicate(r.id)!
+    expect(copy.id).toBeTruthy()
     expect(copy.id).not.toBe(r.id)
     expect(store.records).toHaveLength(2)
+  })
+
+  it('duplicate 深拷貝巢狀陣列，不共用參照', () => {
+    const store = useRecordsStore()
+    const r = store.create({ title: 'A', lootItems: [{ id: '1', name: '物品' } as any] })
+    const copy = store.duplicate(r.id)!
+    copy.lootItems.push({ id: '2', name: '新物品' } as any)
+    expect(store.get(r.id)!.lootItems).toHaveLength(1)
+    expect(copy.lootItems).toHaveLength(2)
+  })
+
+  it('duplicate 產生全新的時間戳記', () => {
+    const store = useRecordsStore()
+    const r = store.create({ title: 'A' })
+    const copy = store.duplicate(r.id)!
+    expect(copy.createdAt).toBeTruthy()
+    expect(typeof copy.createdAt).toBe('string')
+    expect(copy.updatedAt).toBeTruthy()
+  })
+
+  it('load 遇到非陣列 JSON 時容錯為空陣列', () => {
+    localStorage.setItem(STORAGE_KEY, '{}')
+    setActivePinia(createPinia())
+    const store = useRecordsStore()
+    expect(Array.isArray(store.records)).toBe(true)
+    expect(store.records).toHaveLength(0)
   })
 
   it('重新載入時從 localStorage 還原', () => {
