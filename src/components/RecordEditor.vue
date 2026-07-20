@@ -3,9 +3,11 @@ import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRecordsStore } from '../store/records'
 import { useHistory } from '../store/history'
-import type { LootRecord, LootItem, Member } from '../types'
+import type { LootRecord, LootItem, Member, Purchase } from '../types'
 import LootTable from './LootTable.vue'
 import AutocompleteInput from './AutocompleteInput.vue'
+import PurchaseTable from './PurchaseTable.vue'
+import DistributionPanel from './DistributionPanel.vue'
 
 const route = useRoute()
 const store = useRecordsStore()
@@ -22,12 +24,16 @@ const titleError = computed(() => !record.value || !record.value.title.trim())
 function ensureIds() {
   const r = record.value
   if (!r) return
-  const needs = r.lootItems.some((it) => !it.id) || r.members.some((m) => !m.id)
+  const needs =
+    r.lootItems.some((it) => !it.id) ||
+    r.members.some((m) => !m.id) ||
+    r.purchases.some((p) => !p.id)
   if (!needs) return
   store.upsert({
     ...r,
     lootItems: r.lootItems.map((it) => (it.id ? it : { ...it, id: crypto.randomUUID() })),
     members: r.members.map((m) => (m.id ? m : { ...m, id: crypto.randomUUID() })),
+    purchases: r.purchases.map((p) => (p.id ? p : { ...p, id: crypto.randomUUID() })),
   })
 }
 watch(() => route.params.id, ensureIds, { immediate: true })
@@ -36,6 +42,9 @@ function setLootItems(items: LootItem[]) {
 }
 function setMembers(members: Member[]) {
   patch({ members })
+}
+function setPurchases(purchases: Purchase[]) {
+  patch({ purchases })
 }
 function addMember() {
   if (!record.value) return
@@ -82,6 +91,9 @@ function removeMember(i: number) {
     <button type="button" @click="addMember">＋ 新增團員</button>
 
     <LootTable :model-value="record.lootItems" @update:model-value="setLootItems" />
+    <PurchaseTable :model-value="record.purchases" :members="record.members"
+      @update:model-value="setPurchases" />
+    <DistributionPanel :record="record" />
   </section>
   <p v-else>找不到此紀錄。</p>
 </template>
