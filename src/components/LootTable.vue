@@ -16,7 +16,7 @@ function removeAt(i: number) {
 function add() {
   emit('update:modelValue', [
     ...props.modelValue,
-    { status: 'ok', name: '', qty: 1, unitPrice: null },
+    { status: 'ok', name: '', qty: 1, unitPrice: null, id: crypto.randomUUID() },
   ])
 }
 </script>
@@ -31,7 +31,7 @@ function add() {
       <tbody>
         <LootRow
           v-for="(it, i) in modelValue"
-          :key="i"
+          :key="it.id"
           :model-value="it"
           @update:model-value="updateAt(i, $event)"
           @remove="removeAt(i)"
