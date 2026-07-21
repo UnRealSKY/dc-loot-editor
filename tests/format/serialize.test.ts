@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { serialize } from '../../src/format/serialize'
-import type { LootRecord } from '../../src/types'
+import { serialize } from '#src/format/serialize'
+import type { LootRecord } from '#src/types'
 
 const record: LootRecord = {
   id: '1', date: '2026-07-19', boss: '混龍',
