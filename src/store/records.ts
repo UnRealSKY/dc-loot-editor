@@ -19,6 +19,12 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
+function todayLocal(): string {
+  const d = new Date()
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
 export const useRecordsStore = defineStore('records', () => {
   const records = ref<LootRecord[]>(load())
 
@@ -39,7 +45,6 @@ export const useRecordsStore = defineStore('records', () => {
     const rec: LootRecord = {
       date: '',
       boss: '',
-      memberCount: 0,
       members: [],
       lootItems: [],
       purchases: [],
@@ -48,6 +53,7 @@ export const useRecordsStore = defineStore('records', () => {
       createdAt: ts,
       updatedAt: ts,
     }
+    if (!rec.date) rec.date = todayLocal()
     records.value.push(rec)
     return rec
   }

@@ -53,7 +53,7 @@ function duplicate(id: string) {
           <span class="record-title">{{ r.boss || '(未命名)' }}</span>
           <span class="record-meta">
             <span v-if="r.date">{{ r.date }}</span>
-            <span v-if="r.memberCount">{{ r.memberCount }} 人</span>
+            <span v-if="r.members.length">{{ r.members.length }} 人</span>
           </span>
         </router-link>
         <div class="record-actions">

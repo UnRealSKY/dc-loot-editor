@@ -22,9 +22,6 @@ function patch(part: Partial<LootRecord>) {
 }
 
 const bossError = computed(() => !record.value || !record.value.boss.trim())
-const memberCountMismatch = computed(
-  () => !!record.value && record.value.memberCount !== record.value.members.length,
-)
 
 function ensureIds() {
   const r = record.value
@@ -51,7 +48,6 @@ function applyImport(parsed: LootRecord) {
     ...record.value,
     date: parsed.date,
     boss: parsed.boss,
-    memberCount: parsed.memberCount,
     members: parsed.members,
     lootItems: parsed.lootItems,
     purchases: parsed.purchases,
@@ -81,6 +77,11 @@ function removeMember(i: number) {
   if (!record.value) return
   setMembers(record.value.members.filter((_, idx) => idx !== i))
 }
+function toggleSettle(i: number) {
+  const m = record.value?.members[i]
+  if (!m) return
+  updateMember(i, { settle: m.settle === 'settled' ? 'pending' : 'settled' })
+}
 </script>
 
 <template>
@@ -104,12 +105,8 @@ function removeMember(i: number) {
         </label>
         <label class="field">
           <span class="field-label">日期</span>
-          <input type="date" :value="record.date" @input="patch({ date: ($event.target as HTMLInputElement).value })" />
-        </label>
-        <label class="field field-n">
-          <span class="field-label">人數</span>
-          <input type="number" :value="record.memberCount"
-            @input="patch({ memberCount: Number(($event.target as HTMLInputElement).value) })" />
+          <input type="text" inputmode="numeric" :value="record.date" placeholder="yyyy-mm-dd"
+            @input="patch({ date: ($event.target as HTMLInputElement).value })" />
         </label>
       </div>
     </div>
@@ -120,18 +117,11 @@ function removeMember(i: number) {
         <div class="spacer" />
         <button type="button" class="btn btn-sm" @click="addMember">＋ 新增團員</button>
       </div>
-      <p v-if="memberCountMismatch" class="alert alert-warn">
-        人數（{{ record.memberCount }}）與團員列數（{{ record.members.length }}）不一致，分配可能有誤
-      </p>
       <p v-if="!record.members.length" class="muted">尚無團員。</p>
       <ul class="members">
         <li v-for="(m, i) in record.members" :key="m.id" class="member-row">
           <AutocompleteInput class="member-handle" :model-value="m.handle" :suggestions="history.handles.value"
             placeholder="@handle" @update:model-value="updateMember(i, { handle: $event })" />
-          <button type="button" class="chip" :class="m.settle === 'settled' ? 'chip-ok' : 'chip-pending'"
-            @click="updateMember(i, { settle: m.settle === 'settled' ? 'pending' : 'settled' })">
-            {{ m.settle === 'settled' ? '✓ 已結清' : '● 待結清' }}
-          </button>
           <button type="button" class="btn btn-icon btn-danger" title="移除" @click="removeMember(i)">✕</button>
         </li>
       </ul>
@@ -140,7 +130,7 @@ function removeMember(i: number) {
     <LootTable :model-value="record.lootItems" @update:model-value="setLootItems" />
     <PurchaseTable :model-value="record.purchases" :members="record.members"
       @update:model-value="setPurchases" />
-    <DistributionPanel :record="record" />
+    <DistributionPanel :record="record" @toggle-settle="toggleSettle" />
 
     <ImportDialog :open="showImport" @close="showImport = false" @imported="applyImport" />
     <ExportDialog :open="showExport" :record="record" @close="showExport = false" />
@@ -157,7 +147,6 @@ function removeMember(i: number) {
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field-title { grid-column: 1 / -1; }
 .field-title .invalid :deep(input) { border-color: var(--danger); }
-.field-n { max-width: 120px; }
 .field-label { font-size: 12.5px; font-weight: 550; color: var(--text-muted); }
 .field-label em { color: var(--danger); font-style: normal; }
 

@@ -48,7 +48,7 @@ describe('purchaseValue / memberPurchaseTotal', () => {
 
 describe('computeIncomes', () => {
   const base: LootRecord = {
-    id: '1', date: '2026-07-19', boss: '混龍', memberCount: 5,
+    id: '1', date: '2026-07-19', boss: '混龍',
     members: [
       { handle: '@.unrealsky', settle: 'settled' },
       { handle: '@xiangjiaojiu', settle: 'pending' },

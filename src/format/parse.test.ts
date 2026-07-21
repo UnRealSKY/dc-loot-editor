@@ -20,10 +20,9 @@ const sample = [
 
 describe('parse header', () => {
   const r = parse(sample)
-  it('date/boss/memberCount', () => {
+  it('date/boss', () => {
     expect(r.date).toBe('2026-07-19')
     expect(r.boss).toBe('混龍')
-    expect(r.memberCount).toBe(5)
   })
 })
 
@@ -99,7 +98,6 @@ describe('畸形行韌性', () => {
     // 有效的頭部欄位被正確提取
     expect(result.date).toBe('2026-07-20')
     expect(result.boss).toBe('測試副本')
-    expect(result.memberCount).toBe(3)
 
     // 有效的掠奪行被提取（2 行有效）
     expect(result.lootItems).toHaveLength(2)

@@ -1,16 +1,21 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { LootRecord } from '../types'
+import type { LootRecord, SettleStatus } from '../types'
 import { netTotal, computeIncomes } from '../calc/distribution'
 
 const props = defineProps<{ record: LootRecord }>()
+const emit = defineEmits<{ 'toggle-settle': [index: number] }>()
 
+const n = computed(() => props.record.members.length)
 const total = computed(() => netTotal(props.record.lootItems))
-const baseDisplay = computed(() =>
-  Math.round(props.record.memberCount > 0 ? total.value / props.record.memberCount : 0),
-)
+const baseDisplay = computed(() => Math.round(n.value > 0 ? total.value / n.value : 0))
 const rows = computed(() =>
-  computeIncomes(props.record).map((i) => ({ ...i, rounded: Math.round(i.income) })),
+  computeIncomes(props.record).map((inc, i) => ({
+    ...inc,
+    rounded: Math.round(inc.income),
+    settle: (props.record.members[i]?.settle ?? 'pending') as SettleStatus,
+    index: i,
+  })),
 )
 </script>
 
@@ -26,7 +31,7 @@ const rows = computed(() =>
       <div class="stat-op">÷</div>
       <div class="stat">
         <span class="stat-label">人數</span>
-        <span class="stat-value">{{ record.memberCount }}</span>
+        <span class="stat-value">{{ n }}</span>
       </div>
       <div class="stat-op">=</div>
       <div class="stat">
@@ -37,14 +42,20 @@ const rows = computed(() =>
 
     <div class="table-wrap">
       <table>
-        <thead><tr><th>團員</th><th class="num">基本</th><th class="num">他人內購/(N-1)</th><th class="num">自己內購</th><th class="num">收入</th></tr></thead>
+        <thead><tr><th>團員</th><th class="num">基本</th><th class="num">他人內購/(N-1)</th><th class="num">自己內購</th><th class="num">收入</th><th>結清</th></tr></thead>
         <tbody>
-          <tr v-for="r in rows" :key="r.handle">
+          <tr v-for="r in rows" :key="r.index">
             <td class="handle">{{ r.handle || '—' }}</td>
             <td class="num">{{ baseDisplay }}</td>
-            <td class="num plus">{{ record.memberCount > 1 ? '+' + Math.round(r.others / (record.memberCount - 1)) : 0 }}</td>
+            <td class="num plus">{{ n > 1 ? '+' + Math.round(r.others / (n - 1)) : 0 }}</td>
             <td class="num minus">{{ r.own ? '−' + r.own : 0 }}</td>
             <td class="num income">{{ r.rounded }}</td>
+            <td>
+              <button type="button" class="chip" :class="r.settle === 'settled' ? 'chip-ok' : 'chip-pending'"
+                @click="emit('toggle-settle', r.index)">
+                {{ r.settle === 'settled' ? '✓ 已結清' : '● 待結清' }}
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
