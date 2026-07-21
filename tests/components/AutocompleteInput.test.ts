@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import AutocompleteInput from './AutocompleteInput.vue'
+import AutocompleteInput from '../../src/components/AutocompleteInput.vue'
 
 describe('AutocompleteInput', () => {
   it('依輸入前綴過濾建議', async () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { useRecordsStore, STORAGE_KEY } from './records'
+import { useRecordsStore, STORAGE_KEY } from '../../src/store/records'
 
 beforeEach(() => {
   localStorage.clear()
