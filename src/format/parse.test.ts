@@ -69,6 +69,48 @@ describe('round-trip', () => {
   })
 })
 
+describe('parse 直播檔', () => {
+  const md = [
+    '## 2026-07-19 混炎 / 1',
+    '* :ok: 道具x1: 100x1',
+    '',
+    '## 直播檔',
+    '* 第一場混炎: https://www.twitch.tv/x/clip/abc',
+    '* 第二場混炎: https://www.twitch.tv/x/clip/def',
+  ].join('\n')
+  it('擷取直播檔 label 與 url', () => {
+    const r = parse(md)
+    expect(r.streams).toEqual([
+      { label: '第一場混炎', url: 'https://www.twitch.tv/x/clip/abc' },
+      { label: '第二場混炎', url: 'https://www.twitch.tv/x/clip/def' },
+    ])
+  })
+})
+
+describe('parse 相容 unicode emoji 與 <@id> mention', () => {
+  const md = [
+    '## 2026-07-19 混炎 / 2',
+    '* 🆗 大師附加x2: 500x2',
+    '* 🛒 待售品x1: 10x1',
+    '',
+    '## 分配',
+    '總共: 1010 / 2 = 505',
+    '* 🆗 <@446671606073393152> 505',
+    '* 🟧 @别搞我啦 505',
+  ].join('\n')
+  const r = parse(md)
+  it('emoji 狀態對應 ok / cart', () => {
+    expect(r.lootItems[0]).toMatchObject({ status: 'ok', name: '大師附加', qty: 2, unitPrice: 500 })
+    expect(r.lootItems[1]).toMatchObject({ status: 'cart', name: '待售品', qty: 1, unitPrice: 10 })
+  })
+  it('emoji 結清狀態與 <@id> / @名稱 handle', () => {
+    expect(r.members).toEqual([
+      { handle: '<@446671606073393152>', settle: 'settled' },
+      { handle: '@别搞我啦', settle: 'pending' },
+    ])
+  })
+})
+
 describe('畸形行韌性', () => {
   it('混合畸形行與有效行不拋出異常，有效記錄正確提取', () => {
     const malformedInput = [

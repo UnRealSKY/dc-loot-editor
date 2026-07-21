@@ -26,6 +26,12 @@ export interface Purchase {
   id?: string
 }
 
+export interface Stream {
+  label: string            // 例 "第一場混炎"
+  url: string
+  id?: string
+}
+
 export interface LootRecord {
   id: string
   date: string             // YYYY-MM-DD
@@ -33,6 +39,7 @@ export interface LootRecord {
   members: Member[]        // 人數 N 由 members.length 推導
   lootItems: LootItem[]
   purchases: Purchase[]
+  streams?: Stream[]       // 直播檔連結
   createdAt: string
   updatedAt: string
 }
