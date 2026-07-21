@@ -13,6 +13,6 @@
     "noEmit": true,
     "types": ["vitest/globals", "vite/client"]
   },
-  "include": ["src/**/*.ts", "src/**/*.vue"],
+  "include": ["src/**/*.ts", "src/**/*.vue", "tests/**/*.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

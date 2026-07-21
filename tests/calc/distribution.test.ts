@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { itemNet, netTotal, purchaseValue, memberPurchaseTotal, computeIncomes } from './distribution'
-import type { LootItem, LootRecord } from '../types'
+import { itemNet, netTotal, purchaseValue, memberPurchaseTotal, computeIncomes } from '../../src/calc/distribution'
+import type { LootItem, LootRecord } from '../../src/types'
 
 const ok = (over: Partial<LootItem>): LootItem =>
   ({ status: 'ok', name: 'x', qty: 1, unitPrice: 0, ...over })
