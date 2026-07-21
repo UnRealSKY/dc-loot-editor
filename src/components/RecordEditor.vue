@@ -105,7 +105,7 @@ function toggleSettle(i: number) {
         </label>
         <label class="field">
           <span class="field-label">日期</span>
-          <input type="text" inputmode="numeric" :value="record.date" placeholder="yyyy-mm-dd"
+          <input type="date" :value="record.date"
             @input="patch({ date: ($event.target as HTMLInputElement).value })" />
         </label>
       </div>
