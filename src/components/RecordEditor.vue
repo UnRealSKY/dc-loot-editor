@@ -3,10 +3,11 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRecordsStore } from '../store/records'
 import { useHistory } from '../store/history'
-import type { LootRecord, LootItem, Member, Purchase } from '../types'
+import type { LootRecord, LootItem, Member, Purchase, Stream } from '../types'
 import LootTable from './LootTable.vue'
 import AutocompleteInput from './AutocompleteInput.vue'
 import PurchaseTable from './PurchaseTable.vue'
+import StreamTable from './StreamTable.vue'
 import DistributionPanel from './DistributionPanel.vue'
 import ExportDialog from './ExportDialog.vue'
 import ImportDialog from './ImportDialog.vue'
@@ -26,16 +27,19 @@ const bossError = computed(() => !record.value || !record.value.boss.trim())
 function ensureIds() {
   const r = record.value
   if (!r) return
+  const streams = r.streams ?? []
   const needs =
     r.lootItems.some((it) => !it.id) ||
     r.members.some((m) => !m.id) ||
-    r.purchases.some((p) => !p.id)
+    r.purchases.some((p) => !p.id) ||
+    streams.some((s) => !s.id)
   if (!needs) return
   store.upsert({
     ...r,
     lootItems: r.lootItems.map((it) => (it.id ? it : { ...it, id: crypto.randomUUID() })),
     members: r.members.map((m) => (m.id ? m : { ...m, id: crypto.randomUUID() })),
     purchases: r.purchases.map((p) => (p.id ? p : { ...p, id: crypto.randomUUID() })),
+    streams: streams.map((s) => (s.id ? s : { ...s, id: crypto.randomUUID() })),
   })
 }
 watch(() => route.params.id, ensureIds, { immediate: true })
@@ -51,6 +55,7 @@ function applyImport(parsed: LootRecord) {
     members: parsed.members,
     lootItems: parsed.lootItems,
     purchases: parsed.purchases,
+    streams: parsed.streams ?? [],
   })
   ensureIds() // 為剛匯入的資料列補上穩定 id（迴圈安全，手動呼叫）
 }
@@ -62,6 +67,9 @@ function setMembers(members: Member[]) {
 }
 function setPurchases(purchases: Purchase[]) {
   patch({ purchases })
+}
+function setStreams(streams: Stream[]) {
+  patch({ streams })
 }
 function addMember() {
   if (!record.value) return
@@ -130,6 +138,7 @@ function toggleSettle(i: number) {
     <LootTable :model-value="record.lootItems" @update:model-value="setLootItems" />
     <PurchaseTable :model-value="record.purchases" :members="record.members"
       @update:model-value="setPurchases" />
+    <StreamTable :model-value="record.streams ?? []" @update:model-value="setStreams" />
     <DistributionPanel :record="record" @toggle-settle="toggleSettle" />
 
     <ImportDialog :open="showImport" @close="showImport = false" @imported="applyImport" />

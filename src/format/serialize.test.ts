@@ -54,6 +54,32 @@ describe('serialize', () => {
   })
 })
 
+describe('serialize 直播檔與空區塊', () => {
+  it('有直播檔則輸出 ## 直播檔 區塊', () => {
+    const r: LootRecord = {
+      id: '3', date: '2026-07-19', boss: '混炎',
+      members: [{ handle: '@a', settle: 'settled' }],
+      lootItems: [{ status: 'ok', name: '道具', qty: 1, unitPrice: 100 }],
+      purchases: [],
+      streams: [{ label: '第一場', url: 'https://x.tv/clip/abc' }],
+      createdAt: '', updatedAt: '',
+    }
+    const out = serialize(r)
+    expect(out).toContain('## 直播檔')
+    expect(out).toContain('* 第一場: https://x.tv/clip/abc')
+  })
+  it('無內購時不輸出 ## 內購區', () => {
+    const r: LootRecord = {
+      id: '4', date: '2026-07-19', boss: '混炎',
+      members: [{ handle: '@a', settle: 'settled' }],
+      lootItems: [{ status: 'ok', name: '道具', qty: 1, unitPrice: 100 }],
+      purchases: [],
+      createdAt: '', updatedAt: '',
+    }
+    expect(serialize(r)).not.toContain('## 內購區')
+  })
+})
+
 describe('serialize N=1', () => {
   const soloRecord: LootRecord = {
     id: '2', date: '2026-07-20', boss: '單人王',

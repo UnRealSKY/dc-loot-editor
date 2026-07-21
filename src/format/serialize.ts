@@ -23,9 +23,19 @@ export function serialize(record: LootRecord): string {
   lines.push(`## ${record.date} ${record.boss} / ${record.members.length}`)
   for (const it of record.lootItems) lines.push(lootLine(it))
 
-  lines.push('', '## 內購區')
-  for (const p of record.purchases) {
-    lines.push(`${p.buyer}: ${p.name}x${p.qty} = ${p.unitPrice}x${p.qty}`)
+  if (record.purchases.length) {
+    lines.push('', '## 內購區')
+    for (const p of record.purchases) {
+      lines.push(`${p.buyer}: ${p.name}x${p.qty} = ${p.unitPrice}x${p.qty}`)
+    }
+  }
+
+  const streams = record.streams ?? []
+  if (streams.length) {
+    lines.push('', '## 直播檔')
+    for (const s of streams) {
+      lines.push(`* ${s.label}: ${s.url}`)
+    }
   }
 
   const total = netTotal(record.lootItems)
