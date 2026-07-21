@@ -1,4 +1,5 @@
-import { defineConfig } from 'vite'
+/// <reference types="vitest/config" />
+import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 
 // GitHub Pages 子路徑；改 repo 名時同步改這裡
