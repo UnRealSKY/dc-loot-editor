@@ -43,7 +43,7 @@ function parseLoot(line: string): LootItem | null {
 
 export function parse(md: string): LootRecord {
   const record: LootRecord = {
-    id: '', date: '', boss: '', memberCount: 0,
+    id: '', date: '', boss: '',
     members: [], lootItems: [], purchases: [], createdAt: '', updatedAt: '',
   }
   let section: Section = 'none'
@@ -56,7 +56,7 @@ export function parse(md: string): LootRecord {
     if (header) {
       record.date = header[1]
       record.boss = header[2].trim()
-      record.memberCount = Number(header[3])
+      // header[3] 為 DC 標頭的人數，僅供辨識；本工具 N 由 members.length 推導
       section = 'loot'
       continue
     }

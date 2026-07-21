@@ -30,8 +30,7 @@ export interface LootRecord {
   id: string
   date: string             // YYYY-MM-DD
   boss: string             // 王名，即紀錄標題（列表顯示用）
-  memberCount: number
-  members: Member[]
+  members: Member[]        // 人數 N 由 members.length 推導
   lootItems: LootItem[]
   purchases: Purchase[]
   createdAt: string

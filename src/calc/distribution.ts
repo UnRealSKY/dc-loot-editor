@@ -30,7 +30,7 @@ export interface Income {
 }
 
 export function computeIncomes(record: LootRecord): Income[] {
-  const n = record.memberCount
+  const n = record.members.length
   const base = n > 0 ? netTotal(record.lootItems) / n : 0
   const totalPurchase = record.purchases.reduce((s, p) => s + purchaseValue(p), 0)
   return record.members.map((m) => {

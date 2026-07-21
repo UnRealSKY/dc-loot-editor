@@ -137,6 +137,7 @@ button { font-family: inherit; }
 .app tbody tr:last-child td { border-bottom: none; }
 .app tbody tr:hover { background: var(--surface-2); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
+.app thead th.num { text-align: right; }
 
 /* ---- Chips ---- */
 .chip {

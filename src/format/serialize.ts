@@ -20,7 +20,7 @@ function settleEmoji(s: SettleStatus): string {
 
 export function serialize(record: LootRecord): string {
   const lines: string[] = []
-  lines.push(`## ${record.date} ${record.boss} / ${record.memberCount}`)
+  lines.push(`## ${record.date} ${record.boss} / ${record.members.length}`)
   for (const it of record.lootItems) lines.push(lootLine(it))
 
   lines.push('', '## 內購區')
@@ -29,7 +29,7 @@ export function serialize(record: LootRecord): string {
   }
 
   const total = netTotal(record.lootItems)
-  const n = record.memberCount
+  const n = record.members.length
   const baseDisplay = Math.round(n > 0 ? total / n : 0)
   lines.push('', '## 分配')
   lines.push(`總共: ${total} / ${n} = ${baseDisplay}`)
