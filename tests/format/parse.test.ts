@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { parse } from '../../src/format/parse'
-import { serialize } from '../../src/format/serialize'
-import type { LootRecord } from '../../src/types'
+import { parse } from '#src/format/parse'
+import { serialize } from '#src/format/serialize'
+import type { LootRecord } from '#src/types'
 
 const sample = [
   '## 2026-07-19 混龍 / 5',
