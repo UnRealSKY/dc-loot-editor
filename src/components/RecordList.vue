@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRecordsStore } from '../store/records'
-import { parse } from '../format/parse'
+import type { LootRecord } from '../types'
+import ImportDialog from './ImportDialog.vue'
 
 const store = useRecordsStore()
 const router = useRouter()
@@ -11,15 +12,14 @@ const sorted = computed(() =>
   [...store.records].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)),
 )
 
+const showImport = ref(false)
+
 function createNew() {
   const r = store.create()
   router.push(`/edit/${r.id}`)
 }
 
-function importPaste() {
-  const md = window.prompt('貼上 DC 內容：')
-  if (!md) return
-  const parsed = parse(md)
+function onImported(parsed: LootRecord) {
   const r = store.create({ ...parsed })
   router.push(`/edit/${r.id}`)
 }
@@ -38,10 +38,12 @@ function duplicate(id: string) {
     <div class="page-head">
       <h2>分寶紀錄</h2>
       <div class="toolbar">
-        <button class="btn" @click="importPaste">貼上 DC 匯入</button>
+        <button class="btn" @click="showImport = true">貼上 DC 匯入</button>
         <button class="btn btn-primary" @click="createNew">＋ 新增紀錄</button>
       </div>
     </div>
+
+    <ImportDialog :open="showImport" @close="showImport = false" @imported="onImported" />
 
     <div v-if="!sorted.length" class="empty">
       尚無紀錄，點右上角「新增紀錄」或「貼上 DC 匯入」開始。
