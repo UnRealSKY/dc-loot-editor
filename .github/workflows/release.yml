@@ -77,9 +77,6 @@ jobs:
         run: |
           git config user.email "ci-release-bot@users.noreply.github.com"
           git config user.name "CI Release Bot"
-          # 此時 HEAD 仍在觸發 commit（changeset version 只改工作區、未 commit），
-          # tag 自然落在發版決策點
-          pnpm changeset tag
           git add -A
           {
             echo "# Version"
@@ -92,9 +89,11 @@ jobs:
             echo "[skip ci]"
           } > /tmp/version-msg.txt
           git commit -F /tmp/version-msg.txt
-          # rebase 到最新 main（處理等待期間的並行推送；tag 不受影響）
+          # rebase 到最新 main（處理等待期間的並行推送）
           git fetch origin main
           git rebase origin/main
+          # 在 # Version commit（package.json 已是新版）上打 tag
+          pnpm changeset tag
           git push origin HEAD:main
           git push origin --tags
 
