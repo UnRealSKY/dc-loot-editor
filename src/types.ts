@@ -37,6 +37,8 @@ export interface Consignment {
   name: string
   qty: number
   unitPrice: number
+  scissorCount?: number
+  scissorUnitPrice?: number
   id?: string
 }
 

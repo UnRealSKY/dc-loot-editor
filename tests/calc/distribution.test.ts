@@ -50,6 +50,9 @@ describe('consignmentValue / memberConsignmentTotal', () => {
   it('單價×數量', () => {
     expect(consignmentValue({ seller: '@a', name: 'x', qty: 2, unitPrice: 300 })).toBe(600)
   })
+  it('扣除剪刀成本', () => {
+    expect(consignmentValue({ seller: '@a', name: 'x', qty: 2, unitPrice: 300, scissorUnitPrice: 50, scissorCount: 2 })).toBe(500)
+  })
   it('依代售者加總', () => {
     const cs = [
       { seller: '@a', name: 'x', qty: 1, unitPrice: 300 },

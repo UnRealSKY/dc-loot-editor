@@ -42,7 +42,11 @@ export function serialize(record: LootRecord): string {
   if (consignments.length) {
     lines.push('', '## 代售')
     for (const c of consignments) {
-      lines.push(`${c.seller}: ${c.name}x${c.qty} = ${c.unitPrice}x${c.qty}`)
+      let amt = `${c.unitPrice}x${c.qty}`
+      if (c.scissorCount && c.scissorUnitPrice) {
+        amt += ` - ${c.scissorUnitPrice}(剪刀)x${c.scissorCount}`
+      }
+      lines.push(`${c.seller}: ${c.name}x${c.qty} = ${amt}`)
     }
   }
 

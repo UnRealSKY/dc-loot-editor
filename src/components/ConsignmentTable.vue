@@ -35,7 +35,7 @@ function add() {
     <p v-if="!modelValue.length" class="muted">尚無代售。</p>
     <div v-else class="table-wrap">
       <table>
-        <thead><tr><th>代售者</th><th>品名 / 說明</th><th class="num">單價</th><th class="num">數量</th><th class="num">金額</th><th></th></tr></thead>
+        <thead><tr><th>代售者</th><th>品名 / 說明</th><th class="num">單價</th><th class="num">數量</th><th class="num">剪刀價</th><th class="num">剪刀數</th><th class="num">金額</th><th></th></tr></thead>
         <tbody>
           <ConsignmentRow
             v-for="(c, i) in modelValue"

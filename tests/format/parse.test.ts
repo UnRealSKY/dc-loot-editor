@@ -103,6 +103,13 @@ describe('parse 代售', () => {
       { seller: '@b', name: '別的', qty: 2, unitPrice: 50 },
     ])
   })
+  it('解析代售剪刀', () => {
+    const md2 = ['## 2026-07-19 測王 / 1', '## 代售', '@a: 物品x1 = 300x1 - 80(剪刀)x2'].join('\n')
+    const r = parse(md2)
+    expect(r.consignments![0]).toMatchObject({
+      seller: '@a', name: '物品', qty: 1, unitPrice: 300, scissorUnitPrice: 80, scissorCount: 2,
+    })
+  })
 })
 
 describe('parse 相容 unicode emoji 與 <@id> mention', () => {

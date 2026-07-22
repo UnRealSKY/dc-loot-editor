@@ -22,7 +22,9 @@ export function memberPurchaseTotal(purchases: Purchase[], handle: string): numb
 }
 
 export function consignmentValue(c: Consignment): number {
-  return c.unitPrice * c.qty
+  const price = c.unitPrice * c.qty
+  const scissor = (c.scissorUnitPrice ?? 0) * (c.scissorCount ?? 0)
+  return price - scissor
 }
 
 // 某團員代售、手上握著的金額總和
