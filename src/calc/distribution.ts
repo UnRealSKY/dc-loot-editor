@@ -1,4 +1,4 @@
-import type { LootItem, Purchase, LootRecord } from '../types'
+import type { LootItem, Purchase, Consignment, LootRecord } from '../types'
 
 export function itemNet(item: LootItem): number {
   if (item.status === 'struck') return 0
@@ -19,6 +19,17 @@ export function memberPurchaseTotal(purchases: Purchase[], handle: string): numb
   return purchases
     .filter((p) => p.buyer === handle)
     .reduce((s, p) => s + purchaseValue(p), 0)
+}
+
+export function consignmentValue(c: Consignment): number {
+  return c.unitPrice * c.qty
+}
+
+// 某團員代售、手上握著的金額總和
+export function memberConsignmentTotal(consignments: Consignment[], handle: string): number {
+  return consignments
+    .filter((c) => c.seller === handle)
+    .reduce((s, c) => s + consignmentValue(c), 0)
 }
 
 export interface Income {

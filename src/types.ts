@@ -32,6 +32,14 @@ export interface Stream {
   id?: string
 }
 
+export interface Consignment {
+  seller: string           // 代售者 @handle，須存在於 members
+  name: string
+  qty: number
+  unitPrice: number
+  id?: string
+}
+
 export interface LootRecord {
   id: string
   date: string             // YYYY-MM-DD
@@ -39,7 +47,8 @@ export interface LootRecord {
   members: Member[]        // 人數 N 由 members.length 推導
   lootItems: LootItem[]
   purchases: Purchase[]
-  streams?: Stream[]       // 直播檔連結
+  streams?: Stream[]        // 直播檔連結
+  consignments?: Consignment[] // 代售：某團員代賣、手上握著的金額，併入結算
   createdAt: string
   updatedAt: string
 }

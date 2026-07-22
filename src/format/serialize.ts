@@ -1,5 +1,5 @@
 import type { LootRecord, LootItem, SettleStatus } from '../types'
-import { netTotal, computeIncomes } from '../calc/distribution'
+import { netTotal, computeIncomes, memberConsignmentTotal } from '../calc/distribution'
 
 function lootLine(it: LootItem): string {
   if (it.status === 'struck') {
@@ -38,6 +38,14 @@ export function serialize(record: LootRecord): string {
     }
   }
 
+  const consignments = record.consignments ?? []
+  if (consignments.length) {
+    lines.push('', '## 代售')
+    for (const c of consignments) {
+      lines.push(`${c.seller}: ${c.name}x${c.qty} = ${c.unitPrice}x${c.qty}`)
+    }
+  }
+
   const total = netTotal(record.lootItems)
   const n = record.members.length
   const baseDisplay = Math.ceil(n > 0 ? total / n : 0)
@@ -48,10 +56,12 @@ export function serialize(record: LootRecord): string {
   for (const m of record.members) {
     const inc = incomeByHandle.get(m.handle)
     if (!inc) continue
+    const held = memberConsignmentTotal(consignments, m.handle)
     let expr = `${baseDisplay}`
     if (n > 1 && inc.others > 0) expr += ` + ${inc.others}/${n - 1}`
     if (inc.own > 0) expr += ` - ${inc.own}`
-    lines.push(`* ${settleEmoji(m.settle)} ${m.handle}: ${expr} = ${Math.ceil(inc.income)}`)
+    if (held > 0) expr += ` - ${held}`
+    lines.push(`* ${settleEmoji(m.settle)} ${m.handle}: ${expr} = ${Math.ceil(inc.income) - held}`)
   }
 
   return lines.join('\n')

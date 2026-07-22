@@ -87,6 +87,24 @@ describe('parse 直播檔', () => {
   })
 })
 
+describe('parse 代售', () => {
+  const md = [
+    '## 2026-07-19 測王 / 2',
+    '* :ok: 道具x1: 1000x1',
+    '',
+    '## 代售',
+    '@a: 物品x1 = 300x1',
+    '@b: 別的x2 = 50x2',
+  ].join('\n')
+  it('擷取代售 seller/name/qty/unitPrice', () => {
+    const r = parse(md)
+    expect(r.consignments).toEqual([
+      { seller: '@a', name: '物品', qty: 1, unitPrice: 300 },
+      { seller: '@b', name: '別的', qty: 2, unitPrice: 50 },
+    ])
+  })
+})
+
 describe('parse 相容 unicode emoji 與 <@id> mention', () => {
   const md = [
     '## 2026-07-19 混炎 / 2',

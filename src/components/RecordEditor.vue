@@ -3,11 +3,12 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRecordsStore } from '../store/records'
 import { useHistory } from '../store/history'
-import type { LootRecord, LootItem, Member, Purchase, Stream } from '../types'
+import type { LootRecord, LootItem, Member, Purchase, Stream, Consignment } from '../types'
 import LootTable from './LootTable.vue'
 import AutocompleteInput from './AutocompleteInput.vue'
 import PurchaseTable from './PurchaseTable.vue'
 import StreamTable from './StreamTable.vue'
+import ConsignmentTable from './ConsignmentTable.vue'
 import DistributionPanel from './DistributionPanel.vue'
 import ExportDialog from './ExportDialog.vue'
 import ImportDialog from './ImportDialog.vue'
@@ -28,11 +29,13 @@ function ensureIds() {
   const r = record.value
   if (!r) return
   const streams = r.streams ?? []
+  const consignments = r.consignments ?? []
   const needs =
     r.lootItems.some((it) => !it.id) ||
     r.members.some((m) => !m.id) ||
     r.purchases.some((p) => !p.id) ||
-    streams.some((s) => !s.id)
+    streams.some((s) => !s.id) ||
+    consignments.some((c) => !c.id)
   if (!needs) return
   store.upsert({
     ...r,
@@ -40,6 +43,7 @@ function ensureIds() {
     members: r.members.map((m) => (m.id ? m : { ...m, id: crypto.randomUUID() })),
     purchases: r.purchases.map((p) => (p.id ? p : { ...p, id: crypto.randomUUID() })),
     streams: streams.map((s) => (s.id ? s : { ...s, id: crypto.randomUUID() })),
+    consignments: consignments.map((c) => (c.id ? c : { ...c, id: crypto.randomUUID() })),
   })
 }
 watch(() => route.params.id, ensureIds, { immediate: true })
@@ -56,6 +60,7 @@ function applyImport(parsed: LootRecord) {
     lootItems: parsed.lootItems,
     purchases: parsed.purchases,
     streams: parsed.streams ?? [],
+    consignments: parsed.consignments ?? [],
   })
   ensureIds() // 為剛匯入的資料列補上穩定 id（迴圈安全，手動呼叫）
 }
@@ -70,6 +75,9 @@ function setPurchases(purchases: Purchase[]) {
 }
 function setStreams(streams: Stream[]) {
   patch({ streams })
+}
+function setConsignments(consignments: Consignment[]) {
+  patch({ consignments })
 }
 function addMember() {
   if (!record.value) return
@@ -139,6 +147,8 @@ function toggleSettle(i: number) {
     <PurchaseTable :model-value="record.purchases" :members="record.members"
       @update:model-value="setPurchases" />
     <StreamTable :model-value="record.streams ?? []" @update:model-value="setStreams" />
+    <ConsignmentTable :model-value="record.consignments ?? []" :members="record.members"
+      @update:model-value="setConsignments" />
     <DistributionPanel :record="record" @toggle-settle="toggleSettle" />
 
     <ImportDialog :open="showImport" @close="showImport = false" @imported="applyImport" />

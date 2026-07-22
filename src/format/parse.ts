@@ -1,6 +1,6 @@
-import type { LootRecord, LootItem, LootStatus, Stream, SettleStatus } from '../types'
+import type { LootRecord, LootItem, LootStatus, Stream, Consignment, SettleStatus } from '../types'
 
-type Section = 'loot' | 'purchase' | 'stream' | 'dist' | 'none'
+type Section = 'loot' | 'purchase' | 'stream' | 'consignment' | 'dist' | 'none'
 
 const HEADER_RE = /^##\s+(\S+)\s+(.+?)\s*\/\s*(\d+)\s*$/
 const STRUCK_RE = /^\*\s*~~(.+?)~~\s*$/
@@ -8,6 +8,8 @@ const STRUCK_RE = /^\*\s*~~(.+?)~~\s*$/
 const LOOT_RE = /^\*\s*(\S+)\s+(.+?)x(\d+)\s*:\s*(.+?)\s*$/
 const PRICE_RE = /^(\d+)x(\d+)(?:\s*-\s*(\d+)\(剪刀\)x(\d+))?/
 const PURCHASE_RE = /^(<@\d+>|@\S+?)\s*:\s*(.+?)x(\d+)\s*=\s*(\d+)x(\d+)\s*$/
+// 代售行同內購寫法：@代售者: 品名xN = 單價xN
+const CONSIGNMENT_RE = /^(<@\d+>|@\S+?)\s*:\s*(.+?)x(\d+)\s*=\s*(\d+)x(\d+)\s*$/
 const STREAM_RE = /^\*\s*(.+?)\s*:\s*(https?:\/\/\S+)\s*$/
 // 分配行只取結清狀態與團員 handle（相容 @名稱 與 <@數字ID>，不強制冒號）
 const DIST_RE = /^\*\s*(\S+)\s+(<@\d+>|@[^\s:：]+)/
@@ -64,9 +66,10 @@ function parseLoot(line: string): LootItem | null {
 export function parse(md: string): LootRecord {
   const record: LootRecord = {
     id: '', date: '', boss: '',
-    members: [], lootItems: [], purchases: [], streams: [], createdAt: '', updatedAt: '',
+    members: [], lootItems: [], purchases: [], streams: [], consignments: [], createdAt: '', updatedAt: '',
   }
   const streams: Stream[] = record.streams!
+  const consignments: Consignment[] = record.consignments!
   let section: Section = 'none'
 
   for (const raw of md.split('\n')) {
@@ -83,6 +86,7 @@ export function parse(md: string): LootRecord {
     }
     if (/^##\s*內購區/.test(line)) { section = 'purchase'; continue }
     if (/^##\s*直播檔/.test(line)) { section = 'stream'; continue }
+    if (/^##\s*代售/.test(line)) { section = 'consignment'; continue }
     if (/^##\s*分配/.test(line)) { section = 'dist'; continue }
 
     if (section === 'loot') {
@@ -98,6 +102,13 @@ export function parse(md: string): LootRecord {
     } else if (section === 'stream') {
       const s = line.match(STREAM_RE)
       if (s) streams.push({ label: s[1].trim(), url: s[2].trim() })
+    } else if (section === 'consignment') {
+      const c = line.match(CONSIGNMENT_RE)
+      if (c) {
+        consignments.push({
+          seller: c[1], name: c[2].trim(), qty: Number(c[3]), unitPrice: Number(c[4]),
+        })
+      }
     } else if (section === 'dist') {
       const d = line.match(DIST_RE)
       if (d) record.members.push({ handle: d[2], settle: settleFrom(d[1]) })

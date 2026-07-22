@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { itemNet, netTotal, purchaseValue, memberPurchaseTotal, computeIncomes } from '#src/calc/distribution'
+import { itemNet, netTotal, purchaseValue, memberPurchaseTotal, computeIncomes, consignmentValue, memberConsignmentTotal } from '#src/calc/distribution'
 import type { LootItem, LootRecord } from '#src/types'
 
 const ok = (over: Partial<LootItem>): LootItem =>
@@ -43,6 +43,21 @@ describe('purchaseValue / memberPurchaseTotal', () => {
     ]
     expect(memberPurchaseTotal(ps, '@a')).toBe(1500)
     expect(memberPurchaseTotal(ps, '@b')).toBe(300)
+  })
+})
+
+describe('consignmentValue / memberConsignmentTotal', () => {
+  it('單價×數量', () => {
+    expect(consignmentValue({ seller: '@a', name: 'x', qty: 2, unitPrice: 300 })).toBe(600)
+  })
+  it('依代售者加總', () => {
+    const cs = [
+      { seller: '@a', name: 'x', qty: 1, unitPrice: 300 },
+      { seller: '@a', name: 'y', qty: 2, unitPrice: 50 },
+      { seller: '@b', name: 'z', qty: 1, unitPrice: 100 },
+    ]
+    expect(memberConsignmentTotal(cs, '@a')).toBe(400)
+    expect(memberConsignmentTotal(cs, '@b')).toBe(100)
   })
 })
 
