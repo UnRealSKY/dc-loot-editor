@@ -3,7 +3,7 @@ name: Release
 #   - 只有 main 且有 pending changeset（.changeset/*-*.md）才發版
 #   - 本地只跑 `pnpm changeset`；版本 bump 由 CI 負責
 #   - 發版 = verify → changeset version → build → 部署 Pages（= erp 的 rtw）
-#     → changeset tag（tag 落在發版決策點）→ commit「# Version」推回 main（[skip ci]）
+#     → commit「# Version」推回 main（[skip ci]）→ changeset tag（tag 指向新版 commit）
 # 手動觸發（workflow_dispatch）：push changeset 到 main 後不會自動上 Pages，
 # 由維護者到 Actions 手動 Run workflow，作為「反悔」關卡。
 on:
