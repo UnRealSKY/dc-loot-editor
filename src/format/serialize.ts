@@ -40,7 +40,7 @@ export function serialize(record: LootRecord): string {
 
   const total = netTotal(record.lootItems)
   const n = record.members.length
-  const baseDisplay = Math.round(n > 0 ? total / n : 0)
+  const baseDisplay = Math.ceil(n > 0 ? total / n : 0)
   lines.push('', '## 分配')
   lines.push(`總共: ${total} / ${n} = ${baseDisplay}`)
 
@@ -51,7 +51,7 @@ export function serialize(record: LootRecord): string {
     let expr = `${baseDisplay}`
     if (n > 1 && inc.others > 0) expr += ` + ${inc.others}/${n - 1}`
     if (inc.own > 0) expr += ` - ${inc.own}`
-    lines.push(`* ${settleEmoji(m.settle)} ${m.handle}: ${expr} = ${Math.round(inc.income)}`)
+    lines.push(`* ${settleEmoji(m.settle)} ${m.handle}: ${expr} = ${Math.ceil(inc.income)}`)
   }
 
   return lines.join('\n')

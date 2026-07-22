@@ -8,11 +8,11 @@ const emit = defineEmits<{ 'toggle-settle': [index: number] }>()
 
 const n = computed(() => props.record.members.length)
 const total = computed(() => netTotal(props.record.lootItems))
-const baseDisplay = computed(() => Math.round(n.value > 0 ? total.value / n.value : 0))
+const baseDisplay = computed(() => Math.ceil(n.value > 0 ? total.value / n.value : 0))
 const rows = computed(() =>
   computeIncomes(props.record).map((inc, i) => ({
     ...inc,
-    rounded: Math.round(inc.income),
+    rounded: Math.ceil(inc.income),
     settle: (props.record.members[i]?.settle ?? 'pending') as SettleStatus,
     index: i,
   })),
@@ -47,7 +47,7 @@ const rows = computed(() =>
           <tr v-for="r in rows" :key="r.index">
             <td class="handle">{{ r.handle || '—' }}</td>
             <td class="num">{{ baseDisplay }}</td>
-            <td class="num plus">{{ n > 1 ? '+' + Math.round(r.others / (n - 1)) : 0 }}</td>
+            <td class="num plus">{{ n > 1 ? '+' + Math.ceil(r.others / (n - 1)) : 0 }}</td>
             <td class="num minus">{{ r.own ? '−' + r.own : 0 }}</td>
             <td class="num income">{{ r.rounded }}</td>
             <td>
