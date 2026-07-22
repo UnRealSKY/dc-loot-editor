@@ -30,6 +30,26 @@ describe('AutocompleteInput', () => {
     expect(wrapper.emitted('select')![0]).toEqual(['附加大師'])
   })
 
+  it('labelFor：下拉顯示別名並可按別名過濾，選取仍存原 value', async () => {
+    const wrapper = mount(AutocompleteInput, {
+      props: {
+        modelValue: '',
+        suggestions: ['@.unrealsky', '@trm.andy'],
+        labelFor: (v: string) => (v === '@.unrealsky' ? `天天 (${v})` : v),
+        'onUpdate:modelValue': async (value: string) => {
+          await wrapper.setProps({ modelValue: value })
+        },
+      },
+    })
+    await wrapper.find('input').setValue('天')
+    const options = wrapper.findAll('.suggestion')
+    expect(options).toHaveLength(1)
+    expect(options[0].text()).toBe('天天 (@.unrealsky)')
+    await options[0].trigger('mousedown')
+    const updateEmits = wrapper.emitted('update:modelValue')!
+    expect(updateEmits[updateEmits.length - 1]).toEqual(['@.unrealsky'])
+  })
+
   it('父層透過 v-model 由外部更新 modelValue 時，顯示值與過濾結果同步更新', async () => {
     const wrapper = mount(AutocompleteInput, {
       props: { modelValue: '', suggestions: ['附加大師', '楓祝30'] },

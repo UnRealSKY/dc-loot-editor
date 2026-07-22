@@ -5,6 +5,7 @@ const props = defineProps<{
   modelValue: string
   suggestions: string[]
   placeholder?: string
+  labelFor?: (value: string) => string  // 下拉顯示文字（如別名），選取仍存原 value
 }>()
 const emit = defineEmits<{
   'update:modelValue': [value: string]
@@ -13,10 +14,17 @@ const emit = defineEmits<{
 
 const open = ref(false)
 
+function label(s: string): string {
+  return props.labelFor ? props.labelFor(s) : s
+}
+
 const filtered = computed(() => {
   const q = props.modelValue.trim()
   if (!q) return props.suggestions.slice(0, 20)
-  return props.suggestions.filter((s) => s.startsWith(q)).slice(0, 20)
+  // 以 value 前綴或顯示文字（別名）包含來過濾
+  return props.suggestions
+    .filter((s) => s.startsWith(q) || label(s).includes(q))
+    .slice(0, 20)
 })
 
 function onInput(e: Event) {
@@ -47,7 +55,7 @@ function choose(s: string) {
         class="suggestion"
         @mousedown.prevent="choose(s)"
       >
-        {{ s }}
+        {{ label(s) }}
       </li>
     </ul>
   </div>

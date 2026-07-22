@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRecordsStore } from '../store/records'
 import { useHistory } from '../store/history'
+import { aliasOf } from '../store/roster'
 import type { LootRecord, LootItem, Member, Purchase, Stream, Consignment } from '../types'
 import LootTable from './LootTable.vue'
 import AutocompleteInput from './AutocompleteInput.vue'
@@ -24,6 +25,12 @@ function patch(part: Partial<LootRecord>) {
 }
 
 const bossError = computed(() => !record.value || !record.value.boss.trim())
+
+// 下拉顯示「別名 (handle)」，選取仍存 handle
+function handleLabel(h: string): string {
+  const a = aliasOf(h)
+  return a ? `${a} (${h})` : h
+}
 
 function ensureIds() {
   const r = record.value
@@ -137,7 +144,9 @@ function toggleSettle(i: number) {
       <ul class="members">
         <li v-for="(m, i) in record.members" :key="m.id" class="member-row">
           <AutocompleteInput class="member-handle" :model-value="m.handle" :suggestions="history.handles.value"
-            placeholder="@handle" @update:model-value="updateMember(i, { handle: $event })" />
+            :label-for="handleLabel" placeholder="@handle"
+            @update:model-value="updateMember(i, { handle: $event })" />
+          <span v-if="aliasOf(m.handle)" class="alias-badge">{{ aliasOf(m.handle) }}</span>
           <button type="button" class="btn btn-icon btn-danger" title="移除" @click="removeMember(i)">✕</button>
         </li>
       </ul>
@@ -172,4 +181,8 @@ function toggleSettle(i: number) {
 .members { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .member-row { display: flex; gap: 8px; align-items: center; }
 .member-handle { flex: 1; max-width: 320px; }
+.alias-badge {
+  padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+  background: var(--primary-soft); color: var(--primary-hover); white-space: nowrap;
+}
 </style>
