@@ -1,10 +1,11 @@
 name: CI
+# PR 品質關卡：對齊 erp 的 verify（typecheck + test + build）。
+# 部署與發版不在此，交給 release.yml（changeset 驅動）。
 on:
   pull_request:
-  push:
-    branches: [main]
+
 jobs:
-  test:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,5 +15,6 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build

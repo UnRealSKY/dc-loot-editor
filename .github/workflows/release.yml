@@ -1,26 +1,98 @@
 name: Release
+# 對齊 hit/erp 的 changeset 驅動流程（單一靜態站版本）：
+#   - 只有 main 且有 pending changeset（.changeset/*-*.md）才發版
+#   - 本地只跑 `pnpm changeset`；版本 bump 由 CI 負責
+#   - 發版 = verify → changeset version → build → 部署 Pages（= erp 的 rtw）
+#     → changeset tag（tag 落在發版決策點）→ commit「# Version」推回 main（[skip ci]）
 on:
   push:
     branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 permissions:
   contents: write
-  pull-requests: write
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
+  pages: write
+  id-token: write
+
 jobs:
-  release:
+  # 對應 erp workflow.rules：偵測是否有 pending changeset。
+  # changesets CLI 檔名固定 <adj>-<noun>-<verb>.md，用 *-*.md 排除 README.md / config.json。
+  detect:
     runs-on: ubuntu-latest
+    outputs:
+      has_changeset: ${{ steps.check.outputs.has_changeset }}
     steps:
       - uses: actions/checkout@v4
+      - id: check
+        run: |
+          if ls .changeset/*-*.md >/dev/null 2>&1; then
+            echo "has_changeset=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "偵測不到 pending changeset，略過發版"
+            echo "has_changeset=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    needs: detect
+    if: needs.detect.outputs.has_changeset == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: changesets/action@v1
+
+      # --- verify ---
+      - run: pnpm typecheck
+      - run: pnpm test
+
+      # --- 版本 bump（CI 負責，對齊 erp）---
+      - run: pnpm changeset version
+
+      # --- build（使用 bump 後版本）---
+      - run: pnpm build
+
+      # --- 部署 GitHub Pages（= erp 的 rtw 發佈目標）---
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
         with:
-          version: pnpm version
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+      # --- 打 tag + 推「# Version」commit 回 main ---
+      - name: Tag & push version
+        run: |
+          git config user.email "ci-release-bot@users.noreply.github.com"
+          git config user.name "CI Release Bot"
+          # 此時 HEAD 仍在觸發 commit（changeset version 只改工作區、未 commit），
+          # tag 自然落在發版決策點
+          pnpm changeset tag
+          git add -A
+          {
+            echo "# Version"
+            for PKG in $(git diff --cached --name-only | grep 'package\.json$'); do
+              NAME=$(node -p "require('./$PKG').name")
+              VERSION=$(node -p "require('./$PKG').version")
+              echo "- ${NAME}@${VERSION}"
+            done
+            echo ""
+            echo "[skip ci]"
+          } > /tmp/version-msg.txt
+          git commit -F /tmp/version-msg.txt
+          # rebase 到最新 main（處理等待期間的並行推送；tag 不受影響）
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+          git push origin --tags
