@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { LootRecord, SettleStatus } from '../types'
-import { netTotal, computeIncomes } from '../calc/distribution'
+import { netTotal, computeIncomes, memberConsignmentTotal } from '../calc/distribution'
 
 const props = defineProps<{ record: LootRecord }>()
 const emit = defineEmits<{ 'toggle-settle': [index: number] }>()
@@ -9,13 +9,20 @@ const emit = defineEmits<{ 'toggle-settle': [index: number] }>()
 const n = computed(() => props.record.members.length)
 const total = computed(() => netTotal(props.record.lootItems))
 const baseDisplay = computed(() => Math.ceil(n.value > 0 ? total.value / n.value : 0))
+const consignments = computed(() => props.record.consignments ?? [])
+const hasConsignments = computed(() => consignments.value.length > 0)
 const rows = computed(() =>
-  computeIncomes(props.record).map((inc, i) => ({
-    ...inc,
-    rounded: Math.ceil(inc.income),
-    settle: (props.record.members[i]?.settle ?? 'pending') as SettleStatus,
-    index: i,
-  })),
+  computeIncomes(props.record).map((inc, i) => {
+    const held = memberConsignmentTotal(consignments.value, inc.handle)
+    return {
+      ...inc,
+      rounded: Math.ceil(inc.income),
+      held,
+      settleAmount: Math.ceil(inc.income) - held,
+      settle: (props.record.members[i]?.settle ?? 'pending') as SettleStatus,
+      index: i,
+    }
+  }),
 )
 </script>
 
@@ -42,7 +49,13 @@ const rows = computed(() =>
 
     <div class="table-wrap">
       <table>
-        <thead><tr><th>團員</th><th class="num">基本</th><th class="num">他人內購/(N-1)</th><th class="num">自己內購</th><th class="num">收入</th><th>結清</th></tr></thead>
+        <thead><tr>
+          <th>團員</th><th class="num">基本</th><th class="num">他人內購/(N-1)</th><th class="num">自己內購</th>
+          <th class="num">收入</th>
+          <th v-if="hasConsignments" class="num">代售</th>
+          <th v-if="hasConsignments" class="num">結算</th>
+          <th>結清</th>
+        </tr></thead>
         <tbody>
           <tr v-for="r in rows" :key="r.index">
             <td class="handle">{{ r.handle || '—' }}</td>
@@ -50,6 +63,8 @@ const rows = computed(() =>
             <td class="num plus">{{ n > 1 ? '+' + Math.ceil(r.others / (n - 1)) : 0 }}</td>
             <td class="num minus">{{ r.own ? '−' + r.own : 0 }}</td>
             <td class="num income">{{ r.rounded }}</td>
+            <td v-if="hasConsignments" class="num minus">{{ r.held ? '−' + r.held : 0 }}</td>
+            <td v-if="hasConsignments" class="num settle">{{ r.settleAmount }}</td>
             <td>
               <button type="button" class="chip" :class="r.settle === 'settled' ? 'chip-ok' : 'chip-pending'"
                 @click="emit('toggle-settle', r.index)">
@@ -78,4 +93,5 @@ const rows = computed(() =>
 .plus { color: var(--success); }
 .minus { color: var(--danger); }
 .income { font-weight: 750; font-size: 15px; }
+.settle { font-weight: 750; font-size: 15px; color: var(--primary); }
 </style>

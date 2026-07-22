@@ -80,6 +80,27 @@ describe('serialize 直播檔與空區塊', () => {
   })
 })
 
+describe('serialize 代售併入結算', () => {
+  const r: LootRecord = {
+    id: '5', date: '2026-07-19', boss: '測王',
+    members: [{ handle: '@a', settle: 'settled' }, { handle: '@b', settle: 'settled' }],
+    lootItems: [{ status: 'ok', name: '道具', qty: 1, unitPrice: 1000 }],
+    purchases: [],
+    consignments: [{ seller: '@a', name: '物品', qty: 1, unitPrice: 300 }],
+    createdAt: '', updatedAt: '',
+  }
+  const out = serialize(r)
+  it('輸出 ## 代售 區塊', () => {
+    expect(out).toContain('## 代售')
+    expect(out).toContain('@a: 物品x1 = 300x1')
+  })
+  it('分配行併入代售額（收入 − 代售 = 結算）', () => {
+    // base=ceil(1000/2)=500；@a 持有 300 → 500 - 300 = 200；@b 無代售 → 500
+    expect(out).toContain('* :ok: @a: 500 - 300 = 200')
+    expect(out).toContain('* :ok: @b: 500 = 500')
+  })
+})
+
 describe('serialize N=1', () => {
   const soloRecord: LootRecord = {
     id: '2', date: '2026-07-20', boss: '單人王',
