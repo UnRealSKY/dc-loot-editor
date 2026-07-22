@@ -35,6 +35,10 @@ const value = computed(() => consignmentValue(props.modelValue))
       @input="patch({ unitPrice: Number(($event.target as HTMLInputElement).value) })" /></td>
     <td><input type="number" class="cell-num sm" :value="modelValue.qty"
       @input="patch({ qty: Number(($event.target as HTMLInputElement).value) })" /></td>
+    <td><input type="number" class="cell-num" :value="modelValue.scissorUnitPrice ?? ''" placeholder="剪刀價"
+      @input="patch({ scissorUnitPrice: Number(($event.target as HTMLInputElement).value) || undefined })" /></td>
+    <td><input type="number" class="cell-num sm" :value="modelValue.scissorCount ?? ''" placeholder="剪刀數"
+      @input="patch({ scissorCount: Number(($event.target as HTMLInputElement).value) || undefined })" /></td>
     <td class="num val">{{ value }}</td>
     <td><button type="button" class="btn btn-icon btn-danger" title="移除" @click="emit('remove')">✕</button></td>
   </tr>

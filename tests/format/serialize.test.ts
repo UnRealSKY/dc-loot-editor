@@ -99,6 +99,16 @@ describe('serialize 代售併入結算', () => {
     expect(out).toContain('* :ok: @a: 500 - 300 = 200')
     expect(out).toContain('* :ok: @b: 500 = 500')
   })
+  it('代售剪刀後綴與淨持有額', () => {
+    const r2: LootRecord = {
+      ...r,
+      consignments: [{ seller: '@a', name: '物品', qty: 1, unitPrice: 300, scissorUnitPrice: 80, scissorCount: 2 }],
+    }
+    const out2 = serialize(r2)
+    // 代售行含剪刀；持有淨額 = 300 - 80*2 = 140 → 結算 500 - 140 = 360
+    expect(out2).toContain('@a: 物品x1 = 300x1 - 80(剪刀)x2')
+    expect(out2).toContain('* :ok: @a: 500 - 140 = 360')
+  })
 })
 
 describe('serialize N=1', () => {

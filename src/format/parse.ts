@@ -8,8 +8,8 @@ const STRUCK_RE = /^\*\s*~~(.+?)~~\s*$/
 const LOOT_RE = /^\*\s*(\S+)\s+(.+?)x(\d+)\s*:\s*(.+?)\s*$/
 const PRICE_RE = /^(\d+)x(\d+)(?:\s*-\s*(\d+)\(剪刀\)x(\d+))?/
 const PURCHASE_RE = /^(<@\d+>|@\S+?)\s*:\s*(.+?)x(\d+)\s*=\s*(\d+)x(\d+)\s*$/
-// 代售行同內購寫法：@代售者: 品名xN = 單價xN
-const CONSIGNMENT_RE = /^(<@\d+>|@\S+?)\s*:\s*(.+?)x(\d+)\s*=\s*(\d+)x(\d+)\s*$/
+// 代售行：@代售者: 品名xN = 單價xN[ - 剪刀單價(剪刀)x剪刀數]，金額部分用 PRICE_RE 解析
+const CONSIGNMENT_RE = /^(<@\d+>|@\S+?)\s*:\s*(.+?)x(\d+)\s*=\s*(.+?)\s*$/
 const STREAM_RE = /^\*\s*(.+?)\s*:\s*(https?:\/\/\S+)\s*$/
 // 分配行只取結清狀態與團員 handle（相容 @名稱 與 <@數字ID>，不強制冒號）
 const DIST_RE = /^\*\s*(\S+)\s+(<@\d+>|@[^\s:：]+)/
@@ -104,10 +104,16 @@ export function parse(md: string): LootRecord {
       if (s) streams.push({ label: s[1].trim(), url: s[2].trim() })
     } else if (section === 'consignment') {
       const c = line.match(CONSIGNMENT_RE)
-      if (c) {
-        consignments.push({
-          seller: c[1], name: c[2].trim(), qty: Number(c[3]), unitPrice: Number(c[4]),
-        })
+      const price = c ? c[4].match(PRICE_RE) : null
+      if (c && price) {
+        const entry: Consignment = {
+          seller: c[1], name: c[2].trim(), qty: Number(c[3]), unitPrice: Number(price[1]),
+        }
+        if (price[3] && price[4]) {
+          entry.scissorUnitPrice = Number(price[3])
+          entry.scissorCount = Number(price[4])
+        }
+        consignments.push(entry)
       }
     } else if (section === 'dist') {
       const d = line.match(DIST_RE)
