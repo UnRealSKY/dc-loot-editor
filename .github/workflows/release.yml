@@ -4,9 +4,10 @@ name: Release
 #   - 本地只跑 `pnpm changeset`；版本 bump 由 CI 負責
 #   - 發版 = verify → changeset version → build → 部署 Pages（= erp 的 rtw）
 #     → changeset tag（tag 落在發版決策點）→ commit「# Version」推回 main（[skip ci]）
+# 手動觸發（workflow_dispatch）：push changeset 到 main 後不會自動上 Pages，
+# 由維護者到 Actions 手動 Run workflow，作為「反悔」關卡。
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: release
@@ -96,3 +97,9 @@ jobs:
           git rebase origin/main
           git push origin HEAD:main
           git push origin --tags
+
+      # --- Discord 發版通知（未設 DISCORD_WEBHOOK secret 時自動略過）---
+      - name: Discord notify
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: node scripts/notify-discord.mjs
