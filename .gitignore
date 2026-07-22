@@ -1,6 +1,11 @@
-.superpowers/
 node_modules
 dist
 *.local
 .DS_Store
 *.stackdump
+
+# Claude / superpowers 相關，不進版控
+.superpowers/
+.claude/
+CLAUDE.md
+docs/superpowers/
