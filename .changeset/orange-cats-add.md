@@ -1,0 +1,5 @@
+---
+"dc-loot-editor": major
+---
+
+.
