@@ -40,17 +40,17 @@ describe('serialize', () => {
     expect(out).toContain('@.unrealsky: 龍鍊x2 = 500x2')
   })
   it('分配總共行', () => {
-    // netTotal = 2850 + 0 + (288*2-80*2=416) = 3266; base=round(3266/5)=653
+    // netTotal = 2850 + 0 + (288*2-80*2=416) = 3266; base=ceil(3266/5=653.2)=654
     expect(out).toContain('## 分配')
-    expect(out).toContain('總共: 3266 / 5 = 653')
+    expect(out).toContain('總共: 3266 / 5 = 654')
   })
   it('買家分配行（減自己內購）', () => {
-    // base_raw=653.2 → 顯示 653；income=653.2+0-1000=-346.8 → -347
-    expect(out).toContain('* :ok: @.unrealsky: 653 - 1000 = -347')
+    // base 顯示 654；income=653.2+0-1000=-346.8 → ceil=-346
+    expect(out).toContain('* :ok: @.unrealsky: 654 - 1000 = -346')
   })
   it('其他人分配行（加他人內購/(N-1)）', () => {
-    // income=653.2+1000/4=903.2 → 903
-    expect(out).toContain('* :orange_square: @xiangjiaojiu: 653 + 1000/4 = 903')
+    // income=653.2+1000/4=903.2 → ceil=904
+    expect(out).toContain('* :orange_square: @xiangjiaojiu: 654 + 1000/4 = 904')
   })
 })
 
