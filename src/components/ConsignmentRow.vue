@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { Consignment } from '../types'
 import { consignmentValue } from '../calc/distribution'
 import { useHistory } from '../store/history'
+import { displayName } from '../store/roster'
 import AutocompleteInput from './AutocompleteInput.vue'
 
 const props = defineProps<{ modelValue: Consignment; memberHandles: string[] }>()
@@ -21,9 +22,9 @@ const value = computed(() => consignmentValue(props.modelValue))
       <select :value="modelValue.seller"
         @change="patch({ seller: ($event.target as HTMLSelectElement).value })">
         <option value="">選擇團員…</option>
-        <option v-for="h in memberHandles" :key="h" :value="h">{{ h }}</option>
+        <option v-for="h in memberHandles" :key="h" :value="h">{{ displayName(h) }}</option>
         <option v-if="modelValue.seller && !memberHandles.includes(modelValue.seller)" :value="modelValue.seller">
-          {{ modelValue.seller }}（非團員）
+          {{ displayName(modelValue.seller) }}（非團員）
         </option>
       </select>
     </td>

@@ -1,6 +1,7 @@
 import { computed } from 'vue'
 import type { ComputedRef } from 'vue'
 import { useRecordsStore } from './records'
+import { rosterHandles } from './roster'
 
 function uniqueByFrequency(values: string[]): string[] {
   const freq = new Map<string, number>()
@@ -23,8 +24,12 @@ export function useHistory() {
     uniqueByFrequency(store.records.flatMap((r) => r.lootItems.map((it) => it.name))),
   )
 
+  // 建議 = 共用名冊 handle ∪ 本機歷史 handle（名冊優先列前）
   const handles: ComputedRef<string[]> = computed(() =>
-    uniqueByFrequency(store.records.flatMap((r) => r.members.map((m) => m.handle))),
+    uniqueByFrequency([
+      ...rosterHandles(),
+      ...store.records.flatMap((r) => r.members.map((m) => m.handle)),
+    ]),
   )
 
   const bosses: ComputedRef<string[]> = computed(() =>
