@@ -1,5 +1,21 @@
 # dc-loot-editor
 
+## 1.4.0
+
+### Minor Changes
+
+- 6dbe7fc: 共用團員名冊與別名：app 執行期直讀 repo 的 members.json（raw fetch + localStorage
+  快取），更新名冊只需 push git、不必發版。團員 handle 對應別名後於 UI 顯示（團員列、
+  內購、代售、分配），DC 序列化/解析仍用 handle 以便貼回自動識別。建議選單 =
+  共用名冊 ∪ 本機歷史，下拉顯示「別名 (handle)」。
+
+### Patch Changes
+
+- f54f31e: 總表新增項目調整：狀態預設「待售」、數量預設空白（單價/剪刀價/剪刀數本就空白）。
+  修正品名/王名 autocomplete：還原為前綴比對（別名欄才用顯示文字子字串比對）。
+- 62aef47: 狀態循環順序改為 待售 → 售出 → 不計入；不計入圖標改用 ✖（DC 輸出 struck 行改
+  `:heavy_multiplication_x:`，解析相容舊的 `:shopping_cart:`）。
+
 ## 1.3.0
 
 ### Minor Changes
