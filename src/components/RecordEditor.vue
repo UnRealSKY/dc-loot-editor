@@ -120,11 +120,11 @@ function toggleSettle(i: number) {
       <div class="section-head"><h3>基本資料</h3></div>
       <div class="header-fields">
         <label class="field field-title">
-          <span class="field-label">王名 <em>*</em></span>
+          <span class="field-label">團名 <em>*</em></span>
           <AutocompleteInput :model-value="record.boss" :suggestions="history.bosses.value"
             :class="{ invalid: bossError }" placeholder="例：混龍"
             @update:model-value="patch({ boss: $event })" />
-          <span v-if="bossError" class="field-error">王名為必填</span>
+          <span v-if="bossError" class="field-error">團名為必填</span>
         </label>
         <label class="field">
           <span class="field-label">日期</span>
