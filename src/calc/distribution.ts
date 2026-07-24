@@ -2,7 +2,7 @@ import type { LootItem, Purchase, Consignment, LootRecord } from '../types'
 
 export function itemNet(item: LootItem): number {
   if (item.status === 'struck') return 0
-  const price = (item.unitPrice ?? 0) * item.qty
+  const price = (item.unitPrice ?? 0) * (item.qty ?? 0)
   const scissor = (item.scissorUnitPrice ?? 0) * (item.scissorCount ?? 0)
   return price - scissor
 }

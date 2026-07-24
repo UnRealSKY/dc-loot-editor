@@ -16,7 +16,7 @@ function removeAt(i: number) {
 function add() {
   emit('update:modelValue', [
     ...props.modelValue,
-    { status: 'ok', name: '', qty: 1, unitPrice: null, id: crypto.randomUUID() },
+    { status: 'cart', name: '', qty: null, unitPrice: null, id: crypto.randomUUID() },
   ])
 }
 </script>

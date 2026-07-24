@@ -2,16 +2,17 @@ import type { LootRecord, LootItem, SettleStatus } from '../types'
 import { netTotal, computeIncomes, memberConsignmentTotal } from '../calc/distribution'
 
 function lootLine(it: LootItem): string {
+  const q = it.qty ?? ''
   if (it.status === 'struck') {
     const notePart = it.note ? `: ${it.note}` : ''
-    return `* ~~:shopping_cart: ${it.name}x${it.qty}${notePart}~~`
+    return `* ~~:shopping_cart: ${it.name}x${q}${notePart}~~`
   }
   const emoji = it.status === 'ok' ? ':ok:' : ':shopping_cart:'
-  let price = `${it.unitPrice ?? 0}x${it.qty}`
+  let price = `${it.unitPrice ?? 0}x${q}`
   if (it.scissorCount && it.scissorUnitPrice) {
     price += ` - ${it.scissorUnitPrice}(剪刀)x${it.scissorCount}`
   }
-  return `* ${emoji} ${it.name}x${it.qty}: ${price}`
+  return `* ${emoji} ${it.name}x${q}: ${price}`
 }
 
 function settleEmoji(s: SettleStatus): string {
