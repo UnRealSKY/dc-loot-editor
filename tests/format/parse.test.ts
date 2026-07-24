@@ -63,7 +63,7 @@ describe('round-trip', () => {
     const r: LootRecord = { ...parse(sample), id: '1', createdAt: '', updatedAt: '' }
     const out = serialize(r)
     expect(out).toContain('* :ok: 附加大師x6: 475x6')
-    expect(out).toContain('* ~~:shopping_cart: 上衣命60%x1: (價格太低不計入)~~')
+    expect(out).toContain('* ~~:heavy_multiplication_x: 上衣命60%x1: (價格太低不計入)~~')
     expect(out).toContain('* :ok: 手攻60%x2: 288x2 - 80(剪刀)x2')
     expect(out).toContain('@.unrealsky: 龍鍊x2 = 500x2')
   })
