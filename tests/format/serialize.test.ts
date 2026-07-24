@@ -30,7 +30,7 @@ describe('serialize', () => {
     expect(out).toContain('* :ok: 附加大師x6: 475x6')
   })
   it('劃線項目含註解', () => {
-    expect(out).toContain('* ~~:shopping_cart: 上衣命60%x1: (價格太低不計入)~~')
+    expect(out).toContain('* ~~:heavy_multiplication_x: 上衣命60%x1: (價格太低不計入)~~')
   })
   it('剪刀項目', () => {
     expect(out).toContain('* :ok: 手攻60%x2: 288x2 - 80(剪刀)x2')

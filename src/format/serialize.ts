@@ -5,7 +5,7 @@ function lootLine(it: LootItem): string {
   const q = it.qty ?? ''
   if (it.status === 'struck') {
     const notePart = it.note ? `: ${it.note}` : ''
-    return `* ~~:shopping_cart: ${it.name}x${q}${notePart}~~`
+    return `* ~~:heavy_multiplication_x: ${it.name}x${q}${notePart}~~`
   }
   const emoji = it.status === 'ok' ? ':ok:' : ':shopping_cart:'
   let price = `${it.unitPrice ?? 0}x${q}`
