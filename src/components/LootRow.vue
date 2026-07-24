@@ -19,9 +19,19 @@ const STATUS_META: Record<LootStatus, { cls: string; label: string }> = {
 function patch(part: Partial<LootItem>) {
   emit('update:modelValue', { ...props.modelValue, ...part })
 }
+const STRUCK_NOTE = '(價格過低不計入)'
 function cycleStatus() {
   const i = STATUS_CYCLE.indexOf(props.modelValue.status)
-  patch({ status: STATUS_CYCLE[(i + 1) % STATUS_CYCLE.length] })
+  const status = STATUS_CYCLE[(i + 1) % STATUS_CYCLE.length]
+  const part: Partial<LootItem> = { status }
+  if (status === 'struck') {
+    // 標記不計入時自動帶上原因（已有自訂註解則保留）
+    if (!props.modelValue.note) part.note = STRUCK_NOTE
+  } else if (props.modelValue.note === STRUCK_NOTE) {
+    // 離開不計入且註解為自動值時清除
+    part.note = undefined
+  }
+  patch(part)
 }
 function onNameSelect(name: string) {
   const s = history.priceSuggestions(name)
