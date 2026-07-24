@@ -56,8 +56,8 @@ const priceHints = computed(() =>
         @input="patch({ unitPrice: ($event.target as HTMLInputElement).value === '' ? null : Number(($event.target as HTMLInputElement).value) })" />
     </td>
     <td>
-      <input type="number" class="cell-num sm" :value="modelValue.qty"
-        @input="patch({ qty: Number(($event.target as HTMLInputElement).value) })" />
+      <input type="number" class="cell-num sm" :value="modelValue.qty ?? ''" placeholder="數量"
+        @input="patch({ qty: ($event.target as HTMLInputElement).value === '' ? null : Number(($event.target as HTMLInputElement).value) })" />
     </td>
     <td>
       <input type="number" class="cell-num" :value="modelValue.scissorUnitPrice ?? ''" placeholder="剪刀價"

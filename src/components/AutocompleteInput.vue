@@ -21,9 +21,9 @@ function label(s: string): string {
 const filtered = computed(() => {
   const q = props.modelValue.trim()
   if (!q) return props.suggestions.slice(0, 20)
-  // 以 value 前綴或顯示文字（別名）包含來過濾
+  // value 以前綴比對；另有 labelFor（別名）時，額外允許以顯示文字子字串比對
   return props.suggestions
-    .filter((s) => s.startsWith(q) || label(s).includes(q))
+    .filter((s) => s.startsWith(q) || (props.labelFor ? props.labelFor(s).includes(q) : false))
     .slice(0, 20)
 })
 

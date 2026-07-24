@@ -10,7 +10,7 @@ export interface Member {
 export interface LootItem {
   status: LootStatus
   name: string
-  qty: number
+  qty: number | null
   unitPrice: number | null
   scissorCount?: number
   scissorUnitPrice?: number
