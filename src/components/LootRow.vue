@@ -33,10 +33,6 @@ function cycleStatus() {
   }
   patch(part)
 }
-function onNameSelect(name: string) {
-  const s = history.priceSuggestions(name)
-  if (s.length) patch({ name, unitPrice: s[0].price })
-}
 const net = computed(() => itemNet(props.modelValue))
 const priceHints = computed(() =>
   history.priceSuggestions(props.modelValue.name).map((p) => `${p.price}（${p.date}）`),
@@ -56,7 +52,6 @@ const priceHints = computed(() =>
         :suggestions="history.itemNames.value"
         placeholder="品名"
         @update:model-value="patch({ name: $event })"
-        @select="onNameSelect"
       />
     </td>
     <td>

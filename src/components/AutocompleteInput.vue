@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 
 const props = defineProps<{
   modelValue: string
@@ -13,6 +13,36 @@ const emit = defineEmits<{
 }>()
 
 const open = ref(false)
+const inputRef = ref<HTMLInputElement | null>(null)
+const menuStyle = ref<Record<string, string>>({})
+
+// 下拉用 fixed 定位（依輸入框位置），避免被表格 overflow 容器裁切
+function updatePos() {
+  const el = inputRef.value
+  if (!el) return
+  const r = el.getBoundingClientRect()
+  menuStyle.value = {
+    top: `${r.bottom + 4}px`,
+    left: `${r.left}px`,
+    minWidth: `${r.width}px`,
+  }
+}
+function onScrollResize() {
+  if (open.value) updatePos()
+}
+onMounted(() => {
+  window.addEventListener('scroll', onScrollResize, true)
+  window.addEventListener('resize', onScrollResize)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', onScrollResize, true)
+  window.removeEventListener('resize', onScrollResize)
+})
+
+function openMenu() {
+  open.value = true
+  updatePos()
+}
 
 function label(s: string): string {
   return props.labelFor ? props.labelFor(s) : s
@@ -29,7 +59,7 @@ const filtered = computed(() => {
 
 function onInput(e: Event) {
   emit('update:modelValue', (e.target as HTMLInputElement).value)
-  open.value = true
+  openMenu()
 }
 
 function choose(s: string) {
@@ -42,13 +72,14 @@ function choose(s: string) {
 <template>
   <div class="autocomplete">
     <input
+      ref="inputRef"
       :value="modelValue"
       :placeholder="placeholder"
       @input="onInput"
-      @focus="open = true"
+      @focus="openMenu"
       @blur="open = false"
     />
-    <ul v-if="open && filtered.length" class="suggestions">
+    <ul v-if="open && filtered.length" class="suggestions" :style="menuStyle">
       <li
         v-for="s in filtered"
         :key="s"
@@ -64,11 +95,11 @@ function choose(s: string) {
 <style scoped>
 .autocomplete { position: relative; }
 .suggestions {
-  position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 4px);
+  position: fixed; z-index: 1000;
   margin: 0; padding: 4px; list-style: none;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
-  max-height: 220px; overflow-y: auto; min-width: 140px;
+  max-height: 240px; overflow-y: auto; min-width: 140px;
 }
 .suggestion { padding: 6px 10px; cursor: pointer; border-radius: 6px; font-size: 14px; white-space: nowrap; }
 .suggestion:hover { background: var(--primary-soft); color: var(--primary-hover); }
