@@ -1,5 +1,11 @@
 # dc-loot-editor
 
+## 1.6.1
+
+### Patch Changes
+
+- d56a7db: 列表改依日期新到舊排序；同日期再依團名，空日期排最後。
+
 ## 1.6.0
 
 ### Minor Changes
