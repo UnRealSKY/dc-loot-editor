@@ -31,6 +31,15 @@ function remove(id: string) {
 function duplicate(id: string) {
   store.duplicate(id)
 }
+
+// 是否全數賣出：沒有「待售」項目（售出/不計入皆視為已處理）
+function allSold(r: LootRecord): boolean {
+  return r.lootItems.length > 0 && !r.lootItems.some((it) => it.status === 'cart')
+}
+// 是否已把錢交給所有團員：所有團員皆已結清
+function allSettled(r: LootRecord): boolean {
+  return r.members.length > 0 && r.members.every((m) => m.settle === 'settled')
+}
 </script>
 
 <template>
@@ -58,6 +67,14 @@ function duplicate(id: string) {
             <span v-if="r.members.length">{{ r.members.length }} 人</span>
           </span>
         </router-link>
+        <div class="record-status">
+          <span class="badge" :class="allSold(r) ? 'badge-done' : 'badge-pending'">
+            {{ allSold(r) ? '✓ 全數賣出' : '● 待售出' }}
+          </span>
+          <span class="badge" :class="allSettled(r) ? 'badge-done' : 'badge-pending'">
+            {{ allSettled(r) ? '✓ 全部結清' : '● 未結清' }}
+          </span>
+        </div>
         <div class="record-actions">
           <button class="btn btn-icon" title="複製" @click="duplicate(r.id)">⧉</button>
           <button class="btn btn-icon btn-danger" title="刪除" @click="remove(r.id)">🗑</button>
@@ -86,4 +103,8 @@ function duplicate(id: string) {
 .record-title { font-weight: 600; font-size: 15px; }
 .record-meta { display: flex; gap: 12px; font-size: 12.5px; color: var(--text-muted); flex-wrap: wrap; }
 .record-actions { display: flex; gap: 4px; flex: none; }
+.record-status { display: flex; gap: 6px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
+.badge { padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.badge-done { background: var(--success-soft); color: var(--success); }
+.badge-pending { background: var(--surface-2); color: var(--text-muted); }
 </style>
