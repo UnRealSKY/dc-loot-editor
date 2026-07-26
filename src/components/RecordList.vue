@@ -8,11 +8,11 @@ import ImportDialog from './ImportDialog.vue'
 const store = useRecordsStore()
 const router = useRouter()
 
-// 依日期新到舊排序；同日期再依最後更新時間，空日期排最後
+// 依日期新到舊排序；同日期再依團名，空日期排最後
 const sorted = computed(() =>
   [...store.records].sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? 1 : -1
-    return a.updatedAt < b.updatedAt ? 1 : -1
+    return a.boss.localeCompare(b.boss)
   }),
 )
 
