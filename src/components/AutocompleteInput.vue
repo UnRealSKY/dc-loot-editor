@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { fuzzyFilter } from '../fuzzy'
 
 const props = defineProps<{
   modelValue: string
   suggestions: string[]
   placeholder?: string
   labelFor?: (value: string) => string  // 下拉顯示文字（如別名），選取仍存原 value
+  fuzzy?: boolean                       // 改用模糊比對（品名搜尋用）
 }>()
 const emit = defineEmits<{
   'update:modelValue': [value: string]
@@ -50,6 +52,7 @@ function label(s: string): string {
 
 const filtered = computed(() => {
   const q = props.modelValue.trim()
+  if (props.fuzzy) return fuzzyFilter(q, props.suggestions)
   if (!q) return props.suggestions.slice(0, 20)
   // value 以前綴比對；另有 labelFor（別名）時，額外允許以顯示文字子字串比對
   return props.suggestions

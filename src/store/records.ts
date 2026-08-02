@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, toRaw, watch } from 'vue'
 import type { LootRecord } from '../types'
+import { runMigrations } from './migrations'
 
 export const STORAGE_KEY = 'dc-loot-records'
 
@@ -26,7 +27,10 @@ function todayLocal(): string {
 }
 
 export const useRecordsStore = defineStore('records', () => {
-  const records = ref<LootRecord[]>(load())
+  // 一次性遷移：有變更立即寫回，避免「僅載入未編輯」時流失遷移結果
+  const migrated = runMigrations(load())
+  if (migrated.changed) localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated.records))
+  const records = ref<LootRecord[]>(migrated.records)
 
   // flush: 'sync' 為刻意設計：確保紀錄異動立即寫入 localStorage，
   // 資料量小，不需為了效能批次延遲持久化。

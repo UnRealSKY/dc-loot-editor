@@ -4,6 +4,7 @@ import RecordList from './components/RecordList.vue'
 const routes = [
   { path: '/', component: RecordList },
   { path: '/edit/:id', component: () => import('./components/RecordEditor.vue') },
+  { path: '/pending', component: () => import('./components/PendingOverview.vue') },
 ]
 
 export const router = createRouter({
