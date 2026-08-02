@@ -36,6 +36,12 @@ function duplicate(id: string) {
   store.duplicate(id)
 }
 
+function toggleShelve(id: string) {
+  const r = store.get(id)
+  if (!r) return
+  store.upsert({ ...r, shelved: !r.shelved })
+}
+
 // 是否全數賣出：沒有「待售」項目（售出/不計入皆視為已處理）
 function allSold(r: LootRecord): boolean {
   return r.lootItems.length > 0 && !r.lootItems.some((it) => it.status === 'cart')
@@ -72,6 +78,7 @@ function allSettled(r: LootRecord): boolean {
           </span>
         </router-link>
         <div class="record-status">
+          <span v-if="r.shelved" class="badge badge-shelved">⏸ 擱置中</span>
           <span class="badge" :class="allSold(r) ? 'badge-done' : 'badge-pending'">
             {{ allSold(r) ? '✓ 全數賣出' : '● 待售出' }}
           </span>
@@ -80,6 +87,9 @@ function allSettled(r: LootRecord): boolean {
           </span>
         </div>
         <div class="record-actions">
+          <button class="btn btn-icon" :class="{ shelving: r.shelved }"
+            :title="r.shelved ? '取消擱置' : '擱置（暫不列入未領總攬）'"
+            @click="toggleShelve(r.id)">⏸</button>
           <button class="btn btn-icon" title="複製" @click="duplicate(r.id)">⧉</button>
           <button class="btn btn-icon btn-danger" title="刪除" @click="remove(r.id)">🗑</button>
         </div>
@@ -111,4 +121,6 @@ function allSettled(r: LootRecord): boolean {
 .badge { padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
 .badge-done { background: var(--success-soft); color: var(--success); }
 .badge-pending { background: var(--surface-2); color: var(--text-muted); }
+.badge-shelved { background: var(--warn-soft); color: var(--warn); }
+.record-actions .shelving { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
 </style>

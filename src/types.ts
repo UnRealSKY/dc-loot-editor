@@ -51,6 +51,7 @@ export interface LootRecord {
   purchases: Purchase[]
   streams?: Stream[]        // 直播檔連結
   consignments?: Consignment[] // 代售：某團員代賣、手上握著的金額，併入結算
+  shelved?: boolean         // 擱置：暫不列入未領總攬
   createdAt: string
   updatedAt: string
 }

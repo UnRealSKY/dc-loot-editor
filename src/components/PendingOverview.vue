@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useRecordsStore } from '../store/records'
 import { displayName } from '../store/roster'
 import { pendingBlocks } from '../format/pending'
 
 const store = useRecordsStore()
+const router = useRouter()
+
+// 開新分頁進編輯頁並跳至分配名單（focus=dist 由 RecordEditor 處理捲動）
+function editHref(recordId: string): string {
+  return router.resolve({ path: `/edit/${recordId}`, query: { focus: 'dist' } }).href
+}
 const blocks = computed(() => pendingBlocks(store.records, displayName))
 
 const copiedKey = ref('')
@@ -50,6 +57,8 @@ function markSettled(recordId: string, handle: string) {
         <div v-for="(line, i) in rec.lines" :key="i" class="line">
           <code class="line-text">{{ line }}</code>
           <span v-if="i === 0 && rec.hasCart" class="chip chip-cart cart-note" title="金額可能變動">尚有待售</span>
+          <a v-if="i === 0" class="btn btn-sm open-btn" :href="editHref(rec.recordId)"
+            target="_blank" rel="noopener" title="開新分頁編輯並跳至分配名單">開啟 ↗</a>
           <button v-if="i === rec.lines.length - 1" type="button" class="chip chip-pending"
             title="標記此場為已結清" @click="markSettled(rec.recordId, b.handle)">結清</button>
           <button type="button" class="btn btn-sm copy-btn"
@@ -83,6 +92,7 @@ function markSettled(recordId: string, handle: string) {
   background: var(--surface-2); padding: 6px 10px; border-radius: 6px;
 }
 .copy-btn { flex: none; min-width: 58px; }
+.open-btn { flex: none; text-decoration: none; }
 .cart-note { cursor: default; }
 .total-line { padding-top: 10px; }
 .total-line .line-text { font-weight: 650; }

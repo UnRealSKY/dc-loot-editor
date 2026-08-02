@@ -112,6 +112,13 @@ describe('pendingBlocks', () => {
     ])
   })
 
+  it('擱置中的紀錄不列入', () => {
+    const shelved = { ...r1, id: 'r5', shelved: true }
+    expect(pendingBlocks([shelved], display)).toEqual([])
+    // 取消擱置後恢復列入
+    expect(pendingBlocks([{ ...shelved, shelved: false }], display)).toHaveLength(1)
+  })
+
   it('不同日期依日期舊到新排序', () => {
     const old = makeRecord({
       id: 'r4', date: '2026-07-19', boss: '舊場',

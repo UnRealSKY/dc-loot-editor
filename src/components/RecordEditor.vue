@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRecordsStore } from '../store/records'
 import { useHistory } from '../store/history'
@@ -54,6 +54,13 @@ function ensureIds() {
   })
 }
 watch(() => route.params.id, ensureIds, { immediate: true })
+
+// 自未領總攬「開啟 ↗」進入（?focus=dist）時，捲動至分配名單
+const distEl = ref<HTMLElement | null>(null)
+onMounted(() => {
+  if (route.query.focus !== 'dist') return
+  nextTick(() => distEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+})
 
 const showExport = ref(false)
 const showImport = ref(false)
@@ -158,7 +165,9 @@ function toggleSettle(i: number) {
     <StreamTable :model-value="record.streams ?? []" @update:model-value="setStreams" />
     <ConsignmentTable :model-value="record.consignments ?? []" :members="record.members"
       @update:model-value="setConsignments" />
-    <DistributionPanel :record="record" @toggle-settle="toggleSettle" />
+    <div ref="distEl" class="dist-anchor">
+      <DistributionPanel :record="record" @toggle-settle="toggleSettle" />
+    </div>
 
     <ImportDialog :open="showImport" @close="showImport = false" @imported="applyImport" />
     <ExportDialog :open="showExport" :record="record" @close="showExport = false" />
@@ -167,6 +176,9 @@ function toggleSettle(i: number) {
 </template>
 
 <style scoped>
+/* 捲動定位時預留 sticky appbar 高度 */
+.dist-anchor { scroll-margin-top: 70px; }
+
 .editor-top { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
 .editor-top .spacer { flex: 1; }
 .back { text-decoration: none; }
