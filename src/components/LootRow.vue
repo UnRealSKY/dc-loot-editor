@@ -51,6 +51,7 @@ const priceHints = computed(() =>
         :model-value="modelValue.name"
         :suggestions="history.itemNames.value"
         placeholder="品名"
+        fuzzy
         @update:model-value="patch({ name: $event })"
       />
     </td>

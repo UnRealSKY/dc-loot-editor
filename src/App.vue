@@ -5,6 +5,10 @@
         <span class="logo">分</span>
         <h1>DC 打王分寶 Editor</h1>
       </router-link>
+      <nav class="nav">
+        <router-link to="/" class="nav-link" exact-active-class="nav-active">分寶紀錄</router-link>
+        <router-link to="/pending" class="nav-link" active-class="nav-active">未領總攬</router-link>
+      </nav>
     </header>
     <router-view />
   </div>
@@ -56,10 +60,19 @@ body {
 .appbar {
   position: sticky; top: 0; z-index: 30;
   margin: 0 -20px 26px; padding: 13px 20px;
+  display: flex; align-items: center; gap: 24px;
   background: rgba(255, 255, 255, .82);
   backdrop-filter: saturate(1.4) blur(10px);
   border-bottom: 1px solid var(--border);
 }
+.nav { display: flex; gap: 4px; }
+.nav-link {
+  text-decoration: none; color: var(--text-muted);
+  font-size: 14px; font-weight: 550; padding: 6px 13px; border-radius: 999px;
+  transition: color .14s, background .14s;
+}
+.nav-link:hover { color: var(--text); background: var(--surface-2); }
+.nav-active { color: var(--primary-hover); background: var(--primary-soft); }
 .brand { display: inline-flex; align-items: center; gap: 11px; text-decoration: none; color: inherit; }
 .brand .logo {
   width: 32px; height: 32px; border-radius: 9px; flex: none;

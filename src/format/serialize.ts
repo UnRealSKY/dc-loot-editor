@@ -1,5 +1,5 @@
 import type { LootRecord, LootItem, SettleStatus } from '../types'
-import { netTotal, computeIncomes, memberConsignmentTotal } from '../calc/distribution'
+import { distSummary, memberDists } from './dist'
 
 function lootLine(it: LootItem): string {
   const q = it.qty ?? ''
@@ -51,22 +51,12 @@ export function serialize(record: LootRecord): string {
     }
   }
 
-  const total = netTotal(record.lootItems)
-  const n = record.members.length
-  const baseDisplay = Math.ceil(n > 0 ? total / n : 0)
+  const { total, n, base } = distSummary(record)
   lines.push('', '## 分配')
-  lines.push(`總共: ${total} / ${n} = ${baseDisplay}`)
+  lines.push(`總共: ${total} / ${n} = ${base}`)
 
-  const incomeByHandle = new Map(computeIncomes(record).map((i) => [i.handle, i]))
-  for (const m of record.members) {
-    const inc = incomeByHandle.get(m.handle)
-    if (!inc) continue
-    const held = memberConsignmentTotal(consignments, m.handle)
-    let expr = `${baseDisplay}`
-    if (n > 1 && inc.others > 0) expr += ` + ${inc.others}/${n - 1}`
-    if (inc.own > 0) expr += ` - ${inc.own}`
-    if (held > 0) expr += ` - ${held}`
-    lines.push(`* ${settleEmoji(m.settle)} ${m.handle}: ${expr} = ${Math.ceil(inc.income) - held}`)
+  for (const d of memberDists(record)) {
+    lines.push(`* ${settleEmoji(d.member.settle)} ${d.member.handle}: ${d.expr} = ${d.amount}`)
   }
 
   return lines.join('\n')

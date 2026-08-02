@@ -30,7 +30,7 @@ const value = computed(() => consignmentValue(props.modelValue))
     </td>
     <td class="name-cell">
       <AutocompleteInput :model-value="modelValue.name" :suggestions="history.itemNames.value"
-        placeholder="品名 / 說明" @update:model-value="patch({ name: $event })" />
+        placeholder="品名 / 說明" fuzzy @update:model-value="patch({ name: $event })" />
     </td>
     <td><input type="number" class="cell-num" :value="modelValue.unitPrice" placeholder="單價"
       @input="patch({ unitPrice: Number(($event.target as HTMLInputElement).value) })" /></td>
