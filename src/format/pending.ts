@@ -33,6 +33,7 @@ export function pendingBlocks(
 ): PendingBlock[] {
   const blocks = new Map<string, PendingBlock>()
   for (const r of [...records].sort(byDateAsc)) {
+    if (r.shelved) continue // 擱置中：暫不列入統計
     const { total, n, base } = distSummary(r)
     const hasCart = r.lootItems.some((it) => it.status === 'cart')
     for (const d of memberDists(r)) {

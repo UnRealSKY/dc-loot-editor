@@ -40,6 +40,17 @@ export const useRecordsStore = defineStore('records', () => {
     { deep: true, flush: 'sync' },
   )
 
+  // 跨分頁同步：其他分頁（如未領總攬開的編輯分頁）寫入時，本分頁狀態跟著更新
+  window.addEventListener('storage', (e) => {
+    if (e.key !== STORAGE_KEY || e.newValue == null) return
+    try {
+      const parsed = JSON.parse(e.newValue)
+      if (Array.isArray(parsed)) records.value = parsed
+    } catch {
+      // 略過壞資料
+    }
+  })
+
   function get(id: string): LootRecord | undefined {
     return records.value.find((r) => r.id === id)
   }
