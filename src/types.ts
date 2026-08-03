@@ -18,11 +18,14 @@ export interface LootItem {
   id?: string
 }
 
+export type PurchaseMode = 'full' | 'split' // 全額：買家付全額給其他人分；均攤：買家只付 1/N
+
 export interface Purchase {
   buyer: string            // @handle，須存在於 members
   name: string
   qty: number
   unitPrice: number
+  mode?: PurchaseMode      // undefined 視為 full（全額，既有資料相容）
   id?: string
 }
 

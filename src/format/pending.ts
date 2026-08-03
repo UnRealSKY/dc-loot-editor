@@ -42,7 +42,8 @@ export function pendingBlocks(
       const lines: string[] = [`${[r.date, r.boss].filter(Boolean).join(' ')} / ${n}`]
       for (const p of r.purchases) {
         if (p.buyer === handle) continue
-        lines.push(`${display(p.buyer)}: 內購 ${p.name}x${p.qty} = ${p.unitPrice}x${p.qty}`)
+        const mode = p.mode === 'split' ? ' (均攤)' : ''
+        lines.push(`${display(p.buyer)}: 內購 ${p.name}x${p.qty} = ${p.unitPrice}x${p.qty}${mode}`)
       }
       lines.push(`總共: ${total} / ${n} = ${base}`)
       lines.push(`${display(handle)}: ${d.expr} = ${d.amount}`)

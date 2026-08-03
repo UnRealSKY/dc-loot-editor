@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { LootRecord, SettleStatus } from '../types'
-import { netTotal, computeIncomes, memberConsignmentTotal } from '../calc/distribution'
+import { netTotal, computeIncomes, memberConsignmentTotal, roundDisplay } from '../calc/distribution'
 import { displayName } from '../store/roster'
 
 const props = defineProps<{ record: LootRecord }>()
@@ -62,7 +62,7 @@ const rows = computed(() =>
             <td class="handle">{{ r.handle ? displayName(r.handle) : '—' }}</td>
             <td class="num">{{ baseDisplay }}</td>
             <td class="num plus">{{ n > 1 ? '+' + Math.ceil(r.others / (n - 1)) : 0 }}</td>
-            <td class="num minus">{{ r.own ? '−' + r.own : 0 }}</td>
+            <td class="num minus">{{ r.own ? '−' + roundDisplay(r.own) : 0 }}</td>
             <td class="num income">{{ r.rounded }}</td>
             <td v-if="hasConsignments" class="num minus">{{ r.held ? '−' + r.held : 0 }}</td>
             <td v-if="hasConsignments" class="num settle">{{ r.settleAmount }}</td>

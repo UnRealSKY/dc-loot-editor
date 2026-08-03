@@ -9,7 +9,8 @@ const STRUCK_RE = /^\*\s*~~(.+?)~~\s*$/
 const LOOT_RE = /^\*\s*(\S+)\s+(.+?)x(\d+)\s*:\s*(.+?)\s*$/
 // 金額可為 ?（未填、未知），對應 unitPrice null / scissorUnitPrice undefined
 const PRICE_RE = /^(\d+|\?)x(\d+)(?:\s*-\s*(\d+|\?)\(剪刀\)x(\d+))?/
-const PURCHASE_RE = /^(<@\d+>|@\S+?)\s*:\s*(.+?)x(\d+)\s*=\s*(\d+)x(\d+)\s*$/
+// 尾綴 (均攤) 表示買家只付 1/N（相容全形括號）；無尾綴為全額
+const PURCHASE_RE = /^(<@\d+>|@\S+?)\s*:\s*(.+?)x(\d+)\s*=\s*(\d+)x(\d+)\s*([（(]均攤[)）])?\s*$/
 // 代售行：@代售者: 品名xN = 單價xN[ - 剪刀單價(剪刀)x剪刀數]，金額部分用 PRICE_RE 解析
 const CONSIGNMENT_RE = /^(<@\d+>|@\S+?)\s*:\s*(.+?)x(\d+)\s*=\s*(.+?)\s*$/
 const STREAM_RE = /^\*\s*(.+?)\s*:\s*(https?:\/\/\S+)\s*$/
@@ -99,6 +100,7 @@ export function parse(md: string): LootRecord {
       if (p) {
         record.purchases.push({
           buyer: p[1], name: p[2].trim(), qty: Number(p[3]), unitPrice: Number(p[4]),
+          ...(p[6] ? { mode: 'split' as const } : {}),
         })
       }
     } else if (section === 'stream') {
