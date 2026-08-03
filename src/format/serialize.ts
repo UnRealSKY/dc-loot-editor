@@ -8,9 +8,10 @@ function lootLine(it: LootItem): string {
     return `* ~~:heavy_multiplication_x: ${it.name}x${q}${notePart}~~`
   }
   const emoji = it.status === 'ok' ? ':ok:' : ':shopping_cart:'
-  let price = `${it.unitPrice ?? 0}x${q}`
-  if (it.scissorCount && it.scissorUnitPrice) {
-    price += ` - ${it.scissorUnitPrice}(剪刀)x${it.scissorCount}`
+  // 未填金額輸出 ?（未知），不是 0
+  let price = `${it.unitPrice ?? '?'}x${q}`
+  if (it.scissorCount) {
+    price += ` - ${it.scissorUnitPrice ?? '?'}(剪刀)x${it.scissorCount}`
   }
   return `* ${emoji} ${it.name}x${q}: ${price}`
 }
@@ -19,9 +20,21 @@ function settleEmoji(s: SettleStatus): string {
   return s === 'settled' ? ':ok:' : ':orange_square:'
 }
 
+// 標題行狀態標記：:shopping_cart:(待售項數) :dollar:(未結清人數)，歸零的標記不顯示；
+// 兩者皆歸零＝全結案，顯示單一 :ballot_box_with_check:。
+// webhook 改不了討論串標題與 tag，會變動的狀態放內文標題行、同步時更新
+function statusSuffix(record: LootRecord): string {
+  const cartCount = record.lootItems.filter((it) => it.status === 'cart').length
+  const unsettled = record.members.filter((m) => m.settle === 'pending').length
+  const marks: string[] = []
+  if (cartCount > 0) marks.push(`:shopping_cart:(${cartCount})`)
+  if (unsettled > 0) marks.push(`:dollar:(${unsettled})`)
+  return marks.length ? marks.join(' ') : ':ballot_box_with_check:'
+}
+
 export function serialize(record: LootRecord): string {
   const lines: string[] = []
-  lines.push(`## ${record.date} ${record.boss} / ${record.members.length}`)
+  lines.push(`## ${record.date} ${record.boss} / ${record.members.length} ｜ ${statusSuffix(record)}`)
   for (const it of record.lootItems) lines.push(lootLine(it))
 
   if (record.purchases.length) {
@@ -44,8 +57,8 @@ export function serialize(record: LootRecord): string {
     lines.push('', '## 代售')
     for (const c of consignments) {
       let amt = `${c.unitPrice}x${c.qty}`
-      if (c.scissorCount && c.scissorUnitPrice) {
-        amt += ` - ${c.scissorUnitPrice}(剪刀)x${c.scissorCount}`
+      if (c.scissorCount) {
+        amt += ` - ${c.scissorUnitPrice ?? '?'}(剪刀)x${c.scissorCount}`
       }
       lines.push(`${c.seller}: ${c.name}x${c.qty} = ${amt}`)
     }

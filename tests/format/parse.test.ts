@@ -24,6 +24,29 @@ describe('parse header', () => {
     expect(r.date).toBe('2026-07-19')
     expect(r.boss).toBe('混龍')
   })
+  it('## 標頭前的多餘行不影響解析', () => {
+    const withStatus = parse(`某段說明文字\n${sample}`)
+    expect(withStatus.date).toBe('2026-07-19')
+    expect(withStatus.lootItems).toHaveLength(3)
+    expect(withStatus.members).toHaveLength(2)
+  })
+  it('金額 ? 還原為未填（unitPrice null / scissorUnitPrice 缺）', () => {
+    const r = parse([
+      '## 2026-08-03 測王 / 1',
+      '* :shopping_cart: 未定價x2: ?x2',
+      '* :shopping_cart: 剪未定x1: 300x1 - ?(剪刀)x2',
+    ].join('\n'))
+    expect(r.lootItems[0]).toMatchObject({ name: '未定價', qty: 2, unitPrice: null })
+    expect(r.lootItems[1]).toMatchObject({ name: '剪未定', unitPrice: 300, scissorCount: 2 })
+    expect(r.lootItems[1].scissorUnitPrice).toBeUndefined()
+  })
+  it('標頭帶狀態尾綴（｜ 短碼或 emoji）也能解析', () => {
+    const short = parse(sample.replace('## 2026-07-19 混龍 / 5', '## 2026-07-19 混龍 / 5 ｜ :shopping_cart:(2) :dollar:(2)'))
+    expect(short.date).toBe('2026-07-19')
+    expect(short.boss).toBe('混龍')
+    const emoji = parse(sample.replace('## 2026-07-19 混龍 / 5', '## 2026-07-19 混龍 / 5 ｜ 🛒(1) 💵(3)'))
+    expect(emoji.boss).toBe('混龍')
+  })
 })
 
 describe('parse loot items', () => {

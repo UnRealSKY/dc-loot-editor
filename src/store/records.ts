@@ -40,7 +40,7 @@ export const useRecordsStore = defineStore('records', () => {
     { deep: true, flush: 'sync' },
   )
 
-  // 跨分頁同步：其他分頁（如未領總攬開的編輯分頁）寫入時，本分頁狀態跟著更新
+  // 跨分頁同步：其他分頁（如未領總覽開的編輯分頁）寫入時，本分頁狀態跟著更新
   window.addEventListener('storage', (e) => {
     if (e.key !== STORAGE_KEY || e.newValue == null) return
     try {

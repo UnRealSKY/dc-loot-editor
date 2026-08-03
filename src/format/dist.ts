@@ -20,7 +20,7 @@ export interface MemberDist {
   amount: number // ceil(income) − 代售持有額
 }
 
-// serialize 與未領總攬共用的每人分配公式，保證兩邊輸出一致
+// serialize 與未領總覽共用的每人分配公式，保證兩邊輸出一致
 export function memberDists(record: LootRecord): MemberDist[] {
   const { n, base } = distSummary(record)
   const consignments = record.consignments ?? []

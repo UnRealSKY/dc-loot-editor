@@ -40,7 +40,7 @@ function markSettled(recordId: string, handle: string) {
 <template>
   <section>
     <div class="page-head">
-      <h2>未領總攬</h2>
+      <h2>未領總覽</h2>
     </div>
 
     <div v-if="!blocks.length" class="empty">目前沒有未結清款項。</div>

@@ -23,8 +23,9 @@ const record: LootRecord = {
 describe('serialize', () => {
   const out = serialize(record)
 
-  it('header', () => {
-    expect(out).toContain('## 2026-07-19 混龍 / 5')
+  it('header 含狀態尾綴（歸零的標記不顯示）', () => {
+    // lootItems 無 cart → 不顯示；4 人 pending → :dollar:(4)
+    expect(out).toContain('## 2026-07-19 混龍 / 5 ｜ :dollar:(4)')
   })
   it('一般項目', () => {
     expect(out).toContain('* :ok: 附加大師x6: 475x6')
@@ -34,6 +35,23 @@ describe('serialize', () => {
   })
   it('剪刀項目', () => {
     expect(out).toContain('* :ok: 手攻60%x2: 288x2 - 80(剪刀)x2')
+  })
+  it('未填金額輸出 ?（不是 0）', () => {
+    const r: LootRecord = {
+      id: 'q1', date: '2026-08-03', boss: '測王',
+      members: [{ handle: '@a', settle: 'pending' }],
+      lootItems: [
+        { status: 'cart', name: '未定價', qty: 2, unitPrice: null },
+        { status: 'cart', name: '剪未定', qty: 1, unitPrice: 300, scissorCount: 2 },
+      ],
+      purchases: [],
+      consignments: [{ seller: '@a', name: '代售品', qty: 1, unitPrice: 300, scissorCount: 1 }],
+      createdAt: '', updatedAt: '',
+    }
+    const s = serialize(r)
+    expect(s).toContain('* :shopping_cart: 未定價x2: ?x2')
+    expect(s).toContain('* :shopping_cart: 剪未定x1: 300x1 - ?(剪刀)x2')
+    expect(s).toContain('@a: 代售品x1 = 300x1 - ?(剪刀)x1')
   })
   it('內購區', () => {
     expect(out).toContain('## 內購區')
@@ -51,6 +69,34 @@ describe('serialize', () => {
   it('其他人分配行（加他人內購/(N-1)）', () => {
     // income=653.2+1000/4=903.2 → ceil=904
     expect(out).toContain('* :orange_square: @xiangjiaojiu: 654 + 1000/4 = 904')
+  })
+})
+
+describe('serialize 標題行狀態尾綴', () => {
+  it('有待售項目顯示 :shopping_cart:(項數)', () => {
+    const r: LootRecord = {
+      id: 's1', date: '2026-08-03', boss: '測王',
+      members: [{ handle: '@a', settle: 'pending' }],
+      lootItems: [
+        { status: 'cart', name: 'x', qty: 2, unitPrice: 100 },
+        { status: 'cart', name: 'y', qty: 1, unitPrice: null },
+        { status: 'ok', name: 'z', qty: 1, unitPrice: 50 },
+      ],
+      purchases: [],
+      createdAt: '', updatedAt: '',
+    }
+    expect(serialize(r)).toContain('## 2026-08-03 測王 / 1 ｜ :shopping_cart:(2) :dollar:(1)')
+  })
+  it('全售全結清＝全結案，顯示單一 :ballot_box_with_check:', () => {
+    const r: LootRecord = {
+      id: 's2', date: '2026-08-03', boss: '測王',
+      members: [{ handle: '@a', settle: 'settled' }],
+      lootItems: [{ status: 'ok', name: 'x', qty: 1, unitPrice: 100 }],
+      purchases: [],
+      createdAt: '', updatedAt: '',
+    }
+    expect(serialize(r)).toContain('## 2026-08-03 測王 / 1 ｜ :ballot_box_with_check:')
+    expect(serialize(r)).not.toContain(':ballot_box_with_check: :ballot_box_with_check:')
   })
 })
 

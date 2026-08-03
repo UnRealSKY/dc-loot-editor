@@ -4,6 +4,9 @@ import { useRoute } from 'vue-router'
 import { useRecordsStore } from '../store/records'
 import { useHistory } from '../store/history'
 import { aliasOf } from '../store/roster'
+import { webhookUrl } from '../store/webhook'
+import { publishOrSync } from '../dc/publish'
+import { parseMessageLink } from '../dc/webhook'
 import type { LootRecord, LootItem, Member, Purchase, Stream, Consignment } from '../types'
 import LootTable from './LootTable.vue'
 import AutocompleteInput from './AutocompleteInput.vue'
@@ -55,12 +58,70 @@ function ensureIds() {
 }
 watch(() => route.params.id, ensureIds, { immediate: true })
 
-// 自未領總攬「開啟 ↗」進入（?focus=dist）時，捲動至分配名單
+// 自未領總覽「開啟 ↗」進入（?focus=dist）時，捲動至分配名單
 const distEl = ref<HTMLElement | null>(null)
 onMounted(() => {
   if (route.query.focus !== 'dist') return
   nextTick(() => distEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
 })
+
+// ---- 發佈/同步至 DC ----
+const dcUrl = webhookUrl()
+type PublishState = 'idle' | 'busy' | 'ok' | 'fail'
+const publishState = ref<PublishState>('idle')
+const publishError = ref('')
+let publishTimer: ReturnType<typeof setTimeout> | undefined
+
+function fmtSync(iso: string): string {
+  return new Date(iso).toLocaleString('zh-TW', { hour12: false })
+}
+
+// 成功/失敗短暫顯示後回復；執行中不排程
+function settleState(state: PublishState) {
+  publishState.value = state
+  clearTimeout(publishTimer)
+  if (state === 'ok' || state === 'fail') {
+    publishTimer = setTimeout(() => (publishState.value = 'idle'), 2200)
+  }
+}
+
+async function publishToDc() {
+  const r = record.value
+  if (!r || publishState.value === 'busy') return
+  publishError.value = ''
+  if (!dcUrl.value) {
+    publishError.value = '尚未設定 Webhook URL（右上 ⚙）'
+    return
+  }
+  if (bossError.value) {
+    publishError.value = '團名為必填，填好再發佈'
+    return
+  }
+  settleState('busy')
+  try {
+    const dc = await publishOrSync(dcUrl.value, r)
+    store.upsert({ ...r, dc })
+    settleState('ok')
+  } catch (e) {
+    publishError.value = e instanceof Error ? e.message : String(e)
+    settleState('fail')
+  }
+}
+
+// 救援：換裝置/清資料後，把既有貼文綁回本紀錄
+function bindExisting() {
+  const r = record.value
+  if (!r) return
+  const link = window.prompt('貼上貼文「開頭訊息」的連結（DC 右鍵訊息 → 複製訊息連結）：')
+  if (!link) return
+  const parsed = parseMessageLink(link)
+  if (!parsed) {
+    publishError.value = '連結格式不對，應為 https://discord.com/channels/…/…/…'
+    return
+  }
+  publishError.value = ''
+  store.upsert({ ...r, dc: { ...parsed, publishedAt: new Date().toISOString() } })
+}
 
 const showExport = ref(false)
 const showImport = ref(false)
@@ -119,9 +180,22 @@ function toggleSettle(i: number) {
     <div class="editor-top">
       <router-link to="/" class="btn btn-ghost btn-sm back">← 返回列表</router-link>
       <div class="spacer" />
+      <button v-if="!record.dc" type="button" class="btn btn-ghost btn-sm"
+        title="換裝置或清除資料後，把既有 DC 貼文綁回本紀錄" @click="bindExisting">綁定貼文</button>
+      <button type="button" class="btn btn-sm publish-btn" :class="`publish-${publishState}`"
+        :disabled="publishState === 'busy'"
+        :title="record.dc ? `上次同步 ${record.dc.lastSyncAt ? fmtSync(record.dc.lastSyncAt) : '—'}` : '建立論壇貼文（討論串標題建立後不可改）'"
+        @click="publishToDc">
+        <span v-if="publishState === 'busy'" class="spinner" aria-hidden="true" />
+        <template v-if="publishState === 'busy'">同步中…</template>
+        <template v-else-if="publishState === 'ok'">✓ 已同步</template>
+        <template v-else-if="publishState === 'fail'">✕ 同步失敗</template>
+        <template v-else>{{ record.dc ? '同步至 DC' : '發佈至 DC' }}</template>
+      </button>
       <button type="button" class="btn btn-sm" @click="showImport = true">重新貼上匯入</button>
       <button type="button" class="btn btn-primary btn-sm" @click="showExport = true">複製回 DC</button>
     </div>
+    <p v-if="publishError" class="alert alert-warn">{{ publishError }}</p>
 
     <div class="card">
       <div class="section-head"><h3>基本資料</h3></div>
@@ -178,6 +252,17 @@ function toggleSettle(i: number) {
 <style scoped>
 /* 捲動定位時預留 sticky appbar 高度 */
 .dist-anchor { scroll-margin-top: 70px; }
+
+/* 同步按鈕三態回饋 */
+.publish-btn { min-width: 108px; transition: background .18s, border-color .18s, color .18s; }
+.publish-ok { background: var(--success-soft); border-color: var(--success); color: var(--success); }
+.publish-fail { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+.spinner {
+  width: 12px; height: 12px; flex: none;
+  border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%;
+  animation: publish-spin .7s linear infinite;
+}
+@keyframes publish-spin { to { transform: rotate(360deg); } }
 
 .editor-top { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
 .editor-top .spacer { flex: 1; }

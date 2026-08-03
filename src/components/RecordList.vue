@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRecordsStore } from '../store/records'
+import { allSold, allSettled } from '../calc/status'
 import type { LootRecord } from '../types'
 import ImportDialog from './ImportDialog.vue'
 
@@ -41,15 +42,6 @@ function toggleShelve(id: string) {
   if (!r) return
   store.upsert({ ...r, shelved: !r.shelved })
 }
-
-// 是否全數賣出：沒有「待售」項目（售出/不計入皆視為已處理）
-function allSold(r: LootRecord): boolean {
-  return r.lootItems.length > 0 && !r.lootItems.some((it) => it.status === 'cart')
-}
-// 是否已把錢交給所有團員：所有團員皆已結清
-function allSettled(r: LootRecord): boolean {
-  return r.members.length > 0 && r.members.every((m) => m.settle === 'settled')
-}
 </script>
 
 <template>
@@ -88,7 +80,7 @@ function allSettled(r: LootRecord): boolean {
         </div>
         <div class="record-actions">
           <button class="btn btn-icon" :class="{ shelving: r.shelved }"
-            :title="r.shelved ? '取消擱置' : '擱置（暫不列入未領總攬）'"
+            :title="r.shelved ? '取消擱置' : '擱置（暫不列入未領總覽）'"
             @click="toggleShelve(r.id)">⏸</button>
           <button class="btn btn-icon" title="複製" @click="duplicate(r.id)">⧉</button>
           <button class="btn btn-icon btn-danger" title="刪除" @click="remove(r.id)">🗑</button>

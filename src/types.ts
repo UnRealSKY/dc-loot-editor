@@ -42,6 +42,13 @@ export interface Consignment {
   id?: string
 }
 
+export interface DcBinding {
+  threadId: string         // 討論串 id（webhook 無法枚舉，遺失即無法再編輯貼文）
+  messageId: string        // 開頭訊息 id（PATCH 對象）
+  publishedAt: string
+  lastSyncAt?: string
+}
+
 export interface LootRecord {
   id: string
   date: string             // YYYY-MM-DD
@@ -51,7 +58,8 @@ export interface LootRecord {
   purchases: Purchase[]
   streams?: Stream[]        // 直播檔連結
   consignments?: Consignment[] // 代售：某團員代賣、手上握著的金額，併入結算
-  shelved?: boolean         // 擱置：暫不列入未領總攬
+  shelved?: boolean         // 擱置：暫不列入未領總覽
+  dc?: DcBinding            // 已發佈至 DC 論壇串的綁定
   createdAt: string
   updatedAt: string
 }
