@@ -25,7 +25,7 @@ describe('serialize', () => {
 
   it('header 含狀態尾綴（歸零的標記不顯示）', () => {
     // lootItems 無 cart → 不顯示；4 人 pending → :dollar:(4)
-    expect(out).toContain('## 2026-07-19 混龍 / 5 ｜ :dollar:(4)')
+    expect(out).toContain('## 2026-07-19 混龍 ｜ :dollar:(4)')
   })
   it('一般項目', () => {
     expect(out).toContain('* :ok: 附加大師x6: 475x6')
@@ -118,7 +118,7 @@ describe('serialize 標題行狀態尾綴', () => {
       purchases: [],
       createdAt: '', updatedAt: '',
     }
-    expect(serialize(r)).toContain('## 2026-08-03 測王 / 1 ｜ :shopping_cart:(2) :dollar:(1)')
+    expect(serialize(r)).toContain('## 2026-08-03 測王 ｜ :shopping_cart:(2) :dollar:(1)')
   })
   it('全售全結清＝全結案，顯示單一 :ballot_box_with_check:', () => {
     const r: LootRecord = {
@@ -128,7 +128,7 @@ describe('serialize 標題行狀態尾綴', () => {
       purchases: [],
       createdAt: '', updatedAt: '',
     }
-    expect(serialize(r)).toContain('## 2026-08-03 測王 / 1 ｜ :ballot_box_with_check:')
+    expect(serialize(r)).toContain('## 2026-08-03 測王 ｜ :ballot_box_with_check:')
     expect(serialize(r)).not.toContain(':ballot_box_with_check: :ballot_box_with_check:')
   })
 })

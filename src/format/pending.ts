@@ -39,7 +39,7 @@ export function pendingBlocks(
     for (const d of memberDists(r)) {
       if (d.member.settle !== 'pending') continue
       const handle = d.member.handle
-      const lines: string[] = [`${[r.date, r.boss].filter(Boolean).join(' ')} / ${n}`]
+      const lines: string[] = [[r.date, r.boss].filter(Boolean).join(' ')]
       for (const p of r.purchases) {
         if (p.buyer === handle) continue
         const mode = p.mode === 'split' ? ' (均攤)' : ''

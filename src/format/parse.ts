@@ -2,8 +2,8 @@ import type { LootRecord, LootItem, LootStatus, Stream, Consignment, SettleStatu
 
 type Section = 'loot' | 'purchase' | 'stream' | 'consignment' | 'dist' | 'none'
 
-// 人數後可帶「｜ 狀態標記」尾綴（相容無尾綴的舊格式；分隔符相容 ｜/|/・）
-const HEADER_RE = /^##\s+(\S+)\s+(.+?)\s*\/\s*(\d+)\s*(?:[｜|・].*)?$/
+// 標頭：日期 團名［/ 人數（舊格式，僅供辨識）］［｜ 狀態尾綴（相容 ｜/|/・）］
+const HEADER_RE = /^##\s+(\S+)\s+(.+?)(?:\s*\/\s*(\d+))?\s*(?:[｜|・].*)?$/
 const STRUCK_RE = /^\*\s*~~(.+?)~~\s*$/
 // 狀態 token 寬鬆捕捉，相容 :ok: 短碼與 🆗 unicode（DC 兩種編輯模式）
 const LOOT_RE = /^\*\s*(\S+)\s+(.+?)x(\d+)\s*:\s*(.+?)\s*$/

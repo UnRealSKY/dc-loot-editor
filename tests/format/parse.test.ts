@@ -64,6 +64,11 @@ describe('parse header', () => {
     expect(r.purchases[2].mode).toBe('split')
     expect(r.purchases[2].name).toBe('白衣5%')
   })
+  it('新格式標頭（無 / 人數）也能解析', () => {
+    const r = parse(sample.replace('## 2026-07-19 混龍 / 5', '## 2026-07-19 混龍 ｜ :dollar:(3)'))
+    expect(r.date).toBe('2026-07-19')
+    expect(r.boss).toBe('混龍')
+  })
   it('標頭帶狀態尾綴（｜ 短碼或 emoji）也能解析', () => {
     const short = parse(sample.replace('## 2026-07-19 混龍 / 5', '## 2026-07-19 混龍 / 5 ｜ :shopping_cart:(2) :dollar:(2)'))
     expect(short.date).toBe('2026-07-19')
