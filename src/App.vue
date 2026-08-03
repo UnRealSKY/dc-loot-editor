@@ -1,3 +1,10 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import DcSettingsDialog from './components/DcSettingsDialog.vue'
+
+const showDcSettings = ref(false)
+</script>
+
 <template>
   <div class="app">
     <header class="appbar">
@@ -7,9 +14,13 @@
       </router-link>
       <nav class="nav">
         <router-link to="/" class="nav-link" exact-active-class="nav-active">分寶紀錄</router-link>
-        <router-link to="/pending" class="nav-link" active-class="nav-active">未領總攬</router-link>
+        <router-link to="/pending" class="nav-link" active-class="nav-active">未領總覽</router-link>
       </nav>
+      <div class="appbar-spacer" />
+      <button type="button" class="btn btn-icon" title="DC Webhook 設定"
+        @click="showDcSettings = true">⚙</button>
     </header>
+    <DcSettingsDialog :open="showDcSettings" @close="showDcSettings = false" />
     <router-view />
   </div>
 </template>
@@ -66,6 +77,7 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .nav { display: flex; gap: 4px; }
+.appbar-spacer { flex: 1; }
 .nav-link {
   text-decoration: none; color: var(--text-muted);
   font-size: 14px; font-weight: 550; padding: 6px 13px; border-radius: 999px;

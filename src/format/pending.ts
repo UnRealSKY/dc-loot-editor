@@ -26,7 +26,7 @@ function byDateAsc(a: LootRecord, b: LootRecord): number {
   return a.boss.localeCompare(b.boss)
 }
 
-// 未領總攬：每位有未結清款項的團員一個區塊，逐行可直接複製進遊戲
+// 未領總覽：每位有未結清款項的團員一個區塊，逐行可直接複製進遊戲
 export function pendingBlocks(
   records: LootRecord[],
   display: (handle: string) => string,

@@ -2,11 +2,13 @@ import type { LootRecord, LootItem, LootStatus, Stream, Consignment, SettleStatu
 
 type Section = 'loot' | 'purchase' | 'stream' | 'consignment' | 'dist' | 'none'
 
-const HEADER_RE = /^##\s+(\S+)\s+(.+?)\s*\/\s*(\d+)\s*$/
+// 人數後可帶「｜ 狀態標記」尾綴（相容無尾綴的舊格式；分隔符相容 ｜/|/・）
+const HEADER_RE = /^##\s+(\S+)\s+(.+?)\s*\/\s*(\d+)\s*(?:[｜|・].*)?$/
 const STRUCK_RE = /^\*\s*~~(.+?)~~\s*$/
 // 狀態 token 寬鬆捕捉，相容 :ok: 短碼與 🆗 unicode（DC 兩種編輯模式）
 const LOOT_RE = /^\*\s*(\S+)\s+(.+?)x(\d+)\s*:\s*(.+?)\s*$/
-const PRICE_RE = /^(\d+)x(\d+)(?:\s*-\s*(\d+)\(剪刀\)x(\d+))?/
+// 金額可為 ?（未填、未知），對應 unitPrice null / scissorUnitPrice undefined
+const PRICE_RE = /^(\d+|\?)x(\d+)(?:\s*-\s*(\d+|\?)\(剪刀\)x(\d+))?/
 const PURCHASE_RE = /^(<@\d+>|@\S+?)\s*:\s*(.+?)x(\d+)\s*=\s*(\d+)x(\d+)\s*$/
 // 代售行：@代售者: 品名xN = 單價xN[ - 剪刀單價(剪刀)x剪刀數]，金額部分用 PRICE_RE 解析
 const CONSIGNMENT_RE = /^(<@\d+>|@\S+?)\s*:\s*(.+?)x(\d+)\s*=\s*(.+?)\s*$/
@@ -54,11 +56,11 @@ function parseLoot(line: string): LootItem | null {
     status: lootStatusFrom(m[1]),
     name: m[2].trim(),
     qty: Number(m[3]),
-    unitPrice: price ? Number(price[1]) : null,
+    unitPrice: price && price[1] !== '?' ? Number(price[1]) : null,
   }
-  if (price && price[3] && price[4]) {
-    item.scissorUnitPrice = Number(price[3])
+  if (price && price[4]) {
     item.scissorCount = Number(price[4])
+    if (price[3] !== '?') item.scissorUnitPrice = Number(price[3])
   }
   return item
 }
@@ -107,11 +109,12 @@ export function parse(md: string): LootRecord {
       const price = c ? c[4].match(PRICE_RE) : null
       if (c && price) {
         const entry: Consignment = {
-          seller: c[1], name: c[2].trim(), qty: Number(c[3]), unitPrice: Number(price[1]),
+          seller: c[1], name: c[2].trim(), qty: Number(c[3]),
+          unitPrice: price[1] === '?' ? 0 : Number(price[1]),
         }
-        if (price[3] && price[4]) {
-          entry.scissorUnitPrice = Number(price[3])
+        if (price[4]) {
           entry.scissorCount = Number(price[4])
+          if (price[3] !== '?') entry.scissorUnitPrice = Number(price[3])
         }
         consignments.push(entry)
       }
