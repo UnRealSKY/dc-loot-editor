@@ -1,5 +1,6 @@
 import type { LootRecord, DcBinding } from '../types'
 import { serialize } from '../format/serialize'
+import { rosterMentions } from '../store/roster'
 import { createForumPost, editMessage } from './webhook'
 
 export const CONTENT_LIMIT = 2000 // Discord 訊息內文上限
@@ -11,9 +12,26 @@ export function threadTitle(record: LootRecord): string {
   return md ? `[${md}]${record.boss}` : record.boss
 }
 
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+// 把 @handle 換成 <@ID> 真 mention（純文字 @名稱 Discord 不會渲染成 tag）。
+// 長 handle 先換避免前綴誤傷；handle 後不得再接 handle 字元（\w 或 .）
+export function applyMentions(
+  content: string,
+  entries: Array<{ handle: string; id: string }>,
+): string {
+  let out = content
+  for (const { handle, id } of [...entries].sort((a, b) => b.handle.length - a.handle.length)) {
+    out = out.replace(new RegExp(`${escapeRe(handle)}(?![\\w.])`, 'g'), `<@${id}>`)
+  }
+  return out
+}
+
 // 未發佈→建立論壇貼文；已發佈→PATCH 開頭訊息內文。回傳最新綁定。
 export async function publishOrSync(url: string, record: LootRecord): Promise<DcBinding> {
-  const content = serialize(record)
+  const content = applyMentions(serialize(record), rosterMentions())
   if (content.length > CONTENT_LIMIT) {
     throw new Error(`內文 ${content.length} 字元，超過 Discord 上限 ${CONTENT_LIMIT}，請精簡後再發佈`)
   }

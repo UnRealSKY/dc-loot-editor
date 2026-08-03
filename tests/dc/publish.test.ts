@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { threadTitle, publishOrSync, CONTENT_LIMIT } from '#src/dc/publish'
+import { threadTitle, publishOrSync, applyMentions, CONTENT_LIMIT } from '#src/dc/publish'
+import { isBindingLost } from '#src/dc/webhook'
 import type { LootRecord } from '#src/types'
 
 const URL = 'https://discord.com/api/webhooks/1/token'
@@ -36,6 +37,23 @@ describe('threadTitle', () => {
   })
 })
 
+describe('applyMentions', () => {
+  const ENTRIES = [
+    { handle: '@a', id: '111' },
+    { handle: '@ab', id: '222' },
+    { handle: '@.unrealsky', id: '333' },
+  ]
+  it('把 @handle 換成 <@ID>，長 handle 優先、不誤傷前綴', () => {
+    const out = applyMentions('* :ok: @ab: 1 = 1\n* :ok: @a: 2 = 2\n@.unrealsky: 龍鍊x1 = 500x1', ENTRIES)
+    expect(out).toContain('* :ok: <@222>: 1 = 1')
+    expect(out).toContain('* :ok: <@111>: 2 = 2')
+    expect(out).toContain('<@333>: 龍鍊x1 = 500x1')
+  })
+  it('名冊沒有 ID 的 handle 保持原樣', () => {
+    expect(applyMentions('@unknown: x', ENTRIES)).toBe('@unknown: x')
+  })
+})
+
 describe('publishOrSync', () => {
   it('未發佈時 POST 建立貼文並回傳完整綁定；標題不帶狀態、內文標題行帶狀態', async () => {
     const fetchMock = vi.fn(async () => jsonResponse(200, { id: 'm1', channel_id: 't1' }))
@@ -61,6 +79,18 @@ describe('publishOrSync', () => {
     expect(dc.lastSyncAt).not.toBe(undefined)
     const [calledUrl] = fetchMock.mock.calls[0] as unknown as [string]
     expect(calledUrl).toBe(`${URL}/messages/m1?thread_id=t1`)
+  })
+
+  it('綁定失效（400 未知頻道）可被 isBindingLost 辨識', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(400, { message: '未知頻道', code: 10003 })))
+    const r = makeRecord({ dc: { threadId: 't1', messageId: 'm1', publishedAt: '2026-08-01T00:00:00Z' } })
+    try {
+      await publishOrSync(URL, r)
+      expect.unreachable('應拋出錯誤')
+    } catch (e) {
+      expect(isBindingLost(e)).toBe(true)
+      expect((e as Error).message).toContain('未知頻道')
+    }
   })
 
   it('內文超過上限時擋下且不打 API', async () => {

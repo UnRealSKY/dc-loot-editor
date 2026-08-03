@@ -73,7 +73,11 @@ describe('API 呼叫', () => {
     expect(r).toEqual({ messageId: '111', threadId: '222' })
     const [calledUrl, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(calledUrl).toBe(`${VALID}?wait=true`)
-    expect(JSON.parse(init.body as string)).toEqual({ thread_name: '2026-08-02 混龍 / 6', content: '內文' })
+    expect(JSON.parse(init.body as string)).toEqual({
+      thread_name: '2026-08-02 混龍 / 6',
+      content: '內文',
+      allowed_mentions: { parse: ['users'] },
+    })
   })
 
   it('editMessage 打 messages/{id} 並帶 thread_id', async () => {

@@ -41,15 +41,34 @@ async function fetchDc(input: string, init?: RequestInit, attempt = 0): Promise<
   return res
 }
 
+export class DcHttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: number, // Discord 錯誤碼（如 10003 未知頻道、10008 未知訊息）
+  ) {
+    super(message)
+  }
+}
+
+// 綁定失效：討論串或訊息已不存在（被刪除、或綁定資料過期）。
+// 只認 Discord 錯誤碼 10003（未知頻道）/ 10008（未知訊息）——
+// 其他失敗（webhook 被刪 10015、權限、網路、5xx）屬一般錯誤，不可誤導使用者重新發文。
+export function isBindingLost(e: unknown): boolean {
+  return e instanceof DcHttpError && (e.code === 10003 || e.code === 10008)
+}
+
 async function fail(res: Response, action: string): Promise<never> {
   let detail = ''
+  let code: number | undefined
   try {
     const body = await res.json()
     if (body?.message) detail = `：${body.message}`
+    if (typeof body?.code === 'number') code = body.code
   } catch {
     // 無 JSON body 時只帶狀態碼
   }
-  throw new Error(`${action}失敗（HTTP ${res.status}${detail}）`)
+  throw new DcHttpError(`${action}失敗（HTTP ${res.status}${detail}）`, res.status, code)
 }
 
 export interface WebhookInfo {
@@ -77,7 +96,11 @@ export async function createForumPost(
   const res = await fetchDc(`${url}?wait=true`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ thread_name: threadName, content }),
+    body: JSON.stringify({
+      thread_name: threadName,
+      content,
+      allowed_mentions: { parse: ['users'] },
+    }),
   })
   if (!res.ok) return fail(res, '發佈')
   const data = await res.json()
@@ -94,7 +117,7 @@ export async function editMessage(
   const res = await fetchDc(`${url}/messages/${messageId}?thread_id=${threadId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, allowed_mentions: { parse: ['users'] } }),
   })
   if (!res.ok) return fail(res, '同步')
 }
