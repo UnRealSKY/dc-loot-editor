@@ -3,6 +3,7 @@ import { ref } from 'vue'
 export interface RosterEntry {
   handle: string
   alias: string
+  id?: string // Discord 使用者 ID（發佈時把 @handle 轉成 <@ID> 真 mention 用）
 }
 
 const STORAGE_KEY = 'dc-loot-roster'
@@ -63,4 +64,11 @@ export function displayName(handle: string): string {
 
 export function rosterHandles(): string[] {
   return roster.value.map((e) => e.handle).filter(Boolean)
+}
+
+// 有填 Discord 使用者 ID 的名冊項（handle → <@ID> 轉換用）
+export function rosterMentions(): Array<{ handle: string; id: string }> {
+  return roster.value
+    .filter((e) => e.handle && e.id)
+    .map((e) => ({ handle: e.handle, id: String(e.id) }))
 }

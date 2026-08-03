@@ -6,7 +6,7 @@ import { useHistory } from '../store/history'
 import { aliasOf } from '../store/roster'
 import { webhookUrl } from '../store/webhook'
 import { publishOrSync } from '../dc/publish'
-import { parseMessageLink } from '../dc/webhook'
+import { parseMessageLink, isBindingLost } from '../dc/webhook'
 import type { LootRecord, LootItem, Member, Purchase, Stream, Consignment } from '../types'
 import LootTable from './LootTable.vue'
 import AutocompleteInput from './AutocompleteInput.vue'
@@ -103,6 +103,23 @@ async function publishToDc() {
     store.upsert({ ...r, dc })
     settleState('ok')
   } catch (e) {
+    // 綁定失效（貼文/討論串已被刪除）：詢問是否重新發一篇新貼文
+    if (r.dc && isBindingLost(e)) {
+      if (window.confirm('DC 上找不到原本的貼文（可能已被刪除）。\n要重新發一篇新貼文嗎？')) {
+        try {
+          const dc = await publishOrSync(dcUrl.value, { ...r, dc: undefined })
+          store.upsert({ ...r, dc })
+          settleState('ok')
+        } catch (e2) {
+          publishError.value = e2 instanceof Error ? e2.message : String(e2)
+          settleState('fail')
+        }
+        return
+      }
+      publishError.value = '原貼文已失效，未重新發佈；也可用「綁定貼文」接回其他既有貼文'
+      settleState('fail')
+      return
+    }
     publishError.value = e instanceof Error ? e.message : String(e)
     settleState('fail')
   }
@@ -180,8 +197,10 @@ function toggleSettle(i: number) {
     <div class="editor-top">
       <router-link to="/" class="btn btn-ghost btn-sm back">← 返回列表</router-link>
       <div class="spacer" />
-      <button v-if="!record.dc" type="button" class="btn btn-ghost btn-sm"
-        title="換裝置或清除資料後，把既有 DC 貼文綁回本紀錄" @click="bindExisting">綁定貼文</button>
+      <button type="button" class="btn btn-ghost btn-sm"
+        title="把既有 DC 貼文綁到本紀錄（換裝置、清資料或原貼文失效時用）" @click="bindExisting">
+        {{ record.dc ? '換綁貼文' : '綁定貼文' }}
+      </button>
       <button type="button" class="btn btn-sm publish-btn" :class="`publish-${publishState}`"
         :disabled="publishState === 'busy'"
         :title="record.dc ? `上次同步 ${record.dc.lastSyncAt ? fmtSync(record.dc.lastSyncAt) : '—'}` : '建立論壇貼文（討論串標題建立後不可改）'"
