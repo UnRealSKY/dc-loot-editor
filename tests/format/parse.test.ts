@@ -40,6 +40,16 @@ describe('parse header', () => {
     expect(r.lootItems[1]).toMatchObject({ name: '剪未定', unitPrice: 300, scissorCount: 2 })
     expect(r.lootItems[1].scissorUnitPrice).toBeUndefined()
   })
+  it('項目下的縮排行還原為備註', () => {
+    const r = parse([
+      '## 2026-08-03 測王 / 1',
+      '* :ok: 大師附加x1: 461x1',
+      '  含手續費',
+      '* :shopping_cart: 潛能90%x1: ?x1',
+    ].join('\n'))
+    expect(r.lootItems[0]).toMatchObject({ name: '大師附加', note: '含手續費' })
+    expect(r.lootItems[1].note).toBeUndefined()
+  })
   it('內購 (均攤) 尾綴還原 mode，全形括號相容', () => {
     const r = parse([
       '## 2026-08-03 測王 / 2',

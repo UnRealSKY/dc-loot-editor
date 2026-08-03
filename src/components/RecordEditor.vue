@@ -5,8 +5,8 @@ import { useRecordsStore } from '../store/records'
 import { useHistory } from '../store/history'
 import { aliasOf } from '../store/roster'
 import { webhookUrl } from '../store/webhook'
-import { publishOrSync } from '../dc/publish'
-import { parseMessageLink, isBindingLost } from '../dc/webhook'
+import { publishOrSync, publishContent } from '../dc/publish'
+import { parseMessageLink, isBindingLost, getMessage } from '../dc/webhook'
 import type { LootRecord, LootItem, Member, Purchase, Stream, Consignment } from '../types'
 import LootTable from './LootTable.vue'
 import AutocompleteInput from './AutocompleteInput.vue'
@@ -85,6 +85,39 @@ function settleState(state: PublishState) {
   }
 }
 
+// ---- 與 DC 貼文的一致性檢查 ----
+const remoteContent = ref<string | null>(null) // null＝尚未取得（未綁定/讀取失敗）
+const checkingRemote = ref(false)
+const remoteLost = ref(false)
+
+async function checkRemote() {
+  const r = record.value
+  remoteContent.value = null
+  remoteLost.value = false
+  if (!r?.dc || !dcUrl.value) return
+  checkingRemote.value = true
+  try {
+    const m = await getMessage(dcUrl.value, r.dc.messageId, r.dc.threadId)
+    remoteContent.value = m.content
+  } catch (e) {
+    if (isBindingLost(e)) remoteLost.value = true
+    // 其他錯誤（網路等）維持「無法確認」，不打擾操作
+  } finally {
+    checkingRemote.value = false
+  }
+}
+watch(() => [route.params.id, record.value?.dc?.messageId], checkRemote, { immediate: true })
+
+const localContent = computed(() => (record.value ? publishContent(record.value) : ''))
+type SyncState = 'unbound' | 'checking' | 'lost' | 'unknown' | 'inSync' | 'dirty'
+const syncState = computed<SyncState>(() => {
+  if (!record.value?.dc) return 'unbound'
+  if (checkingRemote.value) return 'checking'
+  if (remoteLost.value) return 'lost'
+  if (remoteContent.value == null) return 'unknown'
+  return localContent.value === remoteContent.value ? 'inSync' : 'dirty'
+})
+
 async function publishToDc() {
   const r = record.value
   if (!r || publishState.value === 'busy') return
@@ -102,6 +135,7 @@ async function publishToDc() {
     const dc = await publishOrSync(dcUrl.value, r)
     store.upsert({ ...r, dc })
     settleState('ok')
+    checkRemote() // 同步成功後復查一致性
   } catch (e) {
     // 綁定失效（貼文/討論串已被刪除）：詢問是否重新發一篇新貼文
     if (r.dc && isBindingLost(e)) {
@@ -110,6 +144,7 @@ async function publishToDc() {
           const dc = await publishOrSync(dcUrl.value, { ...r, dc: undefined })
           store.upsert({ ...r, dc })
           settleState('ok')
+          checkRemote()
         } catch (e2) {
           publishError.value = e2 instanceof Error ? e2.message : String(e2)
           settleState('fail')
@@ -197,6 +232,10 @@ function toggleSettle(i: number) {
     <div class="editor-top">
       <router-link to="/" class="btn btn-ghost btn-sm back">← 返回列表</router-link>
       <div class="spacer" />
+      <span v-if="syncState === 'checking'" class="sync-chip muted">⋯ 檢查中</span>
+      <span v-else-if="syncState === 'inSync'" class="chip chip-ok sync-chip" title="DC 貼文內容與目前紀錄一致">✓ 與 DC 一致</span>
+      <span v-else-if="syncState === 'dirty'" class="chip chip-pending sync-chip" title="紀錄有變更尚未同步到 DC">● 與 DC 不同步</span>
+      <span v-else-if="syncState === 'lost'" class="chip chip-struck sync-chip" title="DC 上找不到綁定的貼文（可能已被刪除）">⚠ 貼文已失效</span>
       <button type="button" class="btn btn-ghost btn-sm"
         title="把既有 DC 貼文綁到本紀錄（換裝置、清資料或原貼文失效時用）" @click="bindExisting">
         {{ record.dc ? '換綁貼文' : '綁定貼文' }}
@@ -271,6 +310,8 @@ function toggleSettle(i: number) {
 <style scoped>
 /* 捲動定位時預留 sticky appbar 高度 */
 .dist-anchor { scroll-margin-top: 70px; }
+
+.sync-chip { cursor: default; white-space: nowrap; font-size: 12.5px; }
 
 /* 同步按鈕三態回饋 */
 .publish-btn { min-width: 108px; transition: background .18s, border-color .18s, color .18s; }

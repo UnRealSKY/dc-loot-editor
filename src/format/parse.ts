@@ -93,6 +93,13 @@ export function parse(md: string): LootRecord {
     if (/^##\s*分配/.test(line)) { section = 'dist'; continue }
 
     if (section === 'loot') {
+      // 縮排行＝上一個項目的備註（非劃線項目輸出格式）
+      const noteMatch = line.match(/^\s+(\S.*)$/)
+      if (noteMatch && record.lootItems.length) {
+        const last = record.lootItems[record.lootItems.length - 1]
+        if (!last.note) last.note = noteMatch[1].trim()
+        continue
+      }
       const item = parseLoot(line)
       if (item) record.lootItems.push(item)
     } else if (section === 'purchase') {

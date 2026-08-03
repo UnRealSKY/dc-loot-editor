@@ -36,6 +36,20 @@ describe('serialize', () => {
   it('剪刀項目', () => {
     expect(out).toContain('* :ok: 手攻60%x2: 288x2 - 80(剪刀)x2')
   })
+  it('非劃線項目的備註輸出為下一行縮排', () => {
+    const r: LootRecord = {
+      id: 'n1', date: '2026-08-03', boss: '測王',
+      members: [{ handle: '@a', settle: 'pending' }],
+      lootItems: [
+        { status: 'ok', name: '大師附加', qty: 1, unitPrice: 461, note: '含手續費' },
+        { status: 'cart', name: '潛能90%', qty: 1, unitPrice: null },
+      ],
+      purchases: [],
+      createdAt: '', updatedAt: '',
+    }
+    const s = serialize(r)
+    expect(s).toContain('* :ok: 大師附加x1: 461x1\n  含手續費\n* :shopping_cart: 潛能90%x1: ?x1')
+  })
   it('未填金額輸出 ?（不是 0）', () => {
     const r: LootRecord = {
       id: 'q1', date: '2026-08-03', boss: '測王',

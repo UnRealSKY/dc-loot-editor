@@ -35,7 +35,11 @@ function statusSuffix(record: LootRecord): string {
 export function serialize(record: LootRecord): string {
   const lines: string[] = []
   lines.push(`## ${record.date} ${record.boss} / ${record.members.length} ｜ ${statusSuffix(record)}`)
-  for (const it of record.lootItems) lines.push(lootLine(it))
+  for (const it of record.lootItems) {
+    lines.push(lootLine(it))
+    // 非劃線項目的備註：項目行下方縮排一行（劃線項目維持行內註解）
+    if (it.status !== 'struck' && it.note) lines.push(`  ${it.note}`)
+  }
 
   if (record.purchases.length) {
     lines.push('', '## 內購區')

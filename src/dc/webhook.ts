@@ -108,6 +108,18 @@ export async function createForumPost(
   return { messageId: String(data.id), threadId: String(data.channel_id) }
 }
 
+// 讀回自己發過的訊息（一致性檢查用；webhook 只能讀自己的訊息且須知道 id）
+export async function getMessage(
+  url: string,
+  messageId: string,
+  threadId: string,
+): Promise<{ content: string }> {
+  const res = await fetchDc(`${url}/messages/${messageId}?thread_id=${threadId}`)
+  if (!res.ok) return fail(res, '讀取貼文')
+  const data = await res.json()
+  return { content: String(data.content ?? '') }
+}
+
 export async function editMessage(
   url: string,
   messageId: string,
