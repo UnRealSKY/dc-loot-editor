@@ -63,14 +63,14 @@ describe('pendingBlocks', () => {
     const [b] = blocks
     expect(b.display).toBe('阿歪')
     expect(b.records[0].lines).toEqual([
-      '2026-08-02 混龍第一場 / 6',
+      '2026-08-02 混龍第一場',
       '蘇察哈爾燦: 內購 混龍鍊x1 = 500x1',
       '咕嘎幻影: 內購 混龍鍊x1 = 500x1',
       '總共: 4566 / 6 = 761',
       '阿歪: 761 + 1000/5 = 961',
     ])
     expect(b.records[1].lines).toEqual([
-      '2026-08-02 混龍第二場 / 5',
+      '2026-08-02 混龍第二場',
       '天天(UnRealSKY): 內購 白衣5%x1 = 200x1',
       '總共: 1259 / 5 = 252',
       '阿歪: 252 + 200/4 = 302',
@@ -106,7 +106,7 @@ describe('pendingBlocks', () => {
     })
     const [b] = pendingBlocks([r], display)
     expect(b.records[0].lines).toEqual([
-      '2026-08-02 測 / 2',
+      '2026-08-02 測',
       '總共: 1000 / 2 = 500',
       '阿歪: 500 - 300 = 200',
     ])

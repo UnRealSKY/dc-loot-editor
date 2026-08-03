@@ -67,7 +67,7 @@ describe('publishOrSync', () => {
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     const body = JSON.parse(init.body as string)
     expect(body.thread_name).toBe('[08-02]混龍')
-    expect(body.content.startsWith('## 2026-08-02 混龍 / 2 ｜ :dollar:(2)')).toBe(true)
+    expect(body.content.startsWith('## 2026-08-02 混龍 ｜ :dollar:(2)')).toBe(true)
   })
 
   it('已發佈時 PATCH 原訊息並更新 lastSyncAt', async () => {
