@@ -29,9 +29,14 @@ export function applyMentions(
   return out
 }
 
+// 發佈到 DC 的最終內文（serialize + 真 mention 轉換）；一致性檢查也用同一份
+export function publishContent(record: LootRecord): string {
+  return applyMentions(serialize(record), rosterMentions())
+}
+
 // 未發佈→建立論壇貼文；已發佈→PATCH 開頭訊息內文。回傳最新綁定。
 export async function publishOrSync(url: string, record: LootRecord): Promise<DcBinding> {
-  const content = applyMentions(serialize(record), rosterMentions())
+  const content = publishContent(record)
   if (content.length > CONTENT_LIMIT) {
     throw new Error(`內文 ${content.length} 字元，超過 Discord 上限 ${CONTENT_LIMIT}，請精簡後再發佈`)
   }
