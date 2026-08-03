@@ -72,6 +72,25 @@ describe('serialize', () => {
   })
 })
 
+describe('serialize 均攤內購', () => {
+  it('均攤內購行帶 (均攤) 尾綴，全額不帶', () => {
+    const r: LootRecord = {
+      id: 'p1', date: '2026-08-03', boss: '測王',
+      members: [{ handle: '@a', settle: 'pending' }, { handle: '@b', settle: 'pending' }],
+      lootItems: [],
+      purchases: [
+        { buyer: '@a', name: '混龍鍊', qty: 1, unitPrice: 500, mode: 'split' },
+        { buyer: '@b', name: '龍蛋', qty: 1, unitPrice: 500 },
+      ],
+      createdAt: '', updatedAt: '',
+    }
+    const s = serialize(r)
+    expect(s).toContain('@a: 混龍鍊x1 = 500x1 (均攤)')
+    expect(s).toContain('@b: 龍蛋x1 = 500x1')
+    expect(s).not.toContain('龍蛋x1 = 500x1 (均攤)')
+  })
+})
+
 describe('serialize 標題行狀態尾綴', () => {
   it('有待售項目顯示 :shopping_cart:(項數)', () => {
     const r: LootRecord = {

@@ -1,5 +1,5 @@
 import type { LootRecord, Member } from '../types'
-import { netTotal, computeIncomes, memberConsignmentTotal } from '../calc/distribution'
+import { netTotal, computeIncomes, memberConsignmentTotal, roundDisplay } from '../calc/distribution'
 
 export interface DistSummary {
   total: number
@@ -31,8 +31,8 @@ export function memberDists(record: LootRecord): MemberDist[] {
     if (!inc) continue
     const held = memberConsignmentTotal(consignments, m.handle)
     let expr = `${base}`
-    if (n > 1 && inc.others > 0) expr += ` + ${inc.others}/${n - 1}`
-    if (inc.own > 0) expr += ` - ${inc.own}`
+    if (n > 1 && inc.others > 0) expr += ` + ${roundDisplay(inc.others)}/${n - 1}`
+    if (inc.own > 0) expr += ` - ${roundDisplay(inc.own)}`
     if (held > 0) expr += ` - ${held}`
     out.push({ member: m, expr, amount: Math.ceil(inc.income) - held })
   }

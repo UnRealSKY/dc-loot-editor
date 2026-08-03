@@ -46,6 +46,36 @@ describe('runMigrations', () => {
     expect(first.records[0].lootItems[0].name).toBe('潛能70%')
   })
 
+  it('v2：製作法家族統一全名（含百列→百烈）', () => {
+    const r = makeRecord({
+      lootItems: [
+        { status: 'ok', name: '閃綠色百烈製作法', qty: 1, unitPrice: 5 },
+        { status: 'ok', name: '閃亮的綠色百列戰鬥標記製作法', qty: 1, unitPrice: 5 },
+        { status: 'ok', name: '閃亮綠弓製作法', qty: 1, unitPrice: 5 },
+        { status: 'ok', name: '閃流氓綠色製作法', qty: 1, unitPrice: 5 },
+      ],
+    })
+    const { records } = runMigrations([r])
+    expect(records[0].lootItems.map((it) => it.name)).toEqual([
+      '閃亮的綠色百烈戰鬥標記製作法',
+      '閃亮的綠色百烈戰鬥標記製作法',
+      '閃亮的綠色弓箭手標記製作法',
+      '閃亮的綠色流氓標記製作法',
+    ])
+  })
+
+  it('v2：珍珠手杖統一並把屬性後綴移到註解（已有註解則保留）', () => {
+    const r = makeRecord({
+      lootItems: [
+        { status: 'cart', name: '珍珠手杖(+4AD)', qty: 1, unitPrice: 80 },
+        { status: 'cart', name: '珍珠手杖(+4AD)', qty: 1, unitPrice: 80, note: '自訂' },
+      ],
+    })
+    const { records } = runMigrations([r])
+    expect(records[0].lootItems[0]).toMatchObject({ name: '龍之珍珠手杖', note: '(+4AD)' })
+    expect(records[0].lootItems[1]).toMatchObject({ name: '龍之珍珠手杖', note: '自訂' })
+  })
+
   it('已執行過則不再改動', () => {
     runMigrations([])
     const again = runMigrations([

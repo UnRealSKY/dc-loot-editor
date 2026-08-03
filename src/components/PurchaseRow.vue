@@ -1,19 +1,25 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Purchase } from '../types'
-import { purchaseValue } from '../calc/distribution'
+import { purchaseValue, purchaseCharge, roundDisplay } from '../calc/distribution'
 import { useHistory } from '../store/history'
 import { displayName } from '../store/roster'
 import AutocompleteInput from './AutocompleteInput.vue'
 
-const props = defineProps<{ modelValue: Purchase; memberHandles: string[] }>()
+const props = defineProps<{ modelValue: Purchase; memberHandles: string[]; memberCount: number }>()
 const emit = defineEmits<{ 'update:modelValue': [v: Purchase]; remove: [] }>()
 const history = useHistory()
 
 function patch(part: Partial<Purchase>) {
   emit('update:modelValue', { ...props.modelValue, ...part })
 }
-const value = computed(() => purchaseValue(props.modelValue))
+const isSplit = computed(() => props.modelValue.mode === 'split')
+function toggleMode() {
+  patch({ mode: isSplit.value ? undefined : 'split' })
+}
+// 金額欄顯示買家實付：均攤為原價 1/N
+const value = computed(() => roundDisplay(purchaseCharge(props.modelValue, props.memberCount)))
+const fullValue = computed(() => purchaseValue(props.modelValue))
 </script>
 
 <template>
@@ -36,7 +42,12 @@ const value = computed(() => purchaseValue(props.modelValue))
       @input="patch({ unitPrice: Number(($event.target as HTMLInputElement).value) })" /></td>
     <td><input type="number" class="cell-num sm" :value="modelValue.qty"
       @input="patch({ qty: Number(($event.target as HTMLInputElement).value) })" /></td>
-    <td class="num val">{{ value }}</td>
+    <td>
+      <button type="button" class="chip" :class="isSplit ? 'chip-cart' : 'chip-struck'"
+        :title="isSplit ? '均攤：買家只付原價的 1/N，由其他人分' : '全額：買家付全額，由其他人分'"
+        @click="toggleMode">{{ isSplit ? '均攤' : '全額' }}</button>
+    </td>
+    <td class="num val" :title="isSplit ? `原價 ${fullValue}，均攤 1/${memberCount}` : ''">{{ value }}</td>
     <td><button type="button" class="btn btn-icon btn-danger" title="移除" @click="emit('remove')">✕</button></td>
   </tr>
 </template>

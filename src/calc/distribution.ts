@@ -15,10 +15,21 @@ export function purchaseValue(p: Purchase): number {
   return p.unitPrice * p.qty
 }
 
+// 買家實付額：全額付原價；均攤只付 1/N
+export function purchaseCharge(p: Purchase, n: number): number {
+  const v = purchaseValue(p)
+  return p.mode === 'split' && n > 0 ? v / n : v
+}
+
 export function memberPurchaseTotal(purchases: Purchase[], handle: string): number {
   return purchases
     .filter((p) => p.buyer === handle)
     .reduce((s, p) => s + purchaseValue(p), 0)
+}
+
+// 顯示用：小數截到 2 位（整數維持原樣）
+export function roundDisplay(x: number): number {
+  return Math.round(x * 100) / 100
 }
 
 export function consignmentValue(c: Consignment): number {
@@ -45,10 +56,13 @@ export interface Income {
 export function computeIncomes(record: LootRecord): Income[] {
   const n = record.members.length
   const base = n > 0 ? netTotal(record.lootItems) / n : 0
-  const totalPurchase = record.purchases.reduce((s, p) => s + purchaseValue(p), 0)
+  // own/others 以「實付額」計：均攤內購買家只付 1/N，其他人仍分 (實付)/(N-1)
+  const totalCharge = record.purchases.reduce((s, p) => s + purchaseCharge(p, n), 0)
   return record.members.map((m) => {
-    const own = memberPurchaseTotal(record.purchases, m.handle)
-    const others = totalPurchase - own
+    const own = record.purchases
+      .filter((p) => p.buyer === m.handle)
+      .reduce((s, p) => s + purchaseCharge(p, n), 0)
+    const others = totalCharge - own
     const income = base + (n > 1 ? others / (n - 1) : 0) - own
     return { handle: m.handle, base, own, others, income }
   })

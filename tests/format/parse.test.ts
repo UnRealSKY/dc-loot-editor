@@ -40,6 +40,20 @@ describe('parse header', () => {
     expect(r.lootItems[1]).toMatchObject({ name: '剪未定', unitPrice: 300, scissorCount: 2 })
     expect(r.lootItems[1].scissorUnitPrice).toBeUndefined()
   })
+  it('內購 (均攤) 尾綴還原 mode，全形括號相容', () => {
+    const r = parse([
+      '## 2026-08-03 測王 / 2',
+      '',
+      '## 內購區',
+      '@a: 混龍鍊x1 = 500x1 (均攤)',
+      '@b: 龍蛋x1 = 500x1',
+      '@c: 白衣5%x1 = 200x1（均攤）',
+    ].join('\n'))
+    expect(r.purchases[0].mode).toBe('split')
+    expect(r.purchases[1].mode).toBeUndefined()
+    expect(r.purchases[2].mode).toBe('split')
+    expect(r.purchases[2].name).toBe('白衣5%')
+  })
   it('標頭帶狀態尾綴（｜ 短碼或 emoji）也能解析', () => {
     const short = parse(sample.replace('## 2026-07-19 混龍 / 5', '## 2026-07-19 混龍 / 5 ｜ :shopping_cart:(2) :dollar:(2)'))
     expect(short.date).toBe('2026-07-19')

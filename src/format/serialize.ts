@@ -40,7 +40,8 @@ export function serialize(record: LootRecord): string {
   if (record.purchases.length) {
     lines.push('', '## 內購區')
     for (const p of record.purchases) {
-      lines.push(`${p.buyer}: ${p.name}x${p.qty} = ${p.unitPrice}x${p.qty}`)
+      const mode = p.mode === 'split' ? ' (均攤)' : ''
+      lines.push(`${p.buyer}: ${p.name}x${p.qty} = ${p.unitPrice}x${p.qty}${mode}`)
     }
   }
 
