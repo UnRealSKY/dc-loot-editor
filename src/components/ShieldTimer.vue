@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
-  DEFAULT_PARAMS,
   IDLE,
   advance,
   dispelWindowStart,
@@ -11,35 +10,65 @@ import {
   startInterval,
   startShield,
   upcomingEvents,
-  type ShieldParams,
   type ShieldState,
 } from '../shield/engine'
+import {
+  BOSSES,
+  DEFAULT_DISPEL_DURATION,
+  bossById,
+  normalizeOverrides,
+  paramsOf,
+  setOverride,
+  type BossOverrides,
+} from '../shield/bosses'
 
-const PARAMS_KEY = 'dc-shield-params'
+const BOSS_KEY = 'dc-shield-boss'
+const OVERRIDES_KEY = 'dc-shield-overrides'
+const DISPEL_KEY = 'dc-shield-dispel'
 const SOUND_KEY = 'dc-shield-sound'
 
-function loadParams(): ShieldParams {
+function loadOverrides(): BossOverrides {
   try {
-    const p = JSON.parse(localStorage.getItem(PARAMS_KEY) ?? 'null')
-    if (p && p.shieldDuration > 0 && p.interval > 0 && p.dispelDuration >= 0) return p
+    return normalizeOverrides(JSON.parse(localStorage.getItem(OVERRIDES_KEY) ?? 'null'))
   } catch {
-    // 壞資料回預設
+    return {} // 壞資料當作沒覆寫
   }
-  return { ...DEFAULT_PARAMS }
 }
 
-const params = ref<ShieldParams>(loadParams())
-watch(params, (v) => localStorage.setItem(PARAMS_KEY, JSON.stringify(v)), { deep: true })
+function loadDispelDuration(): number {
+  const n = Number(localStorage.getItem(DISPEL_KEY))
+  return n > 0 ? n : DEFAULT_DISPEL_DURATION
+}
+
+const bossId = ref(bossById(localStorage.getItem(BOSS_KEY) ?? '').id)
+const overrides = ref<BossOverrides>(loadOverrides())
+const dispelDuration = ref(loadDispelDuration())
+
+const boss = computed(() => bossById(bossId.value))
+const params = computed(() => paramsOf(boss.value, overrides.value, dispelDuration.value))
+
+watch(bossId, (v) => localStorage.setItem(BOSS_KEY, v))
+watch(overrides, (v) => localStorage.setItem(OVERRIDES_KEY, JSON.stringify(v)), { deep: true })
+watch(dispelDuration, (v) => localStorage.setItem(DISPEL_KEY, String(v)))
 
 const soundOn = ref(localStorage.getItem(SOUND_KEY) !== 'off')
 watch(soundOn, (v) => localStorage.setItem(SOUND_KEY, v ? 'on' : 'off'))
 
 // ---- 聲音（WebAudio，首次操作時建立以符合瀏覽器自動播放限制）----
 let audio: AudioContext | null = null
-function beep(freq: number, ms: number, delayMs = 0) {
-  if (!soundOn.value) return
+// 建立失敗（無音訊環境）就靜默略過，讓計時功能照常運作
+function ensureAudio() {
   try {
     audio ??= new AudioContext()
+  } catch {
+    // 無音訊環境忽略
+  }
+}
+function beep(freq: number, ms: number, delayMs = 0) {
+  if (!soundOn.value) return
+  ensureAudio()
+  if (!audio) return
+  try {
     const osc = audio.createOscillator()
     const gain = audio.createGain()
     osc.frequency.value = freq
@@ -95,15 +124,15 @@ const dispelFeedback = ref<'valid' | 'tooEarly' | ''>('')
 let feedbackTimer: ReturnType<typeof setTimeout> | undefined
 function onStartShield() {
   state.value = startShield(Date.now())
-  audio ??= new AudioContext()
+  ensureAudio()
 }
 function onStartInterval() {
   state.value = startInterval(Date.now())
-  audio ??= new AudioContext()
+  ensureAudio()
 }
 function onStartFailed() {
   state.value = startFailed(Date.now())
-  audio ??= new AudioContext()
+  ensureAudio()
 }
 function onDispel() {
   const { state: next, result } = markDispel(state.value, Date.now(), params.value)
@@ -117,6 +146,45 @@ function onDispel() {
 function onReset() {
   state.value = IDLE
   dispelFeedback.value = ''
+  remindedForPhase = 0 // 清掉上一場殘留，換王後第一個間隔才會提醒魔消
+}
+
+// ---- 選王與參數 ----
+// 計時中換王會拿到錯的倒數，鎖住；要換先按「重置」
+const locked = computed(() => state.value.phase !== 'idle')
+
+function selectBoss(id: string) {
+  if (locked.value) return
+  bossId.value = id
+}
+
+// 參數輸入框寫入的是「該王的覆寫」；秒數改回內建預設會自動移除覆寫
+const shieldDuration = computed({
+  get: () => params.value.shieldDuration,
+  set: (v: number) => {
+    if (!(v > 0)) return
+    overrides.value = setOverride(overrides.value, boss.value, {
+      shieldDuration: v,
+      interval: params.value.interval,
+    })
+  },
+})
+const intervalSeconds = computed({
+  get: () => params.value.interval,
+  set: (v: number) => {
+    if (!(v > 0)) return
+    overrides.value = setOverride(overrides.value, boss.value, {
+      shieldDuration: params.value.shieldDuration,
+      interval: v,
+    })
+  },
+})
+
+const isOverridden = computed(() => !!overrides.value[boss.value.id])
+function resetBossParams() {
+  const next = { ...overrides.value }
+  delete next[boss.value.id]
+  overrides.value = next
 }
 
 // ---- 顯示 ----
@@ -207,7 +275,12 @@ const nextPhaseInfo = computed(() => {
   <section>
     <div class="page-head">
       <h2>反盾計算機</h2>
-      <span class="count">皮卡啾／粉豆</span>
+      <div class="boss-tabs" role="group" aria-label="選擇王">
+        <button v-for="b in BOSSES" :key="b.id" type="button" class="btn btn-sm boss-chip"
+          :class="{ 'boss-on': b.id === bossId }" :disabled="locked" :aria-pressed="b.id === bossId"
+          @click="selectBoss(b.id)">{{ b.name }}</button>
+      </div>
+      <span v-if="locked" class="muted lock-hint">計時中無法換王——請先按「重置」</span>
       <div class="spacer" />
       <label class="sound-toggle">
         <input v-model="soundOn" type="checkbox" /> 聲音提醒
@@ -272,20 +345,30 @@ const nextPhaseInfo = computed(() => {
     <!-- 參數 -->
     <div class="card">
       <div class="section-head"><h3>參數</h3></div>
-      <div class="param-grid">
-        <label class="field">
-          <span class="field-label">反盾持續（秒）</span>
-          <input v-model.number="params.shieldDuration" type="number" min="1" />
-        </label>
-        <label class="field">
-          <span class="field-label">反盾間隔（秒）</span>
-          <input v-model.number="params.interval" type="number" min="1" />
-        </label>
-        <label class="field">
-          <span class="field-label">魔消持續（秒）</span>
-          <input v-model.number="params.dispelDuration" type="number" min="0" />
-        </label>
-      </div>
+      <fieldset class="param-group">
+        <legend>{{ boss.name }}</legend>
+        <div class="param-grid">
+          <label class="field">
+            <span class="field-label">反盾持續（秒）</span>
+            <input v-model.number="shieldDuration" type="number" min="1" />
+          </label>
+          <label class="field">
+            <span class="field-label">反盾間隔（秒）</span>
+            <input v-model.number="intervalSeconds" type="number" min="1" />
+          </label>
+        </div>
+        <button v-if="isOverridden" type="button" class="btn btn-sm btn-ghost reset-boss"
+          @click="resetBossParams">還原{{ boss.name }}預設</button>
+      </fieldset>
+      <fieldset class="param-group">
+        <legend>我的技能</legend>
+        <div class="param-grid">
+          <label class="field">
+            <span class="field-label">魔消持續（秒）</span>
+            <input v-model.number="dispelDuration" type="number" min="1" />
+          </label>
+        </div>
+      </fieldset>
     </div>
   </section>
 </template>
@@ -295,6 +378,19 @@ const nextPhaseInfo = computed(() => {
 .page-head h2 { margin: 0; font-size: 20px; font-weight: 680; }
 .page-head .spacer { flex: 1; }
 .sound-toggle { display: flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--text-muted); cursor: pointer; }
+
+.boss-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.boss-chip { border-radius: 999px; }
+.boss-on, .boss-on:hover { background: var(--primary); border-color: var(--primary); color: #fff; }
+.boss-on:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+.boss-chip:disabled, .boss-chip:disabled:hover {
+  cursor: not-allowed; background: var(--surface-2); border-color: var(--border); color: var(--text-muted);
+}
+/* 選中的王即使鎖住也維持實心——變灰會像整組失效 */
+.boss-on:disabled, .boss-on:disabled:hover {
+  background: var(--primary); border-color: var(--primary); color: #fff; opacity: .8;
+}
+.lock-hint { font-size: 12.5px; }
 
 .phase-panel { text-align: center; padding: 26px 20px; transition: background .25s, border-color .25s; }
 .phase-idle { background: var(--surface-2); }
@@ -343,6 +439,14 @@ const nextPhaseInfo = computed(() => {
 .ev-ok { background: var(--success-soft); color: var(--success); }
 .ev-warn { background: var(--danger-soft); color: var(--danger); font-weight: 650; }
 .ev-time { font-family: var(--mono); font-variant-numeric: tabular-nums; min-width: 64px; font-weight: 650; }
+
+.param-group {
+  min-width: 0; margin: 0 0 12px; padding: 6px 14px 14px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
+.param-group:last-child { margin-bottom: 0; }
+.param-group legend { padding: 0 6px; font-size: 12.5px; font-weight: 650; color: var(--text-muted); }
+.reset-boss { margin-top: 12px; color: var(--text-muted); }
 
 .param-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
 .field { display: flex; flex-direction: column; gap: 5px; }

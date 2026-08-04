@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import {
-  DEFAULT_PARAMS,
   advance,
   dispelWindowStart,
   markDispel,
@@ -11,7 +10,8 @@ import {
   upcomingEvents,
 } from '#src/shield/engine'
 
-const P = DEFAULT_PARAMS // 反盾 25s、間隔 20s、魔消 5s
+// 測試自己的固定參數：狀態機與產品預設值無關，改預設不該弄壞這裡
+const P = { shieldDuration: 25, interval: 20, dispelDuration: 5 }
 const T0 = 1_000_000 // 任意基準 ms
 
 describe('階段轉換', () => {

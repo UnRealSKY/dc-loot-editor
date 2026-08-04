@@ -11,12 +11,6 @@ export interface ShieldParams {
   dispelDuration: number // 魔消持續（秒）
 }
 
-export const DEFAULT_PARAMS: ShieldParams = {
-  shieldDuration: 25,
-  interval: 20,
-  dispelDuration: 5,
-}
-
 export type ShieldPhase = 'idle' | 'shield' | 'interval' | 'failed'
 
 export interface ShieldState {
