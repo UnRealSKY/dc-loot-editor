@@ -456,6 +456,12 @@ function toggleSettle(i: number) {
 .editor-top .spacer { flex: 1; }
 .back { text-decoration: none; }
 
+/* 窄螢幕：返回鍵獨占一行，同步狀態與操作鈕在下面自行換行 */
+@media (max-width: 720px) {
+  .editor-top { flex-wrap: wrap; }
+  .editor-top .spacer { flex: 1 0 100%; }
+}
+
 .header-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field-title { grid-column: 1 / -1; }
