@@ -8,6 +8,7 @@ const props = defineProps<{
   placeholder?: string
   labelFor?: (value: string) => string  // 下拉顯示文字（如別名），選取仍存原 value
   fuzzy?: boolean                       // 改用模糊比對（品名搜尋用）
+  loading?: boolean                     // 名單背景載入中：無建議時顯示載入提示列
 }>()
 const emit = defineEmits<{
   'update:modelValue': [value: string]
@@ -82,7 +83,7 @@ function choose(s: string) {
       @focus="openMenu"
       @blur="open = false"
     />
-    <ul v-if="open && filtered.length" class="suggestions" :style="menuStyle">
+    <ul v-if="open && (filtered.length || loading)" class="suggestions" :style="menuStyle">
       <li
         v-for="s in filtered"
         :key="s"
@@ -91,6 +92,7 @@ function choose(s: string) {
       >
         {{ label(s) }}
       </li>
+      <li v-if="loading && !filtered.length" class="loading-row">⋯ 名單載入中</li>
     </ul>
   </div>
 </template>
@@ -106,4 +108,5 @@ function choose(s: string) {
 }
 .suggestion { padding: 6px 10px; cursor: pointer; border-radius: 6px; font-size: 14px; white-space: nowrap; }
 .suggestion:hover { background: var(--primary-soft); color: var(--primary-hover); }
+.loading-row { padding: 6px 10px; font-size: 13px; color: var(--text-muted); white-space: nowrap; }
 </style>

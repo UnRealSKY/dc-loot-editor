@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRecordsStore } from '../store/records'
 import { allSold, allSettled } from '../calc/status'
+import { dcSyncStatus } from '../dc/publish'
 import type { LootRecord } from '../types'
 import ImportDialog from './ImportDialog.vue'
 
@@ -71,6 +72,9 @@ function toggleShelve(id: string) {
         </router-link>
         <div class="record-status">
           <span v-if="r.shelved" class="badge badge-shelved">⏸ 擱置中</span>
+          <span v-if="dcSyncStatus(r) === 'synced'" class="badge badge-done">✓ DC 已同步</span>
+          <span v-else-if="dcSyncStatus(r) === 'dirty'" class="badge badge-warn">● DC 未同步</span>
+          <span v-else-if="dcSyncStatus(r) === 'published'" class="badge badge-pending">已發佈 DC</span>
           <span class="badge" :class="allSold(r) ? 'badge-done' : 'badge-pending'">
             {{ allSold(r) ? '✓ 全數賣出' : '● 待售出' }}
           </span>
@@ -114,5 +118,6 @@ function toggleShelve(id: string) {
 .badge-done { background: var(--success-soft); color: var(--success); }
 .badge-pending { background: var(--surface-2); color: var(--text-muted); }
 .badge-shelved { background: var(--warn-soft); color: var(--warn); }
+.badge-warn { background: var(--warn-soft); color: var(--warn); }
 .record-actions .shelving { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
 </style>

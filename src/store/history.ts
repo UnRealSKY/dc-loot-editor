@@ -1,8 +1,8 @@
 import { computed } from 'vue'
 import type { ComputedRef } from 'vue'
 import { useRecordsStore } from './records'
-import { rosterHandles } from './roster'
-import { sharedItemNames } from './sharedItems'
+import { rosterHandles, rosterLoading } from './roster'
+import { sharedItemNames, sharedItemsLoading } from './sharedItems'
 
 function uniqueByFrequency(values: string[]): string[] {
   const freq = new Map<string, number>()
@@ -53,5 +53,13 @@ export function useHistory() {
     return out.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
   }
 
-  return { itemNames, handles, bosses, priceSuggestions }
+  return {
+    itemNames,
+    handles,
+    bosses,
+    priceSuggestions,
+    // 共用清單背景載入中（autocomplete 載入提示用）
+    itemNamesLoading: sharedItemsLoading(),
+    handlesLoading: rosterLoading(),
+  }
 }

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, toRaw, watch } from 'vue'
 import type { LootRecord } from '../types'
 import { runMigrations } from './migrations'
+import { deleteBlob } from '../db/imageBlobs'
 
 export const STORAGE_KEY = 'dc-loot-records'
 
@@ -81,13 +82,24 @@ export const useRecordsStore = defineStore('records', () => {
   }
 
   function remove(id: string): void {
+    const target = get(id)
     records.value = records.value.filter((r) => r.id !== id)
+    // 清掉尚未上傳的圖片 blob（已上傳的本地檔早已刪除）
+    for (const img of target?.images ?? []) {
+      if (!img.url) deleteBlob(img.id).catch(() => {})
+    }
   }
 
   function duplicate(id: string): LootRecord | undefined {
     const src = get(id)
     if (!src) return undefined
-    return create({ ...structuredClone(toRaw(src)), boss: `${src.boss} (複製)` })
+    // dc 綁定與圖片不複製：複本是新場次，沿用會誤同步到原貼文／共用 blob
+    return create({
+      ...structuredClone(toRaw(src)),
+      boss: `${src.boss} (複製)`,
+      dc: undefined,
+      images: undefined,
+    })
   }
 
   return { records, get, create, upsert, remove, duplicate }
