@@ -438,7 +438,8 @@ const nextPhaseInfo = computed(() => {
 .event { display: flex; gap: 12px; align-items: center; padding: 7px 12px; border-radius: var(--radius-sm); font-size: 14.5px; }
 .ev-ok { background: var(--success-soft); color: var(--success); }
 .ev-warn { background: var(--danger-soft); color: var(--danger); font-weight: 650; }
-.ev-time { font-family: var(--mono); font-variant-numeric: tabular-nums; min-width: 64px; font-weight: 650; }
+.ev-time { font-family: var(--mono); font-variant-numeric: tabular-nums; min-width: 64px; font-weight: 650; flex: none; }
+.ev-label { white-space: nowrap; }
 
 .param-group {
   min-width: 0; margin: 0 0 12px; padding: 6px 14px 14px;
@@ -450,5 +451,16 @@ const nextPhaseInfo = computed(() => {
 
 .param-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
-.field-label { font-size: 12.5px; font-weight: 550; color: var(--text-muted); }
+.field-label { font-size: 12.5px; font-weight: 550; color: var(--text-muted); white-space: nowrap; }
+
+/* 窄螢幕：標題列拆成三行（標題＋聲音／王選單／鎖住提示），操作鈕兩欄 */
+@media (max-width: 720px) {
+  .page-head { flex-wrap: wrap; gap: 8px 10px; }
+  .boss-tabs { order: 3; width: 100%; }
+  .lock-hint { order: 4; width: 100%; }
+  .ctrl { min-width: 104px; padding: 12px 10px; }
+  .anchor-row { flex-wrap: wrap; }
+  .anchor-input { width: 118px; }
+  .phase-remaining { font-size: 56px; }
+}
 </style>

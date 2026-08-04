@@ -43,4 +43,11 @@ function add() {
 .stream-row { display: flex; gap: 8px; align-items: center; }
 .stream-label { flex: 0 0 200px; max-width: 200px; }
 .stream-url { flex: 1; }
+
+/* 窄螢幕：描述與網址各占一行，移除鈕貼齊網址右側 */
+@media (max-width: 720px) {
+  .stream-row { flex-wrap: wrap; }
+  .stream-label { flex: 1 1 100%; max-width: none; }
+  .stream-url { flex: 1 1 auto; }
+}
 </style>

@@ -122,6 +122,7 @@ body {
   text-decoration: none; color: var(--text-muted);
   font-size: 14px; font-weight: 550; padding: 6px 13px; border-radius: 999px;
   transition: color .14s, background .14s;
+  white-space: nowrap; /* 中文每字都是斷點，不鎖住會被擠成一字一行 */
 }
 .nav-link:hover { color: var(--text); background: var(--surface-2); }
 .nav-active { color: var(--primary-hover); background: var(--primary-soft); }
@@ -186,7 +187,7 @@ button { font-family: inherit; }
   padding: 18px 20px; margin-bottom: 18px;
 }
 .section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
-.section-head h3 { margin: 0; font-size: 15px; font-weight: 650; }
+.section-head h3 { margin: 0; font-size: 15px; font-weight: 650; white-space: nowrap; }
 .section-head .spacer { flex: 1; }
 .section-head .count { font-size: 12px; color: var(--text-muted); font-weight: 500; }
 
@@ -237,6 +238,26 @@ button { font-family: inherit; }
 .unsync-list li { margin: 4px 0; }
 .unsync-list a { color: var(--primary-hover); }
 .unsync-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
+
+/* ---- 窄螢幕（手機）----
+   通則：短標籤一律 nowrap，放不下時讓容器橫捲或整塊換行，
+   絕不讓中文被擠成一字一行。 */
+@media (max-width: 720px) {
+  .app { padding: 0 14px 56px; }
+
+  /* appbar 分兩行：brand ＋ 設定鈕一行，導覽列獨占第二行可橫捲 */
+  .appbar { margin: 0 -14px 20px; padding: 10px 14px; gap: 10px; flex-wrap: wrap; }
+  .brand h1 { font-size: 16px; }
+  .nav { order: 3; width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+
+  .card { padding: 14px; margin-bottom: 14px; }
+  .section-head { flex-wrap: wrap; }
+  /* 表格原本被壓縮到容器寬，每格一起逐字折行；改成不小於內容自然寬度，
+     .table-wrap 的 overflow-x 才會真的接手橫向捲動（欄少的表格則維持不捲） */
+  .app table { min-width: max-content; }
+  .empty { padding: 32px 16px; }
+}
 
 /* ---- Utility ---- */
 .muted { color: var(--text-muted); }
