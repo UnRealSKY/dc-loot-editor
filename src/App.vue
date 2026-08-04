@@ -36,6 +36,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
         <router-link to="/" class="nav-link" exact-active-class="nav-active">分寶紀錄</router-link>
         <router-link to="/pending" class="nav-link" active-class="nav-active">未領總覽</router-link>
         <router-link to="/lists" class="nav-link" active-class="nav-active">名單管理</router-link>
+        <router-link to="/shield" class="nav-link" active-class="nav-active">反盾計算機</router-link>
       </nav>
       <div class="appbar-spacer" />
       <button type="button" class="btn btn-icon" title="DC Webhook 設定"

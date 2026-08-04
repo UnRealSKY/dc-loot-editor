@@ -6,6 +6,7 @@ const routes = [
   { path: '/edit/:id', component: () => import('./components/RecordEditor.vue') },
   { path: '/pending', component: () => import('./components/PendingOverview.vue') },
   { path: '/lists', component: () => import('./components/ListManager.vue') },
+  { path: '/shield', component: () => import('./components/ShieldTimer.vue') },
 ]
 
 export const router = createRouter({
