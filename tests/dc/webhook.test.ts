@@ -84,7 +84,7 @@ describe('API 呼叫', () => {
   it('getMessage 讀回訊息內文', async () => {
     const fetchMock = vi.fn(async () => jsonResponse(200, { content: '內文A' }))
     vi.stubGlobal('fetch', fetchMock)
-    expect(await getMessage(VALID, '111', '222')).toEqual({ content: '內文A' })
+    expect(await getMessage(VALID, '111', '222')).toEqual({ content: '內文A', attachments: [] })
     const [calledUrl] = fetchMock.mock.calls[0] as unknown as [string]
     expect(calledUrl).toBe(`${VALID}/messages/111?thread_id=222`)
   })

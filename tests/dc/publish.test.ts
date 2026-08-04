@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { threadTitle, publishOrSync, applyMentions, CONTENT_LIMIT } from '#src/dc/publish'
+import { threadTitle, publishOrSync, applyMentions, publishContent, dcSyncStatus, CONTENT_LIMIT } from '#src/dc/publish'
 import { isBindingLost } from '#src/dc/webhook'
 import type { LootRecord } from '#src/types'
 
@@ -59,11 +59,12 @@ describe('publishOrSync', () => {
     const fetchMock = vi.fn(async () => jsonResponse(200, { id: 'm1', channel_id: 't1' }))
     vi.stubGlobal('fetch', fetchMock)
     const record = makeRecord({})
-    const dc = await publishOrSync(URL, record)
-    expect(dc.messageId).toBe('m1')
-    expect(dc.threadId).toBe('t1')
-    expect(dc.publishedAt).toBeTruthy()
-    expect(dc.lastSyncAt).toBeTruthy()
+    const { dc } = await publishOrSync(URL, record)
+    expect(dc?.messageId).toBe('m1')
+    expect(dc?.threadId).toBe('t1')
+    expect(dc?.publishedAt).toBeTruthy()
+    expect(dc?.lastSyncAt).toBeTruthy()
+    expect(dc?.sentContent).toBe(publishContent(record))
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     const body = JSON.parse(init.body as string)
     expect(body.thread_name).toBe('[08-02]混龍')
@@ -74,11 +75,28 @@ describe('publishOrSync', () => {
     const fetchMock = vi.fn(async () => jsonResponse(200, {}))
     vi.stubGlobal('fetch', fetchMock)
     const r = makeRecord({ dc: { threadId: 't1', messageId: 'm1', publishedAt: '2026-08-01T00:00:00Z' } })
-    const dc = await publishOrSync(URL, r)
-    expect(dc.publishedAt).toBe('2026-08-01T00:00:00Z')
-    expect(dc.lastSyncAt).not.toBe(undefined)
+    const { dc } = await publishOrSync(URL, r)
+    expect(dc?.publishedAt).toBe('2026-08-01T00:00:00Z')
+    expect(dc?.lastSyncAt).not.toBe(undefined)
     const [calledUrl] = fetchMock.mock.calls[0] as unknown as [string]
     expect(calledUrl).toBe(`${URL}/messages/m1?thread_id=t1`)
+  })
+
+  it('dcSyncStatus：未發佈/一致/未同步/舊版未知', async () => {
+    const base = makeRecord({})
+    expect(dcSyncStatus(base)).toBe('none')
+    const synced = makeRecord({})
+    synced.dc = { threadId: 't', messageId: 'm', publishedAt: 'x', sentContent: publishContent(synced) }
+    expect(dcSyncStatus(synced)).toBe('synced')
+    const dirty = { ...synced, boss: '改名後' }
+    expect(dcSyncStatus(dirty)).toBe('dirty')
+    const legacy = makeRecord({ dc: { threadId: 't', messageId: 'm', publishedAt: 'x' } })
+    expect(dcSyncStatus(legacy)).toBe('published')
+    const dirtyImage = makeRecord({
+      dc: { threadId: 't', messageId: 'm', publishedAt: 'x', sentContent: 'whatever' },
+      images: [{ id: 'i1', kind: 'drop', filename: 'i1.png' }],
+    })
+    expect(dcSyncStatus(dirtyImage)).toBe('dirty')
   })
 
   it('綁定失效（400 未知頻道）可被 isBindingLost 辨識', async () => {

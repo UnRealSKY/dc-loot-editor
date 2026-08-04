@@ -50,6 +50,7 @@ const priceHints = computed(() =>
       <AutocompleteInput
         :model-value="modelValue.name"
         :suggestions="history.itemNames.value"
+        :loading="history.itemNamesLoading.value"
         placeholder="品名"
         fuzzy
         @update:model-value="patch({ name: $event })"

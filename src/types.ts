@@ -45,11 +45,28 @@ export interface Consignment {
   id?: string
 }
 
+export type DcImageKind = 'drop' | 'payout' | 'external'
+// drop：掉落截圖（主貼附件）；payout：領錢截圖（串內訊息、綁團員）；external：外購截圖（串內訊息、可註解）
+
+export interface DcImage {
+  id: string               // 也是 IndexedDB blob key
+  kind: DcImageKind
+  filename: string         // 上傳檔名（id + 副檔名）
+  memberHandle?: string    // payout：綁定團員
+  note?: string            // external：註解
+  url?: string             // DC CDN URL（上傳成功後；本地 blob 隨即刪除）
+  attachmentId?: string    // drop：主貼附件 id（同步時保留清單用）
+  dcMessageId?: string     // payout/external：串內訊息 id
+  sentContent?: string     // payout/external：上次送出的訊息內文（變更偵測）
+  removed?: boolean        // 已發佈圖片標記待刪，同步時執行
+}
+
 export interface DcBinding {
   threadId: string         // 討論串 id（webhook 無法枚舉，遺失即無法再編輯貼文）
   messageId: string        // 開頭訊息 id（PATCH 對象）
   publishedAt: string
   lastSyncAt?: string
+  sentContent?: string     // 上次送出的主貼內文（本地判定同步狀態，不必打 API）
 }
 
 export interface LootRecord {
@@ -63,6 +80,7 @@ export interface LootRecord {
   consignments?: Consignment[] // 代售：某團員代賣、手上握著的金額，併入結算
   shelved?: boolean         // 擱置：暫不列入未領總覽
   dc?: DcBinding            // 已發佈至 DC 論壇串的綁定
+  images?: DcImage[]        // 三類截圖（檔案本體在 IndexedDB 或 DC CDN）
   createdAt: string
   updatedAt: string
 }

@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useRecordsStore } from '../store/records'
 import { useHistory } from '../store/history'
 import { aliasOf } from '../store/roster'
 import { webhookUrl } from '../store/webhook'
-import { publishOrSync, publishContent } from '../dc/publish'
+import { publishOrSync, publishContent, hasImageChanges, dcSyncStatus } from '../dc/publish'
 import { parseMessageLink, isBindingLost, getMessage } from '../dc/webhook'
-import type { LootRecord, LootItem, Member, Purchase, Stream, Consignment } from '../types'
+import type { LootRecord, LootItem, Member, Purchase, Stream, Consignment, DcImage, DcImageKind } from '../types'
+import { filesToImages, hoveredImageKind } from '../images'
+import ImageSection from './ImageSection.vue'
 import LootTable from './LootTable.vue'
 import AutocompleteInput from './AutocompleteInput.vue'
 import PurchaseTable from './PurchaseTable.vue'
@@ -70,6 +72,7 @@ const dcUrl = webhookUrl()
 type PublishState = 'idle' | 'busy' | 'ok' | 'fail'
 const publishState = ref<PublishState>('idle')
 const publishError = ref('')
+const publishProgress = ref('')
 let publishTimer: ReturnType<typeof setTimeout> | undefined
 
 function fmtSync(iso: string): string {
@@ -79,6 +82,7 @@ function fmtSync(iso: string): string {
 // 成功/失敗短暫顯示後回復；執行中不排程
 function settleState(state: PublishState) {
   publishState.value = state
+  if (state !== 'busy') publishProgress.value = ''
   clearTimeout(publishTimer)
   if (state === 'ok' || state === 'fail') {
     publishTimer = setTimeout(() => (publishState.value = 'idle'), 2200)
@@ -111,7 +115,9 @@ watch(() => [route.params.id, record.value?.dc?.messageId], checkRemote, { immed
 const localContent = computed(() => (record.value ? publishContent(record.value) : ''))
 type SyncState = 'unbound' | 'checking' | 'lost' | 'unknown' | 'inSync' | 'dirty'
 const syncState = computed<SyncState>(() => {
-  if (!record.value?.dc) return 'unbound'
+  const r = record.value
+  if (!r?.dc) return 'unbound'
+  if (r.images && hasImageChanges(r)) return 'dirty'
   if (checkingRemote.value) return 'checking'
   if (remoteLost.value) return 'lost'
   if (remoteContent.value == null) return 'unknown'
@@ -131,18 +137,28 @@ async function publishToDc() {
     return
   }
   settleState('busy')
+  const hooks = {
+    onProgress: (done: number, total: number) => {
+      publishProgress.value = total > 1 ? `${done}/${total}` : ''
+    },
+    onUpdate: (updated: LootRecord) => store.upsert(updated), // 逐步落盤，部分成功不遺失
+  }
   try {
-    const dc = await publishOrSync(dcUrl.value, r)
-    store.upsert({ ...r, dc })
+    store.upsert(await publishOrSync(dcUrl.value, r, hooks))
     settleState('ok')
     checkRemote() // 同步成功後復查一致性
   } catch (e) {
     // 綁定失效（貼文/討論串已被刪除）：詢問是否重新發一篇新貼文
     if (r.dc && isBindingLost(e)) {
-      if (window.confirm('DC 上找不到原本的貼文（可能已被刪除）。\n要重新發一篇新貼文嗎？')) {
+      if (window.confirm('DC 上找不到原本的貼文（可能已被刪除）。\n要重新發一篇新貼文嗎？\n（已上傳到舊貼文的圖片檔無法救回，會一併移除）')) {
         try {
-          const dc = await publishOrSync(dcUrl.value, { ...r, dc: undefined })
-          store.upsert({ ...r, dc })
+          // 已上傳圖片（url 已存在）檔案隨舊貼文消失、本地 blob 也已清除，僅保留尚未上傳的
+          const fresh: LootRecord = {
+            ...r,
+            dc: undefined,
+            images: r.images?.filter((i) => !i.url && !i.removed),
+          }
+          store.upsert(await publishOrSync(dcUrl.value, fresh, hooks))
           settleState('ok')
           checkRemote()
         } catch (e2) {
@@ -175,6 +191,15 @@ function bindExisting() {
   store.upsert({ ...r, dc: { ...parsed, publishedAt: new Date().toISOString() } })
 }
 
+// 離開編輯頁（返回列表等）時，已發佈紀錄若有未同步變更先確認
+onBeforeRouteLeave(() => {
+  const r = record.value
+  if (r && dcSyncStatus(r) === 'dirty') {
+    return window.confirm('此紀錄的變更尚未同步到 DC。仍要離開嗎？\n（資料已存在本機，之後隨時可再同步）')
+  }
+  return true
+})
+
 const showExport = ref(false)
 const showImport = ref(false)
 function applyImport(parsed: LootRecord) {
@@ -206,6 +231,75 @@ function setStreams(streams: Stream[]) {
 function setConsignments(consignments: Consignment[]) {
   patch({ consignments })
 }
+// ---- 圖片（三類：掉落/領錢/外購）----
+function imagesOf(kind: DcImage['kind']): DcImage[] {
+  return (record.value?.images ?? []).filter((i) => i.kind === kind)
+}
+function addImages(imgs: DcImage[]) {
+  if (!record.value) return
+  patch({ images: [...(record.value.images ?? []), ...imgs] })
+}
+function updateImage(img: DcImage) {
+  if (!record.value) return
+  patch({ images: (record.value.images ?? []).map((i) => (i.id === img.id ? img : i)) })
+}
+function removeImage(id: string) {
+  if (!record.value) return
+  patch({ images: (record.value.images ?? []).filter((i) => i.id !== id) })
+}
+// CDN URL 簽名過期（img onerror）：GET 訊息取刷新後的附件 URL
+let refreshingUrls = false
+async function refreshImageUrl(img: DcImage) {
+  const r = record.value
+  if (!r?.dc || !dcUrl.value || refreshingUrls) return
+  refreshingUrls = true
+  try {
+    if (img.kind === 'drop') {
+      const msg = await getMessage(dcUrl.value, r.dc.messageId, r.dc.threadId)
+      const byId = new Map(msg.attachments.map((a) => [a.id, a]))
+      patch({
+        images: (r.images ?? []).map((i) =>
+          i.kind === 'drop' && i.attachmentId && byId.has(i.attachmentId)
+            ? { ...i, url: byId.get(i.attachmentId)!.url }
+            : i,
+        ),
+      })
+    } else if (img.dcMessageId) {
+      const msg = await getMessage(dcUrl.value, img.dcMessageId, r.dc.threadId)
+      const url = msg.attachments[0]?.url
+      if (url) updateImage({ ...img, url })
+    }
+  } catch {
+    // 刷新失敗維持破圖，不打擾操作
+  } finally {
+    refreshingUrls = false
+  }
+}
+
+// 貼上：停在某圖片區→直接加入該區；否則跳選單問要放哪一區
+const pastePending = ref<File[] | null>(null)
+async function addPastedTo(kind: DcImageKind, files: File[]) {
+  addImages(await filesToImages(files, kind))
+}
+function onGlobalPaste(e: ClipboardEvent) {
+  if (!record.value) return
+  const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'))
+  if (!files.length) return
+  const hovered = hoveredImageKind.value
+  if (hovered) {
+    addPastedTo(hovered, files)
+    return
+  }
+  pastePending.value = files
+}
+function choosePasteKind(kind: DcImageKind) {
+  const files = pastePending.value
+  pastePending.value = null
+  if (files) addPastedTo(kind, files)
+}
+onMounted(() => window.addEventListener('paste', onGlobalPaste))
+onBeforeUnmount(() => window.removeEventListener('paste', onGlobalPaste))
+
 function addMember() {
   if (!record.value) return
   setMembers([...record.value.members, { handle: '', settle: 'pending', id: crypto.randomUUID() }])
@@ -245,7 +339,7 @@ function toggleSettle(i: number) {
         :title="record.dc ? `上次同步 ${record.dc.lastSyncAt ? fmtSync(record.dc.lastSyncAt) : '—'}` : '建立論壇貼文（討論串標題建立後不可改）'"
         @click="publishToDc">
         <span v-if="publishState === 'busy'" class="spinner" aria-hidden="true" />
-        <template v-if="publishState === 'busy'">同步中…</template>
+        <template v-if="publishState === 'busy'">同步中{{ publishProgress ? ` ${publishProgress}` : '' }}…</template>
         <template v-else-if="publishState === 'ok'">✓ 已同步</template>
         <template v-else-if="publishState === 'fail'">✕ 同步失敗</template>
         <template v-else>{{ record.dc ? '同步至 DC' : '發佈至 DC' }}</template>
@@ -283,7 +377,7 @@ function toggleSettle(i: number) {
       <ul class="members">
         <li v-for="(m, i) in record.members" :key="m.id" class="member-row">
           <AutocompleteInput class="member-handle" :model-value="m.handle" :suggestions="history.handles.value"
-            :label-for="handleLabel" placeholder="@handle"
+            :label-for="handleLabel" :loading="history.handlesLoading.value" placeholder="@handle"
             @update:model-value="updateMember(i, { handle: $event })" />
           <span v-if="aliasOf(m.handle)" class="alias-badge">{{ aliasOf(m.handle) }}</span>
           <button type="button" class="btn btn-icon btn-danger" title="移除" @click="removeMember(i)">✕</button>
@@ -297,12 +391,32 @@ function toggleSettle(i: number) {
     <StreamTable :model-value="record.streams ?? []" @update:model-value="setStreams" />
     <ConsignmentTable :model-value="record.consignments ?? []" :members="record.members"
       @update:model-value="setConsignments" />
+    <ImageSection title="掉落截圖" kind="drop" :images="imagesOf('drop')"
+      @add="addImages" @update="updateImage" @remove="removeImage" @refresh="refreshImageUrl" />
+    <ImageSection title="領錢截圖" kind="payout" :images="imagesOf('payout')" :members="record.members"
+      @add="addImages" @update="updateImage" @remove="removeImage" @refresh="refreshImageUrl" />
+    <ImageSection title="外購截圖" kind="external" :images="imagesOf('external')"
+      @add="addImages" @update="updateImage" @remove="removeImage" @refresh="refreshImageUrl" />
     <div ref="distEl" class="dist-anchor">
       <DistributionPanel :record="record" @toggle-settle="toggleSettle" />
     </div>
 
     <ImportDialog :open="showImport" @close="showImport = false" @imported="applyImport" />
     <ExportDialog :open="showExport" :record="record" @close="showExport = false" />
+
+    <div v-if="pastePending" class="overlay" @click.self="pastePending = null">
+      <div class="paste-dialog">
+        <h3>剪貼簿有 {{ pastePending.length }} 張圖片，要加到哪一區？</h3>
+        <div class="paste-choices">
+          <button type="button" class="btn" @click="choosePasteKind('drop')">掉落截圖</button>
+          <button type="button" class="btn" @click="choosePasteKind('payout')">領錢截圖</button>
+          <button type="button" class="btn" @click="choosePasteKind('external')">外購截圖</button>
+        </div>
+        <div class="paste-cancel">
+          <button type="button" class="btn btn-ghost" @click="pastePending = null">取消</button>
+        </div>
+      </div>
+    </div>
   </section>
   <div v-else class="empty">找不到此紀錄。</div>
 </template>
@@ -312,6 +426,20 @@ function toggleSettle(i: number) {
 .dist-anchor { scroll-margin-top: 70px; }
 
 .sync-chip { cursor: default; white-space: nowrap; font-size: 12.5px; }
+
+/* 貼上圖片的區塊選單 */
+.overlay {
+  position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+  background: rgba(17, 24, 39, .5); backdrop-filter: blur(2px); padding: 20px;
+}
+.paste-dialog {
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  padding: 20px; width: min(420px, 92vw);
+}
+.paste-dialog h3 { margin: 0 0 14px; font-size: 15.5px; font-weight: 650; }
+.paste-choices { display: flex; gap: 8px; flex-wrap: wrap; }
+.paste-choices .btn { flex: 1; }
+.paste-cancel { display: flex; justify-content: flex-end; margin-top: 12px; }
 
 /* 同步按鈕三態回饋 */
 .publish-btn { min-width: 108px; transition: background .18s, border-color .18s, color .18s; }

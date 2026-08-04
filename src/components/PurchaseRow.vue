@@ -36,6 +36,7 @@ const fullValue = computed(() => purchaseValue(props.modelValue))
     </td>
     <td class="name-cell">
       <AutocompleteInput :model-value="modelValue.name" :suggestions="history.itemNames.value"
+        :loading="history.itemNamesLoading.value"
         placeholder="品名" fuzzy @update:model-value="patch({ name: $event })" />
     </td>
     <td><input type="number" class="cell-num" :value="modelValue.unitPrice" placeholder="單價"

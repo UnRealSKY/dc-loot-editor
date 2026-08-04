@@ -88,36 +88,85 @@ export interface ThreadBinding {
   messageId: string
 }
 
+export interface OutFile {
+  name: string
+  blob: Blob
+}
+
+export interface DcAttachment {
+  id: string
+  filename: string
+  url: string
+}
+
+function parseAttachments(data: { attachments?: Array<{ id: unknown; filename?: unknown; url?: unknown }> }): DcAttachment[] {
+  return (data.attachments ?? []).map((a) => ({
+    id: String(a.id),
+    filename: String(a.filename ?? ''),
+    url: String(a.url ?? ''),
+  }))
+}
+
+// 附件走 multipart：payload_json + files[n]
+function buildBody(payload: unknown, files: OutFile[]): RequestInit {
+  if (!files.length) {
+    return { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+  }
+  const form = new FormData()
+  form.append('payload_json', JSON.stringify(payload))
+  files.forEach((f, i) => form.append(`files[${i}]`, f.blob, f.name))
+  return { body: form }
+}
+
 export async function createForumPost(
   url: string,
   threadName: string,
   content: string,
+  files: OutFile[] = [],
 ): Promise<ThreadBinding> {
-  const res = await fetchDc(`${url}?wait=true`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      thread_name: threadName,
-      content,
-      allowed_mentions: { parse: ['users'] },
-    }),
-  })
+  const payload = { thread_name: threadName, content, allowed_mentions: { parse: ['users'] } }
+  const res = await fetchDc(`${url}?wait=true`, { method: 'POST', ...buildBody(payload, files) })
   if (!res.ok) return fail(res, '發佈')
   const data = await res.json()
   // id＝開頭訊息、channel_id＝新討論串；不可假設兩者相等
   return { messageId: String(data.id), threadId: String(data.channel_id) }
 }
 
-// 讀回自己發過的訊息（一致性檢查用；webhook 只能讀自己的訊息且須知道 id）
+// 往既有討論串發一則訊息（領錢/外購截圖用）
+export async function postThreadMessage(
+  url: string,
+  threadId: string,
+  content: string,
+  files: OutFile[] = [],
+): Promise<{ messageId: string; attachments: DcAttachment[] }> {
+  const payload = { content, allowed_mentions: { parse: ['users'] } }
+  const res = await fetchDc(`${url}?wait=true&thread_id=${threadId}`, {
+    method: 'POST',
+    ...buildBody(payload, files),
+  })
+  if (!res.ok) return fail(res, '上傳圖片訊息')
+  const data = await res.json()
+  return { messageId: String(data.id), attachments: parseAttachments(data) }
+}
+
+export async function deleteMessage(url: string, messageId: string, threadId: string): Promise<void> {
+  const res = await fetchDc(`${url}/messages/${messageId}?thread_id=${threadId}`, {
+    method: 'DELETE',
+  })
+  // 已不存在（404）視為刪除完成
+  if (!res.ok && res.status !== 404) return fail(res, '刪除訊息')
+}
+
+// 讀回自己發過的訊息（一致性檢查、附件 URL 刷新用；webhook 只能讀自己的訊息且須知道 id）
 export async function getMessage(
   url: string,
   messageId: string,
   threadId: string,
-): Promise<{ content: string }> {
+): Promise<{ content: string; attachments: DcAttachment[] }> {
   const res = await fetchDc(`${url}/messages/${messageId}?thread_id=${threadId}`)
   if (!res.ok) return fail(res, '讀取貼文')
   const data = await res.json()
-  return { content: String(data.content ?? '') }
+  return { content: String(data.content ?? ''), attachments: parseAttachments(data) }
 }
 
 export async function editMessage(
@@ -125,11 +174,23 @@ export async function editMessage(
   messageId: string,
   threadId: string,
   content: string,
-): Promise<void> {
+  opts: { keepAttachmentIds?: string[]; files?: OutFile[] } = {},
+): Promise<{ attachments: DcAttachment[] }> {
+  const files = opts.files ?? []
+  const payload: Record<string, unknown> = { content, allowed_mentions: { parse: ['users'] } }
+  // 有指定保留清單或新檔時才帶 attachments 欄位（省略＝維持現有附件不動）；
+  // 新檔以流水號 id 佔位，對應 multipart 的 files[n]
+  if (opts.keepAttachmentIds || files.length) {
+    payload.attachments = [
+      ...(opts.keepAttachmentIds ?? []).map((id) => ({ id })),
+      ...files.map((_, i) => ({ id: i })),
+    ]
+  }
   const res = await fetchDc(`${url}/messages/${messageId}?thread_id=${threadId}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content, allowed_mentions: { parse: ['users'] } }),
+    ...buildBody(payload, files),
   })
   if (!res.ok) return fail(res, '同步')
+  const data = await res.json()
+  return { attachments: parseAttachments(data) }
 }

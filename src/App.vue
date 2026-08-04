@@ -1,8 +1,28 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import DcSettingsDialog from './components/DcSettingsDialog.vue'
+import { useRecordsStore } from './store/records'
+import { dcSyncStatus } from './dc/publish'
 
 const showDcSettings = ref(false)
+
+// 關閉分頁守衛：有已發佈紀錄未同步 DC 時，先跳瀏覽器標準確認；
+// 使用者選擇留下（頁面仍存活）→ 再跳自訂 dialog 列出未同步紀錄
+const store = useRecordsStore()
+const dirtyRecords = computed(() => store.records.filter((r) => dcSyncStatus(r) === 'dirty'))
+const showUnsynced = ref(false)
+
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  if (!dirtyRecords.value.length) return
+  e.preventDefault()
+  e.returnValue = '' // 觸發瀏覽器標準「未儲存變更」確認
+  setTimeout(() => {
+    // 走到這裡代表使用者取消了關閉，補上原因說明
+    if (dirtyRecords.value.length) showUnsynced.value = true
+  }, 400)
+}
+onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
+onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload))
 </script>
 
 <template>
@@ -15,12 +35,31 @@ const showDcSettings = ref(false)
       <nav class="nav">
         <router-link to="/" class="nav-link" exact-active-class="nav-active">分寶紀錄</router-link>
         <router-link to="/pending" class="nav-link" active-class="nav-active">未領總覽</router-link>
+        <router-link to="/lists" class="nav-link" active-class="nav-active">名單管理</router-link>
       </nav>
       <div class="appbar-spacer" />
       <button type="button" class="btn btn-icon" title="DC Webhook 設定"
         @click="showDcSettings = true">⚙</button>
     </header>
     <DcSettingsDialog :open="showDcSettings" @close="showDcSettings = false" />
+
+    <div v-if="showUnsynced" class="unsync-overlay" @click.self="showUnsynced = false">
+      <div class="unsync-dialog">
+        <h3>有紀錄尚未同步到 DC</h3>
+        <p class="unsync-note">資料都已存在本機，不會遺失；要更新 DC 貼文請進入紀錄按「同步至 DC」。</p>
+        <ul class="unsync-list">
+          <li v-for="r in dirtyRecords" :key="r.id">
+            <router-link :to="`/edit/${r.id}`" @click="showUnsynced = false">
+              {{ r.date }} {{ r.boss || '(未命名)' }}
+            </router-link>
+          </li>
+        </ul>
+        <div class="unsync-actions">
+          <button type="button" class="btn btn-primary" @click="showUnsynced = false">知道了</button>
+        </div>
+      </div>
+    </div>
+
     <router-view />
   </div>
 </template>
@@ -181,6 +220,22 @@ button { font-family: inherit; }
 .alert { padding: 9px 13px; border-radius: var(--radius-sm); font-size: 13.5px; margin: 0 0 14px; }
 .alert-warn { background: var(--warn-soft); color: var(--warn); border: 1px solid #fcd888; }
 .field-error { color: var(--danger); font-size: 12px; margin-top: 3px; display: block; }
+
+/* ---- 未同步提醒 dialog ---- */
+.unsync-overlay {
+  position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+  background: rgba(17, 24, 39, .5); backdrop-filter: blur(2px); padding: 20px;
+}
+.unsync-dialog {
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  padding: 20px; width: min(440px, 92vw);
+}
+.unsync-dialog h3 { margin: 0 0 8px; font-size: 16px; font-weight: 650; }
+.unsync-note { margin: 0 0 12px; font-size: 13px; color: var(--text-muted); }
+.unsync-list { margin: 0; padding: 0 0 0 18px; }
+.unsync-list li { margin: 4px 0; }
+.unsync-list a { color: var(--primary-hover); }
+.unsync-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
 
 /* ---- Utility ---- */
 .muted { color: var(--text-muted); }
