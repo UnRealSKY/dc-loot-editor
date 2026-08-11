@@ -32,10 +32,11 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
       <nav class="nav">
         <router-link to="/" class="nav-link" exact-active-class="nav-active">分寶紀錄</router-link>
         <router-link to="/pending" class="nav-link" active-class="nav-active">未領總覽</router-link>
-        <router-link to="/settings" class="nav-link" active-class="nav-active">設定</router-link>
         <router-link to="/shield" class="nav-link" active-class="nav-active">反盾計算機</router-link>
       </nav>
       <div class="appbar-spacer" />
+      <router-link to="/settings" class="btn btn-icon gear" active-class="gear-active"
+        title="設定（DC 群組、名單、品名清單）">⚙</router-link>
     </header>
 
     <div v-if="showUnsynced" class="unsync-overlay" @click.self="showUnsynced = false">
@@ -128,6 +129,8 @@ body {
   box-shadow: var(--shadow-sm);
 }
 .brand h1 { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: .01em; }
+.gear { text-decoration: none; font-size: 17px; }
+.gear-active { color: var(--primary-hover); background: var(--primary-soft); }
 
 /* ---- Buttons ---- */
 button { font-family: inherit; }

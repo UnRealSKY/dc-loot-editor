@@ -99,6 +99,16 @@ export function removeGroup(groups: DcGroup[], id: string): DcGroup[] {
   return groups.filter((g) => g.id !== id)
 }
 
+// 隱藏捷徑：群組取這個名字，名單自動接上本 repo 的 members.json，
+// 不必自己去貼網址。回傳同一個物件代表沒有變動（呼叫端據此判斷要不要重抓）。
+export const MAGIC_GROUP_NAME = '贖罪券'
+
+export function applyMagicRoster(group: DcGroup): DcGroup {
+  if (group.name.trim() !== MAGIC_GROUP_NAME) return group
+  if (group.rosterMode === 'url' && group.rosterUrl === DEFAULT_ROSTER_URL) return group
+  return { ...group, rosterMode: 'url', rosterUrl: DEFAULT_ROSTER_URL }
+}
+
 // 綁在某群組的紀錄數。沒設 groupId 的舊紀錄算在第一個群組頭上——
 // 它們實際上就是用那個群組的 webhook 與名冊。
 export function countRecordsIn(
@@ -180,15 +190,41 @@ export function setActiveGroup(id: string): void {
 
 export function createGroup(name: string): DcGroup {
   groups.value = addGroup(groups.value, name)
-  persist()
   const created = groups.value[groups.value.length - 1]
+  persist()
   setActiveGroup(created.id)
-  return created
+  // 空更新只為了走 patchGroup 裡的 applyMagicRoster——直接用魔法名字建立時也要接上名冊
+  patchGroup(created.id, {})
+  return groups.value.find((g) => g.id === created.id) ?? created
 }
 
 export function patchGroup(id: string, part: Partial<DcGroup>): void {
   groups.value = updateGroup(groups.value, id, part)
+  const g = groups.value.find((x) => x.id === id)
+  const magic = g ? applyMagicRoster(g) : undefined
+  // 取名「贖罪券」時自動接上本 repo 的名冊並立即抓一次；
+  // 已經接好的情況 applyMagicRoster 回傳同一個物件，不會重複觸發
+  if (g && magic && magic !== g) {
+    groups.value = updateGroup(groups.value, id, magic)
+    persist()
+    void refreshRoster(id)
+    return
+  }
   persist()
+}
+
+// 重抓單一群組的名冊（url 模式才有作用）；失敗沿用既有快取
+export async function refreshRoster(id: string): Promise<void> {
+  const g = groups.value.find((x) => x.id === id)
+  if (!g || g.rosterMode !== 'url' || !g.rosterUrl) return
+  loading.value = true
+  try {
+    patchGroup(id, { roster: await fetchRoster(g.rosterUrl) })
+  } catch {
+    // 離線或抓取失敗：沿用快取
+  } finally {
+    loading.value = false
+  }
 }
 
 export function deleteGroup(id: string): void {
