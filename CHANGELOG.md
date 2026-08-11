@@ -1,5 +1,11 @@
 # dc-loot-editor
 
+## 1.18.0
+
+### Minor Changes
+
+- 23cba24: 設定頁移回右上角的齒輪 ⚙（原本 Webhook 設定的位置），導覽列只留分寶紀錄／未領總覽／反盾計算機。另外加了一個隱藏捷徑：群組名稱取為「贖罪券」時，名單會自動接上本 repo 的 members.json 並立即抓取，不必自己貼網址。
+
 ## 1.17.0
 
 ### Minor Changes
