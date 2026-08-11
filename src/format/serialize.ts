@@ -1,5 +1,5 @@
 import type { LootRecord, LootItem, SettleStatus } from '../types'
-import { distSummary, memberDists } from './dist'
+import { memberDists, summaryLine, distLine } from './dist'
 
 function lootLine(it: LootItem): string {
   const q = it.qty ?? ''
@@ -69,12 +69,11 @@ export function serialize(record: LootRecord): string {
     }
   }
 
-  const { total, n, base } = distSummary(record)
   lines.push('', '## 分配')
-  lines.push(`總共: ${total} / ${n} = ${base}`)
+  lines.push(summaryLine(record))
 
   for (const d of memberDists(record)) {
-    lines.push(`* ${settleEmoji(d.member.settle)} ${d.member.handle}: ${d.expr} = ${d.amount}`)
+    lines.push(`* ${settleEmoji(d.member.settle)} ${d.member.handle}: ${distLine(d)}`)
   }
 
   return lines.join('\n')

@@ -16,6 +16,16 @@ const CONSIGNMENT_RE = /^(<@\d+>|@\S+?)\s*:\s*(.+?)x(\d+)\s*=\s*(.+?)\s*$/
 const STREAM_RE = /^\*\s*(.+?)\s*:\s*(https?:\/\/\S+)\s*$/
 // 分配行只取結清狀態與團員 handle（相容 @名稱 與 <@數字ID>，不強制冒號）
 const DIST_RE = /^\*\s*(\S+)\s+(<@\d+>|@[^\s:：]+)/
+// 同一行的算式部分（辨識團長用）
+const DIST_EXPR_RE = /^\*\s*\S+\s+(?:<@\d+>|@[^\s:：]+)\s*[:：]?\s*(.*)$/
+// 有團長時的總共行：總共: (總額 - 辛苦費(辛苦費)) / N = 均分額
+const DIST_FEE_RE = /^總共\s*[:：]\s*\(\s*[\d.]+\s*-\s*([\d.]+)\(辛苦費\)\s*\)/
+
+// 算式裡的辛苦費項＝「+ 純數字」；他人內購是「+ 數字/N」有斜線，不能誤認
+function hasFeeTerm(expr: string, fee: number): boolean {
+  const literal = String(fee).replace(/\./g, '\\.')
+  return new RegExp(`\\+\\s*${literal}(?![\\d./])`).test(expr)
+}
 // 劃線項目內部形如 "上衣命60%x1: (價格太低不計入)" 或 "上衣命60%x1"
 const STRUCK_INNER_RE = /^(.+?)x(\d+)(?:\s*:\s*(.+?))?\s*$/
 
@@ -74,6 +84,8 @@ export function parse(md: string): LootRecord {
   const streams: Stream[] = record.streams!
   const consignments: Consignment[] = record.consignments!
   let section: Section = 'none'
+  let fee = 0
+  let leaderHandle = ''
 
   for (const raw of md.split('\n')) {
     const line = raw.trimEnd()
@@ -128,9 +140,22 @@ export function parse(md: string): LootRecord {
         consignments.push(entry)
       }
     } else if (section === 'dist') {
+      const feeLine = line.match(DIST_FEE_RE)
+      if (feeLine) {
+        fee = Number(feeLine[1])
+        continue
+      }
       const d = line.match(DIST_RE)
-      if (d) record.members.push({ handle: d[2], settle: settleFrom(d[1]) })
+      if (!d) continue
+      record.members.push({ handle: d[2], settle: settleFrom(d[1]) })
+      // 總共行一定在分配行之前，所以這時 fee 已經知道了
+      if (fee > 0 && hasFeeTerm(line.match(DIST_EXPR_RE)?.[1] ?? '', fee)) leaderHandle = d[2]
     }
+  }
+
+  // percent 無法從輸出還原（算式只寫金額），一律存成等值的 fixed
+  if (leaderHandle && fee > 0) {
+    record.leader = { handle: leaderHandle, feeMode: 'fixed', feeValue: fee }
   }
 
   return record

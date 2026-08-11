@@ -306,13 +306,44 @@ function addMember() {
 }
 function updateMember(i: number, part: Partial<Member>) {
   if (!record.value) return
+  const prevHandle = record.value.members[i]?.handle
   const next = [...record.value.members]
   next[i] = { ...next[i], ...part }
+  const leader = record.value.leader
+  // 團長改了 handle，團長設定要跟著改，否則會指向已不存在的 handle
+  if (leader && part.handle !== undefined && leader.handle === prevHandle) {
+    patch({ members: next, leader: { ...leader, handle: part.handle } })
+    return
+  }
   setMembers(next)
 }
 function removeMember(i: number) {
   if (!record.value) return
-  setMembers(record.value.members.filter((_, idx) => idx !== i))
+  const removed = record.value.members[i]
+  const next = record.value.members.filter((_, idx) => idx !== i)
+  // 團長被移出團員就不再是團長，否則辛苦費會掛在不存在的人身上
+  if (record.value.leader?.handle === removed?.handle) patch({ members: next, leader: undefined })
+  else setMembers(next)
+}
+
+// ---- 團長辛苦費 ----
+function setLeaderHandle(handle: string) {
+  if (!record.value) return
+  if (!handle) return patch({ leader: undefined })
+  const prev = record.value.leader
+  patch({
+    leader: { handle, feeMode: prev?.feeMode ?? 'percent', feeValue: prev?.feeValue ?? 0 },
+  })
+}
+function setFeeValue(value: number) {
+  const l = record.value?.leader
+  if (!l) return
+  patch({ leader: { ...l, feeValue: Number.isFinite(value) && value > 0 ? value : 0 } })
+}
+function toggleFeeMode() {
+  const l = record.value?.leader
+  if (!l) return
+  patch({ leader: { ...l, feeMode: l.feeMode === 'percent' ? 'fixed' : 'percent' } })
 }
 function toggleSettle(i: number) {
   const m = record.value?.members[i]
@@ -383,6 +414,35 @@ function toggleSettle(i: number) {
           <button type="button" class="btn btn-icon btn-danger" title="移除" @click="removeMember(i)">✕</button>
         </li>
       </ul>
+    </div>
+
+    <div class="card">
+      <div class="section-head"><h3>團長</h3></div>
+      <div class="leader-fields">
+        <label class="field">
+          <span class="field-label">人</span>
+          <select :value="record.leader?.handle ?? ''"
+            @change="setLeaderHandle(($event.target as HTMLSelectElement).value)">
+            <option value="">無</option>
+            <option v-for="m in record.members" :key="m.id ?? m.handle" :value="m.handle"
+              :disabled="!m.handle">
+              {{ m.handle ? handleLabel(m.handle) : '(未填 handle)' }}
+            </option>
+          </select>
+        </label>
+        <label v-if="record.leader" class="field">
+          <span class="field-label">辛苦費</span>
+          <div class="fee-row">
+            <input type="number" min="0" :value="record.leader.feeValue"
+              @input="setFeeValue(Number(($event.target as HTMLInputElement).value))" />
+            <button type="button" class="btn fee-mode" :title="record.leader.feeMode === 'percent'
+              ? '目前為團隊總額的百分比，點一下改成固定金額' : '目前為固定金額，點一下改成百分比'"
+              @click="toggleFeeMode">
+              {{ record.leader.feeMode === 'percent' ? '%' : '固定' }}
+            </button>
+          </div>
+        </label>
+      </div>
     </div>
 
     <LootTable :model-value="record.lootItems" @update:model-value="setLootItems" />
@@ -463,6 +523,10 @@ function toggleSettle(i: number) {
 }
 
 .header-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+
+.leader-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+.fee-row { display: flex; gap: 8px; }
+.fee-mode { flex: none; min-width: 56px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field-title { grid-column: 1 / -1; }
 .field-title .invalid :deep(input) { border-color: var(--danger); }

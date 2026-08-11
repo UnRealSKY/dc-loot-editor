@@ -129,3 +129,28 @@ describe('pendingBlocks', () => {
     expect(b.records.map((x) => x.recordId)).toEqual(['r4', 'r1'])
   })
 })
+
+describe('pendingBlocks 團長辛苦費', () => {
+  const r = makeRecord({
+    members: ['@a', '@b', '@c', '@d', '@e'].map((h) => ({ handle: h, settle: 'pending' as const })),
+    lootItems: [{ status: 'ok', name: 'x', qty: 1, unitPrice: 10000 }],
+    leader: { handle: '@a', feeMode: 'percent', feeValue: 5 },
+  })
+
+  it('總共行與 serialize 共用，含括號與辛苦費', () => {
+    const blocks = pendingBlocks([r], display)
+    const lines = blocks.find((b) => b.handle === '@a')!.records[0].lines
+    expect(lines).toContain('總共: (10000 - 500(辛苦費)) / 5 = 1900')
+  })
+
+  it('團長的應領含辛苦費', () => {
+    const blocks = pendingBlocks([r], display)
+    expect(blocks.find((b) => b.handle === '@a')!.total).toBe(2400)
+    expect(blocks.find((b) => b.handle === '@b')!.total).toBe(1900)
+  })
+
+  it('沒有運算的分配行不再重複寫金額', () => {
+    const lines = pendingBlocks([r], display).find((b) => b.handle === '@b')!.records[0].lines
+    expect(lines).toContain('@b: 1900')
+  })
+})

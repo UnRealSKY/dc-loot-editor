@@ -1,5 +1,5 @@
 import type { LootRecord } from '../types'
-import { distSummary, memberDists } from './dist'
+import { memberDists, summaryLine, distLine } from './dist'
 
 export interface PendingRecordDetail {
   recordId: string
@@ -34,7 +34,6 @@ export function pendingBlocks(
   const blocks = new Map<string, PendingBlock>()
   for (const r of [...records].sort(byDateAsc)) {
     if (r.shelved) continue // 擱置中：暫不列入統計
-    const { total, n, base } = distSummary(r)
     const hasCart = r.lootItems.some((it) => it.status === 'cart')
     for (const d of memberDists(r)) {
       if (d.member.settle !== 'pending') continue
@@ -45,8 +44,8 @@ export function pendingBlocks(
         const mode = p.mode === 'split' ? ' (均攤)' : ''
         lines.push(`${display(p.buyer)}: 內購 ${p.name}x${p.qty} = ${p.unitPrice}x${p.qty}${mode}`)
       }
-      lines.push(`總共: ${total} / ${n} = ${base}`)
-      lines.push(`${display(handle)}: ${d.expr} = ${d.amount}`)
+      lines.push(summaryLine(r))
+      lines.push(`${display(handle)}: ${distLine(d)}`)
       let block = blocks.get(handle)
       if (!block) {
         block = { handle, display: display(handle), records: [], totalLine: '', total: 0 }
