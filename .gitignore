@@ -3,6 +3,7 @@ dist
 *.local
 .DS_Store
 *.stackdump
+.env
 
 # Claude / superpowers 相關，不進版控
 .superpowers/

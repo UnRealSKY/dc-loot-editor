@@ -74,7 +74,8 @@ function editRoster(i: number, part: Partial<RosterEntry>) {
   saveRosterLocal(next)
 }
 function addRosterRow() {
-  saveRosterLocal([...roster.value, { handle: '', alias: '' }])
+  // 手動加的一列沒有 Discord 資料，名字填在 alias
+  saveRosterLocal([...roster.value, { discordHandle: '', discordNickName: '', alias: '' }])
 }
 function removeRosterRow(i: number) {
   saveRosterLocal(roster.value.filter((_, idx) => idx !== i))
@@ -177,23 +178,29 @@ async function copyJson(key: 'roster' | 'items') {
 
       <div class="table-wrap">
         <table>
-          <thead><tr><th>handle</th><th>別名</th><th>Discord 使用者 ID</th><th v-if="rSource.mode === 'local'"></th></tr></thead>
+          <thead><tr>
+            <th>Discord 帳號</th><th>Discord 顯示名</th><th>自訂別名</th><th>Discord 使用者 ID</th>
+            <th v-if="rSource.mode === 'local'"></th>
+          </tr></thead>
           <tbody>
             <tr v-for="(e, i) in roster" :key="i">
               <template v-if="rSource.mode === 'local'">
-                <td><input :value="e.handle" placeholder="@handle"
-                  @input="editRoster(i, { handle: ($event.target as HTMLInputElement).value })" /></td>
-                <td><input :value="e.alias" placeholder="別名"
-                  @input="editRoster(i, { alias: ($event.target as HTMLInputElement).value })" /></td>
-                <td><input :value="e.id ?? ''" placeholder="（選填，真 mention 用）"
-                  @input="editRoster(i, { id: ($event.target as HTMLInputElement).value || undefined })" /></td>
+                <td><input :value="e.discordHandle" placeholder="@handle"
+                  @input="editRoster(i, { discordHandle: ($event.target as HTMLInputElement).value })" /></td>
+                <td><input :value="e.discordNickName" placeholder="（同步時自動填入）"
+                  @input="editRoster(i, { discordNickName: ($event.target as HTMLInputElement).value })" /></td>
+                <td><input :value="e.alias ?? ''" placeholder="自己取的名字"
+                  @input="editRoster(i, { alias: ($event.target as HTMLInputElement).value || undefined })" /></td>
+                <td><input :value="e.discordId ?? ''" placeholder="（選填，真 mention 用）"
+                  @input="editRoster(i, { discordId: ($event.target as HTMLInputElement).value || undefined })" /></td>
                 <td><button type="button" class="btn btn-icon btn-danger" title="移除"
                   @click="removeRosterRow(i)">✕</button></td>
               </template>
               <template v-else>
-                <td>{{ e.handle }}</td>
-                <td>{{ e.alias }}</td>
-                <td class="muted">{{ e.id ?? '—' }}</td>
+                <td>{{ e.discordHandle }}</td>
+                <td>{{ e.discordNickName || '—' }}</td>
+                <td :class="{ muted: !e.alias }">{{ e.alias || '—' }}</td>
+                <td class="muted">{{ e.discordId ?? '—' }}</td>
               </template>
             </tr>
           </tbody>

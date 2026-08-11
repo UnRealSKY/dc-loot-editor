@@ -52,7 +52,7 @@ describe('名冊來源模式', () => {
     const roster = await import('#src/store/roster')
     await expect(roster.fetchRoster('https://x')).rejects.toThrow('JSON 陣列')
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, [{ nope: 1 }])))
-    await expect(roster.fetchRoster('https://x')).rejects.toThrow('handle 與 alias')
+    await expect(roster.fetchRoster('https://x')).rejects.toThrow('discordHandle')
   })
 
   it('setRosterSource 持久化，重載後生效', async () => {
@@ -92,5 +92,39 @@ describe('品名來源模式', () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, [1, 2])))
     const items = await import('#src/store/sharedItems')
     await expect(items.fetchItems('https://x')).rejects.toThrow('字串品名')
+  })
+})
+
+describe('名冊 localStorage 舊格式搬遷', () => {
+  it('載入時把舊格式轉成新結構並立即寫回，不必等下次編輯', async () => {
+    localStorage.setItem('dc-roster-source', JSON.stringify({ mode: 'local' })) // 不抓網路
+    localStorage.setItem(
+      'dc-loot-roster',
+      JSON.stringify([{ handle: '@a', alias: '天天', id: '123' }]),
+    )
+    const roster = await import('#src/store/roster')
+    expect(roster.useRoster().roster.value).toEqual([
+      { discordHandle: '@a', discordNickName: '天天', discordId: '123' },
+    ])
+    // 關鍵：localStorage 裡的實體資料也要換成新格式
+    expect(JSON.parse(localStorage.getItem('dc-loot-roster')!)).toEqual([
+      { discordHandle: '@a', discordNickName: '天天', discordId: '123' },
+    ])
+  })
+
+  it('已是新格式時不動 localStorage', async () => {
+    const stored = [{ discordHandle: '@a', discordNickName: '天天', alias: '自訂' }]
+    localStorage.setItem('dc-roster-source', JSON.stringify({ mode: 'local' }))
+    localStorage.setItem('dc-loot-roster', JSON.stringify(stored))
+    const roster = await import('#src/store/roster')
+    expect(roster.useRoster().roster.value).toEqual(stored)
+    expect(JSON.parse(localStorage.getItem('dc-loot-roster')!)).toEqual(stored)
+  })
+
+  it('壞掉的快取不會讓開站爆炸', async () => {
+    localStorage.setItem('dc-roster-source', JSON.stringify({ mode: 'local' }))
+    localStorage.setItem('dc-loot-roster', '{ not json')
+    const roster = await import('#src/store/roster')
+    expect(roster.useRoster().roster.value).toEqual([])
   })
 })
