@@ -7,6 +7,8 @@ import {
   groupById,
   nameIn,
   countRecordsIn,
+  applyMagicRoster,
+  DEFAULT_ROSTER_URL,
   type DcGroup,
 } from '#src/store/groups'
 import type { RosterEntry } from '#src/store/roster'
@@ -178,5 +180,38 @@ describe('countRecordsIn', () => {
 
   it('沒有紀錄時回 0', () => {
     expect(countRecordsIn([], groups, 'g1')).toBe(0)
+  })
+})
+
+describe('applyMagicRoster（隱藏設定：群組取名「贖罪券」）', () => {
+  it('名稱為贖罪券時自動指向本 repo 的 members.json', () => {
+    const g = applyMagicRoster(group({ name: '贖罪券', rosterMode: 'local', roster: [] }))
+    expect(g.rosterMode).toBe('url')
+    expect(g.rosterUrl).toBe(DEFAULT_ROSTER_URL)
+  })
+
+  it('前後空白不影響判定', () => {
+    expect(applyMagicRoster(group({ name: '  贖罪券  ' })).rosterUrl).toBe(DEFAULT_ROSTER_URL)
+  })
+
+  it('其他名稱原樣不動', () => {
+    const g = group({ name: '別的公會', rosterMode: 'local' })
+    expect(applyMagicRoster(g)).toBe(g)
+  })
+
+  it('已經指向該網址時回傳同一個物件（避免無限重抓）', () => {
+    const g = group({ name: '贖罪券', rosterMode: 'url', rosterUrl: DEFAULT_ROSTER_URL })
+    expect(applyMagicRoster(g)).toBe(g)
+  })
+
+  it('不改動傳入的群組', () => {
+    const g = group({ name: '贖罪券', rosterMode: 'local' })
+    applyMagicRoster(g)
+    expect(g.rosterMode).toBe('local')
+  })
+
+  it('保留名冊以外的設定（webhook 不受影響）', () => {
+    const g = applyMagicRoster(group({ name: '贖罪券', webhookUrl: 'https://x/y' }))
+    expect(g.webhookUrl).toBe('https://x/y')
   })
 })
