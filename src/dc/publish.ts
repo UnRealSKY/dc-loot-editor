@@ -1,6 +1,6 @@
 import type { LootRecord, DcImage } from '../types'
 import { serialize } from '../format/serialize'
-import { rosterMentions } from '../store/roster'
+import { mentionsIn } from '../store/groups'
 import {
   createForumPost,
   editMessage,
@@ -39,14 +39,14 @@ export function applyMentions(
 
 // 發佈到 DC 的最終內文（serialize + 真 mention 轉換）；一致性檢查也用同一份
 export function publishContent(record: LootRecord): string {
-  return applyMentions(serialize(record), rosterMentions())
+  return applyMentions(serialize(record), mentionsIn(record.groupId))
 }
 
 // 串內圖片訊息的內文（領錢綁團員、外購帶註解）；比對 sentContent 偵測變更
-export function imageMessageContent(image: DcImage): string {
+export function imageMessageContent(image: DcImage, groupId?: string): string {
   if (image.kind === 'payout') {
     const who = image.memberHandle ?? ''
-    return applyMentions(`${who} 領錢`.trim(), rosterMentions())
+    return applyMentions(`${who} 領錢`.trim(), mentionsIn(groupId))
   }
   return `外購${image.note ? `: ${image.note}` : ''}`
 }
@@ -61,7 +61,7 @@ export function hasImageChanges(record: LootRecord): boolean {
     (img) =>
       img.removed ||
       !img.url ||
-      (img.dcMessageId && img.sentContent !== imageMessageContent(img)),
+      (img.dcMessageId && img.sentContent !== imageMessageContent(img, record.groupId)),
   )
 }
 
@@ -116,7 +116,7 @@ export async function publishOrSync(
   const threadOps = images.filter(
     (i) =>
       i.kind !== 'drop' &&
-      (i.removed || !i.url || (i.dcMessageId && i.sentContent !== imageMessageContent(i))),
+      (i.removed || !i.url || (i.dcMessageId && i.sentContent !== imageMessageContent(i, record.groupId))),
   )
   const total = 1 + threadOps.length
   let done = 0
@@ -174,7 +174,7 @@ export async function publishOrSync(
       work = { ...work, images: list.filter((i) => i.id !== img.id) }
     } else if (!img.url) {
       const files = await loadFiles([img], io)
-      const msgContent = imageMessageContent(img)
+      const msgContent = imageMessageContent(img, record.groupId)
       const posted = await postThreadMessage(url, work.dc!.threadId, msgContent, files)
       await io.deleteBlob(img.id)
       work = {
@@ -191,7 +191,7 @@ export async function publishOrSync(
         ),
       }
     } else if (img.dcMessageId) {
-      const msgContent = imageMessageContent(img)
+      const msgContent = imageMessageContent(img, record.groupId)
       await editMessage(url, img.dcMessageId, work.dc!.threadId, msgContent)
       work = {
         ...work,

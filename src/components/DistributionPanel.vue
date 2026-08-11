@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import type { LootRecord, SettleStatus } from '../types'
 import { teamTotal, leaderFee, computeIncomes, memberConsignmentTotal, roundDisplay } from '../calc/distribution'
-import { displayName } from '../store/roster'
+import { displayNameIn } from '../store/groups'
 
 const props = defineProps<{ record: LootRecord }>()
 const emit = defineEmits<{ 'toggle-settle': [index: number] }>()
@@ -71,7 +71,7 @@ const rows = computed(() =>
         </tr></thead>
         <tbody>
           <tr v-for="r in rows" :key="r.index">
-            <td class="handle">{{ r.handle ? displayName(r.handle) : '—' }}</td>
+            <td class="handle">{{ r.handle ? displayNameIn(record.groupId, r.handle) : '—' }}</td>
             <td class="num">{{ baseDisplay }}</td>
             <td v-if="fee > 0" class="num plus">{{ r.fee ? '+' + roundDisplay(r.fee) : 0 }}</td>
             <td class="num plus">{{ n > 1 ? '+' + Math.ceil(r.others / (n - 1)) : 0 }}</td>

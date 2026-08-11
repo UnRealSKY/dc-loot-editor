@@ -3,8 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useRecordsStore } from '../store/records'
 import { useHistory } from '../store/history'
-import { aliasOf } from '../store/roster'
-import { webhookUrl } from '../store/webhook'
+import { aliasOfIn, groupOf, useGroups } from '../store/groups'
 import { publishOrSync, publishContent, hasImageChanges, dcSyncStatus } from '../dc/publish'
 import { parseMessageLink, isBindingLost, getMessage } from '../dc/webhook'
 import type { LootRecord, LootItem, Member, Purchase, Stream, Consignment, DcImage, DcImageKind } from '../types'
@@ -21,7 +20,7 @@ import ImportDialog from './ImportDialog.vue'
 
 const route = useRoute()
 const store = useRecordsStore()
-const history = useHistory()
+const history = useHistory(() => record.value?.groupId)
 
 const record = computed<LootRecord | undefined>(() => store.get(route.params.id as string))
 
@@ -31,9 +30,25 @@ function patch(part: Partial<LootRecord>) {
 
 const bossError = computed(() => !record.value || !record.value.boss.trim())
 
+// ---- 所屬 DC 群組（決定用哪個 webhook 與哪份名冊）----
+const { groups } = useGroups()
+const groupId = computed(() => record.value?.groupId)
+// 沒指定的舊紀錄落在第一個群組，下拉要顯示成那一個
+const shownGroupId = computed(() => groupOf(groupId.value)?.id ?? '')
+
+function setGroup(id: string) {
+  const r = record.value
+  if (!r || id === r.groupId) return
+  // 已發佈的貼文綁在原群組的頻道上，換群組等於之後同步會發到別的地方
+  if (r.dc && !window.confirm('這筆紀錄已經發佈到 DC。\n換群組之後同步會送到新群組的頻道，確定要換嗎？')) {
+    return
+  }
+  patch({ groupId: id })
+}
+
 // 下拉顯示「別名 (handle)」，選取仍存 handle
 function handleLabel(h: string): string {
-  const a = aliasOf(h)
+  const a = aliasOfIn(groupId.value, h)
   return a ? `${a} (${h})` : h
 }
 
@@ -68,7 +83,7 @@ onMounted(() => {
 })
 
 // ---- 發佈/同步至 DC ----
-const dcUrl = webhookUrl()
+const dcUrl = computed(() => groupOf(record.value?.groupId)?.webhookUrl ?? '')
 type PublishState = 'idle' | 'busy' | 'ok' | 'fail'
 const publishState = ref<PublishState>('idle')
 const publishError = ref('')
@@ -129,7 +144,7 @@ async function publishToDc() {
   if (!r || publishState.value === 'busy') return
   publishError.value = ''
   if (!dcUrl.value) {
-    publishError.value = '尚未設定 Webhook URL（右上 ⚙）'
+    publishError.value = '這個群組還沒設定 Webhook URL（設定頁 → DC 群組）'
     return
   }
   if (bossError.value) {
@@ -410,6 +425,12 @@ function toggleSettle(i: number) {
           <input type="date" :value="record.date"
             @input="patch({ date: ($event.target as HTMLInputElement).value })" />
         </label>
+        <label class="field">
+          <span class="field-label">DC 群組</span>
+          <select :value="shownGroupId" @change="setGroup(($event.target as HTMLSelectElement).value)">
+            <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+          </select>
+        </label>
       </div>
     </div>
 
@@ -423,8 +444,8 @@ function toggleSettle(i: number) {
               :suggestions="history.handles.value" :label-for="handleLabel"
               :loading="history.handlesLoading.value" placeholder="@handle（留空＝沒有團長）"
               @update:model-value="setLeaderHandle($event)" />
-            <span v-if="record.leader && aliasOf(record.leader.handle)" class="alias-badge">
-              {{ aliasOf(record.leader.handle) }}
+            <span v-if="record.leader && aliasOfIn(groupId, record.leader.handle)" class="alias-badge">
+              {{ aliasOfIn(groupId, record.leader.handle) }}
             </span>
           </div>
         </label>
@@ -456,7 +477,7 @@ function toggleSettle(i: number) {
           <AutocompleteInput class="member-handle" :model-value="m.handle" :suggestions="history.handles.value"
             :label-for="handleLabel" :loading="history.handlesLoading.value" placeholder="@handle"
             @update:model-value="updateMember(i, { handle: $event })" />
-          <span v-if="aliasOf(m.handle)" class="alias-badge">{{ aliasOf(m.handle) }}</span>
+          <span v-if="aliasOfIn(groupId, m.handle)" class="alias-badge">{{ aliasOfIn(groupId, m.handle) }}</span>
           <span v-if="record.leader?.handle === m.handle" class="chip chip-cart leader-tag">團長</span>
           <button type="button" class="btn btn-icon btn-danger" title="移除" @click="removeMember(i)">✕</button>
         </li>
@@ -464,14 +485,14 @@ function toggleSettle(i: number) {
     </div>
 
     <LootTable :model-value="record.lootItems" @update:model-value="setLootItems" />
-    <PurchaseTable :model-value="record.purchases" :members="record.members"
+    <PurchaseTable :model-value="record.purchases" :members="record.members" :group-id="record.groupId"
       @update:model-value="setPurchases" />
     <StreamTable :model-value="record.streams ?? []" @update:model-value="setStreams" />
-    <ConsignmentTable :model-value="record.consignments ?? []" :members="record.members"
+    <ConsignmentTable :model-value="record.consignments ?? []" :members="record.members" :group-id="record.groupId"
       @update:model-value="setConsignments" />
     <ImageSection title="掉落截圖" kind="drop" :images="imagesOf('drop')"
       @add="addImages" @update="updateImage" @remove="removeImage" @refresh="refreshImageUrl" />
-    <ImageSection title="領錢截圖" kind="payout" :images="imagesOf('payout')" :members="record.members"
+    <ImageSection title="領錢截圖" kind="payout" :images="imagesOf('payout')" :members="record.members" :group-id="record.groupId"
       @add="addImages" @update="updateImage" @remove="removeImage" @refresh="refreshImageUrl" />
     <ImageSection title="外購截圖" kind="external" :images="imagesOf('external')"
       @add="addImages" @update="updateImage" @remove="removeImage" @refresh="refreshImageUrl" />

@@ -119,8 +119,8 @@ pnpm members
 - 已離開伺服器的人會從名冊移除。
 - 印出新增／移除／改名／`discordNickName` 變更的摘要。
 
-想讓某個人在畫面上顯示簡稱（例如把「天天(UnRealSKY)」顯示成「天天」），就在名單管理頁
-的**自訂別名**欄填「天天」——顯示優先序是 `alias` → `discordNickName` → `discordHandle`，
+想讓某個人在畫面上顯示簡稱（例如把「天天(UnRealSKY)」顯示成「天天」），就在設定頁
+該群組名單的**自訂別名**欄填「天天」——顯示優先序是 `alias` → `discordNickName` → `discordHandle`，
 而且往後同步都不會被蓋掉。
 
 改完先 `git diff members.json` 看一眼，不對就 `git checkout members.json` 還原。
@@ -133,5 +133,7 @@ pnpm members
 | `403：沒有權限` | 忘了開 **SERVER MEMBERS INTENT**（上面第 6 步） |
 | `404：找不到伺服器` | `DISCORD_GUILD_ID` 錯，或 bot 還沒邀進伺服器（上面第 10 步） |
 
-> 腳本尚未對真實 Discord API 跑過（撰寫時沒有 token）。
-> 合併名冊的純函式有測試涵蓋，但 API 互動要等第一次實跑才算驗證過。
+腳本已對真實 Discord API 實跑過（2026-08-11，一次抓回 34 人並補齊所有 `discordId`）。
+
+> 抓回來的 `members.json` 是**第一個群組**的名單來源（設定頁的自訂 URL 指向這份）。
+> 其他群組各自貼自己的網址或直接在設定頁編輯，互不影響。

@@ -3,7 +3,7 @@ import type { Purchase, Member } from '../types'
 import { computed } from 'vue'
 import PurchaseRow from './PurchaseRow.vue'
 
-const props = defineProps<{ modelValue: Purchase[]; members: Member[] }>()
+const props = defineProps<{ modelValue: Purchase[]; members: Member[]; groupId?: string }>()
 const emit = defineEmits<{ 'update:modelValue': [v: Purchase[]] }>()
 
 const memberHandles = computed(() => props.members.map((m) => m.handle).filter(Boolean))
@@ -43,6 +43,7 @@ function add() {
             :model-value="p"
             :member-handles="memberHandles"
             :member-count="members.length"
+            :group-id="groupId"
             @update:model-value="updateAt(i, $event)"
             @remove="removeAt(i)"
           />

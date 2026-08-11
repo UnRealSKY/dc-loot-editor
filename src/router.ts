@@ -5,7 +5,7 @@ const routes = [
   { path: '/', component: RecordList },
   { path: '/edit/:id', component: () => import('./components/RecordEditor.vue') },
   { path: '/pending', component: () => import('./components/PendingOverview.vue') },
-  { path: '/lists', component: () => import('./components/ListManager.vue') },
+  { path: '/settings', component: () => import('./components/SettingsPage.vue') },
   { path: '/shield', component: () => import('./components/ShieldTimer.vue') },
 ]
 

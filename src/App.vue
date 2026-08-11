@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import DcSettingsDialog from './components/DcSettingsDialog.vue'
 import { useRecordsStore } from './store/records'
 import { dcSyncStatus } from './dc/publish'
-
-const showDcSettings = ref(false)
 
 // 關閉分頁守衛：有已發佈紀錄未同步 DC 時，先跳瀏覽器標準確認；
 // 使用者選擇留下（頁面仍存活）→ 再跳自訂 dialog 列出未同步紀錄
@@ -35,14 +32,11 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
       <nav class="nav">
         <router-link to="/" class="nav-link" exact-active-class="nav-active">分寶紀錄</router-link>
         <router-link to="/pending" class="nav-link" active-class="nav-active">未領總覽</router-link>
-        <router-link to="/lists" class="nav-link" active-class="nav-active">名單管理</router-link>
+        <router-link to="/settings" class="nav-link" active-class="nav-active">設定</router-link>
         <router-link to="/shield" class="nav-link" active-class="nav-active">反盾計算機</router-link>
       </nav>
       <div class="appbar-spacer" />
-      <button type="button" class="btn btn-icon" title="DC Webhook 設定"
-        @click="showDcSettings = true">⚙</button>
     </header>
-    <DcSettingsDialog :open="showDcSettings" @close="showDcSettings = false" />
 
     <div v-if="showUnsynced" class="unsync-overlay" @click.self="showUnsynced = false">
       <div class="unsync-dialog">

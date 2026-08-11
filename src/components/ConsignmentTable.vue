@@ -3,7 +3,7 @@ import type { Consignment, Member } from '../types'
 import { computed } from 'vue'
 import ConsignmentRow from './ConsignmentRow.vue'
 
-const props = defineProps<{ modelValue: Consignment[]; members: Member[] }>()
+const props = defineProps<{ modelValue: Consignment[]; members: Member[]; groupId?: string }>()
 const emit = defineEmits<{ 'update:modelValue': [v: Consignment[]] }>()
 
 const memberHandles = computed(() => props.members.map((m) => m.handle).filter(Boolean))
@@ -42,6 +42,7 @@ function add() {
             :key="c.id"
             :model-value="c"
             :member-handles="memberHandles"
+            :group-id="groupId"
             @update:model-value="updateAt(i, $event)"
             @remove="removeAt(i)"
           />

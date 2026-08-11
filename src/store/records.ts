@@ -3,6 +3,7 @@ import { ref, toRaw, watch } from 'vue'
 import type { LootRecord } from '../types'
 import { runMigrations } from './migrations'
 import { deleteBlob } from '../db/imageBlobs'
+import { activeGroup } from './groups'
 
 export const STORAGE_KEY = 'dc-loot-records'
 
@@ -70,6 +71,8 @@ export const useRecordsStore = defineStore('records', () => {
       updatedAt: ts,
     }
     if (!rec.date) rec.date = todayLocal()
+    // 新紀錄預設落在設定頁選中的群組
+    if (!rec.groupId) rec.groupId = activeGroup()?.id
     records.value.push(rec)
     return rec
   }

@@ -1,0 +1,182 @@
+import { describe, it, expect } from 'vitest'
+import {
+  migrateGroups,
+  addGroup,
+  removeGroup,
+  updateGroup,
+  groupById,
+  nameIn,
+  countRecordsIn,
+  type DcGroup,
+} from '#src/store/groups'
+import type { RosterEntry } from '#src/store/roster'
+
+const roster = (entries: Partial<RosterEntry>[]): RosterEntry[] =>
+  entries.map((e) => ({ discordHandle: '', discordNickName: '', ...e }))
+
+const group = (over: Partial<DcGroup>): DcGroup => ({
+  id: 'g1', name: '我的公會', webhookUrl: '', rosterMode: 'local', roster: [], ...over,
+})
+
+describe('migrateGroups', () => {
+  it('沒有群組資料時，用舊的 webhook／名冊／來源合成第一個群組', () => {
+    const groups = migrateGroups({
+      stored: null,
+      legacyWebhook: 'https://discord.com/api/webhooks/1/abc',
+      legacyRoster: roster([{ discordHandle: '@a', discordNickName: '甲' }]),
+      legacySource: { mode: 'default' },
+    })
+    expect(groups).toHaveLength(1)
+    expect(groups[0]).toMatchObject({
+      name: '我的公會',
+      webhookUrl: 'https://discord.com/api/webhooks/1/abc',
+      rosterMode: 'url', // 舊的「預設來源」＝跟隨官方 repo，轉成 url 模式
+    })
+    expect(groups[0].rosterUrl).toContain('members.json')
+    expect(groups[0].roster).toHaveLength(1)
+  })
+
+  it('舊的自訂 URL 模式帶著網址轉過來', () => {
+    const [g] = migrateGroups({
+      stored: null,
+      legacyWebhook: '',
+      legacyRoster: [],
+      legacySource: { mode: 'url', url: 'https://x/m.json' },
+    })
+    expect(g).toMatchObject({ rosterMode: 'url', rosterUrl: 'https://x/m.json' })
+  })
+
+  it('舊的自行輸入模式轉成 local', () => {
+    const [g] = migrateGroups({
+      stored: null, legacyWebhook: '', legacyRoster: [], legacySource: { mode: 'local' },
+    })
+    expect(g.rosterMode).toBe('local')
+    expect(g.rosterUrl).toBeUndefined()
+  })
+
+  it('完全沒有舊資料也會給一個空群組，設定頁才不會開起來是空白', () => {
+    const groups = migrateGroups({
+      stored: null, legacyWebhook: '', legacyRoster: [], legacySource: { mode: 'default' },
+    })
+    expect(groups).toHaveLength(1)
+    expect(groups[0].id).toBeTruthy()
+  })
+
+  it('已有群組資料時原樣沿用，不再做遷移', () => {
+    const stored = [group({ id: 'x', name: '第二公會' })]
+    expect(migrateGroups({
+      stored, legacyWebhook: 'https://should.not/matter', legacyRoster: [], legacySource: { mode: 'default' },
+    })).toEqual(stored)
+  })
+
+  it('壞掉的群組資料退回遷移路徑', () => {
+    const groups = migrateGroups({
+      stored: 'not an array', legacyWebhook: '', legacyRoster: [], legacySource: { mode: 'default' },
+    })
+    expect(groups).toHaveLength(1)
+  })
+
+  it('過濾掉缺 id 或名稱的項目', () => {
+    const stored = [group({ id: 'ok' }), { id: '', name: 'x' }, { name: '沒有 id' }]
+    expect(migrateGroups({
+      stored, legacyWebhook: '', legacyRoster: [], legacySource: { mode: 'default' },
+    }).map((g) => g.id)).toEqual(['ok'])
+  })
+})
+
+describe('群組增刪改', () => {
+  const base = [group({ id: 'g1', name: 'A' }), group({ id: 'g2', name: 'B' })]
+
+  it('新增群組接在最後，id 不重複', () => {
+    const next = addGroup(base, '新公會')
+    expect(next).toHaveLength(3)
+    expect(next[2].name).toBe('新公會')
+    expect(new Set(next.map((g) => g.id)).size).toBe(3)
+  })
+
+  it('更新只影響指定群組', () => {
+    const next = updateGroup(base, 'g2', { name: 'B2', webhookUrl: 'https://x' })
+    expect(next[0]).toEqual(base[0])
+    expect(next[1]).toMatchObject({ id: 'g2', name: 'B2', webhookUrl: 'https://x' })
+  })
+
+  it('更新不存在的 id 不改變任何東西', () => {
+    expect(updateGroup(base, 'nope', { name: 'x' })).toEqual(base)
+  })
+
+  it('移除指定群組', () => {
+    expect(removeGroup(base, 'g1').map((g) => g.id)).toEqual(['g2'])
+  })
+
+  it('不允許移除最後一個群組（設定頁不能變成空白）', () => {
+    const one = [group({ id: 'only' })]
+    expect(removeGroup(one, 'only')).toEqual(one)
+  })
+
+  it('不改動傳入的陣列', () => {
+    addGroup(base, 'x')
+    updateGroup(base, 'g1', { name: 'changed' })
+    removeGroup(base, 'g1')
+    expect(base.map((g) => g.name)).toEqual(['A', 'B'])
+  })
+})
+
+describe('groupById', () => {
+  const groups = [group({ id: 'g1', name: 'A' }), group({ id: 'g2', name: 'B' })]
+
+  it('找得到就回該群組', () => {
+    expect(groupById(groups, 'g2')?.name).toBe('B')
+  })
+
+  it('id 是 undefined 或找不到時退回第一個群組（舊紀錄相容）', () => {
+    expect(groupById(groups, undefined)?.name).toBe('A')
+    expect(groupById(groups, 'gone')?.name).toBe('A')
+  })
+
+  it('沒有任何群組時回 undefined', () => {
+    expect(groupById([], 'g1')).toBeUndefined()
+  })
+})
+
+describe('nameIn', () => {
+  const groups = [
+    group({ id: 'g1', roster: roster([{ discordHandle: '@a', discordNickName: '甲群的暱稱' }]) }),
+    group({
+      id: 'g2',
+      roster: roster([{ discordHandle: '@a', discordNickName: '乙群的暱稱', alias: '自訂' }]),
+    }),
+  ]
+
+  it('同一個 handle 在不同群組顯示各自的名字', () => {
+    expect(nameIn(groups, 'g1', '@a')).toBe('甲群的暱稱')
+    expect(nameIn(groups, 'g2', '@a')).toBe('自訂')
+  })
+
+  it('名冊裡沒有的人顯示原 handle', () => {
+    expect(nameIn(groups, 'g1', '@nobody')).toBe('@nobody')
+  })
+
+  it('groupId 是 undefined 時用第一個群組', () => {
+    expect(nameIn(groups, undefined, '@a')).toBe('甲群的暱稱')
+  })
+})
+
+describe('countRecordsIn', () => {
+  const groups = [group({ id: 'g1' }), group({ id: 'g2' })]
+
+  it('依 groupId 計數', () => {
+    const records = [{ groupId: 'g1' }, { groupId: 'g2' }, { groupId: 'g2' }]
+    expect(countRecordsIn(records, groups, 'g1')).toBe(1)
+    expect(countRecordsIn(records, groups, 'g2')).toBe(2)
+  })
+
+  it('沒有 groupId 的舊紀錄算在第一個群組頭上', () => {
+    const records = [{}, { groupId: 'g2' }]
+    expect(countRecordsIn(records, groups, 'g1')).toBe(1)
+    expect(countRecordsIn(records, groups, 'g2')).toBe(1)
+  })
+
+  it('沒有紀錄時回 0', () => {
+    expect(countRecordsIn([], groups, 'g1')).toBe(0)
+  })
+})

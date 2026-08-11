@@ -13,38 +13,56 @@ function jsonResponse(status: number, body: unknown): Response {
   })
 }
 
-describe('名冊來源模式', () => {
-  it('預設模式抓官方 members.json 並回寫快取', async () => {
+describe('群組名冊載入', () => {
+  it('沒有任何舊資料時，遷移出的群組跟隨官方 members.json', async () => {
     const fetchMock = vi.fn(async () => jsonResponse(200, [{ handle: '@a', alias: 'A' }]))
     vi.stubGlobal('fetch', fetchMock)
-    const roster = await import('#src/store/roster')
-    await roster.initRoster()
+    const groups = await import('#src/store/groups')
+    await groups.initGroups()
     const [calledUrl] = fetchMock.mock.calls[0] as unknown as [string]
     expect(calledUrl).toContain('members.json')
-    expect(roster.rosterHandles()).toEqual(['@a'])
-    expect(JSON.parse(localStorage.getItem('dc-loot-roster')!)).toHaveLength(1)
+    expect(groups.rosterHandlesIn(undefined)).toEqual(['@a'])
+    // 抓回來的名冊要回寫成群組的快取
+    expect(JSON.parse(localStorage.getItem('dc-groups')!)[0].roster).toHaveLength(1)
   })
 
-  it('自訂 URL 模式抓指定網址', async () => {
-    localStorage.setItem('dc-roster-source', JSON.stringify({ mode: 'url', url: 'https://x/m.json' }))
-    const fetchMock = vi.fn(async () => jsonResponse(200, [{ handle: '@b', alias: 'B' }]))
-    vi.stubGlobal('fetch', fetchMock)
-    const roster = await import('#src/store/roster')
-    await roster.initRoster()
-    const [calledUrl] = fetchMock.mock.calls[0] as unknown as [string]
-    expect(calledUrl).toBe('https://x/m.json')
-    expect(roster.rosterHandles()).toEqual(['@b'])
-  })
-
-  it('本機自訂模式不抓網路、沿用本機資料', async () => {
-    localStorage.setItem('dc-roster-source', JSON.stringify({ mode: 'local' }))
-    localStorage.setItem('dc-loot-roster', JSON.stringify([{ handle: '@c', alias: 'C' }]))
+  it('local 模式的群組不抓網路', async () => {
+    localStorage.setItem('dc-groups', JSON.stringify([
+      { id: 'g1', name: 'A', webhookUrl: '', rosterMode: 'local', roster: [] },
+    ]))
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
-    const roster = await import('#src/store/roster')
-    await roster.initRoster()
+    const groups = await import('#src/store/groups')
+    await groups.initGroups()
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(roster.rosterHandles()).toEqual(['@c'])
+  })
+
+  it('多個 url 群組各抓各的網址', async () => {
+    localStorage.setItem('dc-groups', JSON.stringify([
+      { id: 'g1', name: 'A', webhookUrl: '', rosterMode: 'url', rosterUrl: 'https://x/a.json', roster: [] },
+      { id: 'g2', name: 'B', webhookUrl: '', rosterMode: 'url', rosterUrl: 'https://x/b.json', roster: [] },
+    ]))
+    const fetchMock = vi.fn(async (url: string) =>
+      jsonResponse(200, [{ discordHandle: url.includes('a.json') ? '@a' : '@b', discordNickName: 'N' }]),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const groups = await import('#src/store/groups')
+    await groups.initGroups()
+    expect(groups.rosterHandlesIn('g1')).toEqual(['@a'])
+    expect(groups.rosterHandlesIn('g2')).toEqual(['@b'])
+  })
+
+  it('抓取失敗時沿用既有快取，不清空', async () => {
+    localStorage.setItem('dc-groups', JSON.stringify([
+      {
+        id: 'g1', name: 'A', webhookUrl: '', rosterMode: 'url', rosterUrl: 'https://x/a.json',
+        roster: [{ discordHandle: '@cached', discordNickName: '快取' }],
+      },
+    ]))
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(500, {})))
+    const groups = await import('#src/store/groups')
+    await groups.initGroups()
+    expect(groups.rosterHandlesIn('g1')).toEqual(['@cached'])
   })
 
   it('fetchRoster 拒絕非陣列與缺欄位格式', async () => {
@@ -54,13 +72,44 @@ describe('名冊來源模式', () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, [{ nope: 1 }])))
     await expect(roster.fetchRoster('https://x')).rejects.toThrow('discordHandle')
   })
+})
 
-  it('setRosterSource 持久化，重載後生效', async () => {
-    const roster = await import('#src/store/roster')
-    roster.setRosterSource({ mode: 'url', url: 'https://x/m.json' })
-    vi.resetModules()
-    const again = await import('#src/store/roster')
-    expect(again.rosterSource().value).toEqual({ mode: 'url', url: 'https://x/m.json' })
+describe('舊的單一設定遷移成群組', () => {
+  it('webhook、名冊與來源模式一起搬進第一個群組', async () => {
+    localStorage.setItem('dc-webhook-url', 'https://discord.com/api/webhooks/1/abc')
+    localStorage.setItem('dc-roster-source', JSON.stringify({ mode: 'local' }))
+    localStorage.setItem(
+      'dc-loot-roster',
+      JSON.stringify([{ handle: '@a', alias: '天天', id: '123' }]),
+    )
+    const groups = await import('#src/store/groups')
+    const [g] = groups.useGroups().groups.value
+    expect(g).toMatchObject({
+      webhookUrl: 'https://discord.com/api/webhooks/1/abc',
+      rosterMode: 'local',
+    })
+    // 舊名冊格式也一併轉成新結構
+    expect(g.roster).toEqual([
+      { discordHandle: '@a', discordNickName: '天天', discordId: '123' },
+    ])
+  })
+
+  it('遷移結果立即寫回 localStorage，不必等下次編輯', async () => {
+    localStorage.setItem('dc-webhook-url', 'https://x')
+    localStorage.setItem('dc-roster-source', JSON.stringify({ mode: 'local' }))
+    await import('#src/store/groups')
+    const stored = JSON.parse(localStorage.getItem('dc-groups')!)
+    expect(stored).toHaveLength(1)
+    expect(stored[0].webhookUrl).toBe('https://x')
+  })
+
+  it('已有群組資料時不再遷移，舊的 webhook 不會蓋掉現有設定', async () => {
+    localStorage.setItem('dc-webhook-url', 'https://old')
+    localStorage.setItem('dc-groups', JSON.stringify([
+      { id: 'g1', name: 'A', webhookUrl: 'https://new', rosterMode: 'local', roster: [] },
+    ]))
+    const groups = await import('#src/store/groups')
+    expect(groups.useGroups().groups.value[0].webhookUrl).toBe('https://new')
   })
 })
 
@@ -92,39 +141,5 @@ describe('品名來源模式', () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, [1, 2])))
     const items = await import('#src/store/sharedItems')
     await expect(items.fetchItems('https://x')).rejects.toThrow('字串品名')
-  })
-})
-
-describe('名冊 localStorage 舊格式搬遷', () => {
-  it('載入時把舊格式轉成新結構並立即寫回，不必等下次編輯', async () => {
-    localStorage.setItem('dc-roster-source', JSON.stringify({ mode: 'local' })) // 不抓網路
-    localStorage.setItem(
-      'dc-loot-roster',
-      JSON.stringify([{ handle: '@a', alias: '天天', id: '123' }]),
-    )
-    const roster = await import('#src/store/roster')
-    expect(roster.useRoster().roster.value).toEqual([
-      { discordHandle: '@a', discordNickName: '天天', discordId: '123' },
-    ])
-    // 關鍵：localStorage 裡的實體資料也要換成新格式
-    expect(JSON.parse(localStorage.getItem('dc-loot-roster')!)).toEqual([
-      { discordHandle: '@a', discordNickName: '天天', discordId: '123' },
-    ])
-  })
-
-  it('已是新格式時不動 localStorage', async () => {
-    const stored = [{ discordHandle: '@a', discordNickName: '天天', alias: '自訂' }]
-    localStorage.setItem('dc-roster-source', JSON.stringify({ mode: 'local' }))
-    localStorage.setItem('dc-loot-roster', JSON.stringify(stored))
-    const roster = await import('#src/store/roster')
-    expect(roster.useRoster().roster.value).toEqual(stored)
-    expect(JSON.parse(localStorage.getItem('dc-loot-roster')!)).toEqual(stored)
-  })
-
-  it('壞掉的快取不會讓開站爆炸', async () => {
-    localStorage.setItem('dc-roster-source', JSON.stringify({ mode: 'local' }))
-    localStorage.setItem('dc-loot-roster', '{ not json')
-    const roster = await import('#src/store/roster')
-    expect(roster.useRoster().roster.value).toEqual([])
   })
 })
