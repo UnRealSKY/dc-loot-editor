@@ -327,13 +327,28 @@ function removeMember(i: number) {
 }
 
 // ---- 團長辛苦費 ----
+// 團長也要分錢，所以他必須在團員列表裡。這裡先填團長、後填其他團員，
+// 因此填了團長就自動把他補進團員（排最前面）；改名時更新原本那一列，
+// 不是每打一個字就新增一個人。
 function setLeaderHandle(handle: string) {
-  if (!record.value) return
-  if (!handle) return patch({ leader: undefined })
-  const prev = record.value.leader
-  patch({
-    leader: { handle, feeMode: prev?.feeMode ?? 'percent', feeValue: prev?.feeValue ?? 0 },
-  })
+  const rec = record.value
+  if (!rec) return
+  const h = handle.trim()
+  const prev = rec.leader
+  // 清空團長：他仍留在團員列表裡，只是不再是團長
+  if (!h) return patch({ leader: undefined })
+
+  const leader = { handle: h, feeMode: prev?.feeMode ?? 'percent', feeValue: prev?.feeValue ?? 0 }
+  const members = [...rec.members]
+  if (members.some((m) => m.handle === h)) return patch({ leader })
+
+  const prevIdx = prev ? members.findIndex((m) => m.handle === prev.handle) : -1
+  if (prevIdx >= 0) {
+    members[prevIdx] = { ...members[prevIdx], handle: h }
+  } else {
+    members.unshift({ handle: h, settle: 'pending', id: crypto.randomUUID() })
+  }
+  patch({ leader, members })
 }
 function setFeeValue(value: number) {
   const l = record.value?.leader
@@ -399,36 +414,19 @@ function toggleSettle(i: number) {
     </div>
 
     <div class="card">
-      <div class="section-head">
-        <h3>團員</h3>
-        <div class="spacer" />
-        <button type="button" class="btn btn-sm" @click="addMember">＋ 新增團員</button>
-      </div>
-      <p v-if="!record.members.length" class="muted">尚無團員。</p>
-      <ul class="members">
-        <li v-for="(m, i) in record.members" :key="m.id" class="member-row">
-          <AutocompleteInput class="member-handle" :model-value="m.handle" :suggestions="history.handles.value"
-            :label-for="handleLabel" :loading="history.handlesLoading.value" placeholder="@handle"
-            @update:model-value="updateMember(i, { handle: $event })" />
-          <span v-if="aliasOf(m.handle)" class="alias-badge">{{ aliasOf(m.handle) }}</span>
-          <button type="button" class="btn btn-icon btn-danger" title="移除" @click="removeMember(i)">✕</button>
-        </li>
-      </ul>
-    </div>
-
-    <div class="card">
       <div class="section-head"><h3>團長</h3></div>
       <div class="leader-fields">
         <label class="field">
           <span class="field-label">人</span>
-          <select :value="record.leader?.handle ?? ''"
-            @change="setLeaderHandle(($event.target as HTMLSelectElement).value)">
-            <option value="">無</option>
-            <option v-for="m in record.members" :key="m.id ?? m.handle" :value="m.handle"
-              :disabled="!m.handle">
-              {{ m.handle ? handleLabel(m.handle) : '(未填 handle)' }}
-            </option>
-          </select>
+          <div class="leader-handle-row">
+            <AutocompleteInput :model-value="record.leader?.handle ?? ''"
+              :suggestions="history.handles.value" :label-for="handleLabel"
+              :loading="history.handlesLoading.value" placeholder="@handle（留空＝沒有團長）"
+              @update:model-value="setLeaderHandle($event)" />
+            <span v-if="record.leader && aliasOf(record.leader.handle)" class="alias-badge">
+              {{ aliasOf(record.leader.handle) }}
+            </span>
+          </div>
         </label>
         <label v-if="record.leader" class="field">
           <span class="field-label">辛苦費</span>
@@ -443,6 +441,26 @@ function toggleSettle(i: number) {
           </div>
         </label>
       </div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">
+        <h3>團員</h3>
+        <span class="count">{{ record.members.length }} 人</span>
+        <div class="spacer" />
+        <button type="button" class="btn btn-sm" @click="addMember">＋ 新增團員</button>
+      </div>
+      <p v-if="!record.members.length" class="muted">尚無團員。</p>
+      <ul class="members">
+        <li v-for="(m, i) in record.members" :key="m.id" class="member-row">
+          <AutocompleteInput class="member-handle" :model-value="m.handle" :suggestions="history.handles.value"
+            :label-for="handleLabel" :loading="history.handlesLoading.value" placeholder="@handle"
+            @update:model-value="updateMember(i, { handle: $event })" />
+          <span v-if="aliasOf(m.handle)" class="alias-badge">{{ aliasOf(m.handle) }}</span>
+          <span v-if="record.leader?.handle === m.handle" class="chip chip-cart leader-tag">團長</span>
+          <button type="button" class="btn btn-icon btn-danger" title="移除" @click="removeMember(i)">✕</button>
+        </li>
+      </ul>
     </div>
 
     <LootTable :model-value="record.lootItems" @update:model-value="setLootItems" />
@@ -525,8 +543,11 @@ function toggleSettle(i: number) {
 .header-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
 
 .leader-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+.leader-handle-row { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.leader-handle-row > :first-child { flex: 1; min-width: 0; }
 .fee-row { display: flex; gap: 8px; }
 .fee-mode { flex: none; min-width: 56px; }
+.leader-tag { flex: none; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field-title { grid-column: 1 / -1; }
 .field-title .invalid :deep(input) { border-color: var(--danger); }
