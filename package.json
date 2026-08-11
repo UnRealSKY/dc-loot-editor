@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "changeset": "changeset",
-    "version": "changeset version"
+    "version": "changeset version",
+    "members": "node --env-file-if-exists=.env scripts/fetch-members.mjs"
   },
   "dependencies": {
     "pinia": "^4.0.2",
