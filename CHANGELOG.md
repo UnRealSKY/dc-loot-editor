@@ -1,5 +1,16 @@
 # dc-loot-editor
 
+## 1.16.0
+
+### Minor Changes
+
+- 92529d2: 新增團長辛苦費：編輯頁可指定一位團長並設定辛苦費（團隊總額的百分比或固定金額）。辛苦費先從團隊總額扣掉，餘額均分給所有人，團長再額外拿走這筆。DC 匯出的總共行會寫成 `(10000 - 500(辛苦費)) / 5 = 1900`，匯入時可還原。同時修掉分配行 `500 = 500` 的冗餘寫法——沒有運算就不再重複寫一次金額。
+- d63efeb: 名冊改為四個欄位：`discordHandle`、`discordNickName`、`discordId`、`alias`。Discord 那邊的名字與自己取的別名分開存，同步只覆蓋 discord\* 三欄，`alias` 永遠不會被蓋掉。顯示優先序為 `alias` → `discordNickName` → `discordHandle`。舊格式（`handle` / `alias` / `id`）會自動搬遷，localStorage 的舊快取在開站時轉換並立即寫回。新增 `pnpm members` 從 Discord 伺服器一次抓回所有成員（需 Bot Token，設定步驟見 docs/discord-bot-setup.md）。
+
+### Patch Changes
+
+- 92529d2: 修正代售漏算：代售是團員代替團隊賣掉的東西，收益屬於團隊，但先前沒有計入總額，導致那筆錢在分配時憑空消失（代售者被扣款，其他人卻沒分到）。改為「團隊總額＝總表淨額＋代售淨額」，分配面板的「總表淨額」隨之改稱「團隊總額」。有代售的既有紀錄金額會變成正確的值，已發佈到 DC 的貼文需要重新同步。
+
 ## 1.15.1
 
 ### Patch Changes
