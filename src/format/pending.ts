@@ -29,7 +29,8 @@ function byDateAsc(a: LootRecord, b: LootRecord): number {
 // 未領總覽：每位有未結清款項的團員一個區塊，逐行可直接複製進遊戲
 export function pendingBlocks(
   records: LootRecord[],
-  display: (handle: string) => string,
+  // 每筆紀錄可能屬於不同 DC 群組，名字要在該群組的名冊裡查
+  display: (handle: string, groupId?: string) => string,
 ): PendingBlock[] {
   const blocks = new Map<string, PendingBlock>()
   for (const r of [...records].sort(byDateAsc)) {
@@ -42,13 +43,13 @@ export function pendingBlocks(
       for (const p of r.purchases) {
         if (p.buyer === handle) continue
         const mode = p.mode === 'split' ? ' (均攤)' : ''
-        lines.push(`${display(p.buyer)}: 內購 ${p.name}x${p.qty} = ${p.unitPrice}x${p.qty}${mode}`)
+        lines.push(`${display(p.buyer, r.groupId)}: 內購 ${p.name}x${p.qty} = ${p.unitPrice}x${p.qty}${mode}`)
       }
       lines.push(summaryLine(r))
-      lines.push(`${display(handle)}: ${distLine(d)}`)
+      lines.push(`${display(handle, r.groupId)}: ${distLine(d)}`)
       let block = blocks.get(handle)
       if (!block) {
-        block = { handle, display: display(handle), records: [], totalLine: '', total: 0 }
+        block = { handle, display: display(handle, r.groupId), records: [], totalLine: '', total: 0 }
         blocks.set(handle, block)
       }
       block.records.push({ recordId: r.id, hasCart, amount: d.amount, lines })

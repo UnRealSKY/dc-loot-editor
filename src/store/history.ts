@@ -1,7 +1,7 @@
 import { computed } from 'vue'
 import type { ComputedRef } from 'vue'
 import { useRecordsStore } from './records'
-import { rosterHandles, rosterLoading } from './roster'
+import { rosterHandlesIn, rosterLoading } from './groups'
 import { sharedItemNames, sharedItemsLoading } from './sharedItems'
 
 function uniqueByFrequency(values: string[]): string[] {
@@ -18,7 +18,7 @@ export interface PriceSuggestion {
   date: string
 }
 
-export function useHistory() {
+export function useHistory(groupId?: () => string | undefined) {
   const store = useRecordsStore()
 
   // 建議 = 共用品名清單 ∪ 本機歷史品名（共用清單優先列前）
@@ -32,7 +32,7 @@ export function useHistory() {
   // 建議 = 共用名冊 handle ∪ 本機歷史 handle（名冊優先列前）
   const handles: ComputedRef<string[]> = computed(() =>
     uniqueByFrequency([
-      ...rosterHandles(),
+      ...rosterHandlesIn(groupId?.()),
       ...store.records.flatMap((r) => r.members.map((m) => m.handle)),
     ]),
   )

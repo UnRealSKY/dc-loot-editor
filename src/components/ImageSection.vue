@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, reactive, ref, watch } from 'vue'
 import type { DcImage, DcImageKind, Member } from '../types'
-import { displayName } from '../store/roster'
+import { displayNameIn } from '../store/groups'
 import { getBlob, deleteBlob } from '../db/imageBlobs'
 import { filesToImages, hoveredImageKind } from '../images'
 
@@ -10,6 +10,7 @@ const props = defineProps<{
   kind: DcImageKind
   images: DcImage[] // 已過濾為本區 kind
   members?: Member[] // payout：團員選單
+  groupId?: string // 顯示名字要用所屬群組的名冊
 }>()
 const emit = defineEmits<{
   add: [images: DcImage[]]
@@ -114,7 +115,7 @@ function statusOf(img: DcImage): { cls: string; label: string } {
             @change="emit('update', { ...img, memberHandle: ($event.target as HTMLSelectElement).value || undefined })"
           >
             <option value="">選擇團員…</option>
-            <option v-for="m in members" :key="m.handle" :value="m.handle">{{ displayName(m.handle) }}</option>
+            <option v-for="m in members" :key="m.handle" :value="m.handle">{{ displayNameIn(groupId, m.handle) }}</option>
           </select>
           <input
             v-if="kind === 'external'"
