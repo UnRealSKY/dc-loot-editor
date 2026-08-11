@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { itemNet, netTotal, purchaseValue, memberPurchaseTotal, computeIncomes, consignmentValue, memberConsignmentTotal } from '#src/calc/distribution'
+import { itemNet, netTotal, teamTotal, leaderFee, purchaseValue, memberPurchaseTotal, computeIncomes, consignmentValue, memberConsignmentTotal } from '#src/calc/distribution'
 import type { LootItem, LootRecord } from '#src/types'
 
 const ok = (over: Partial<LootItem>): LootItem =>
@@ -61,6 +61,157 @@ describe('consignmentValue / memberConsignmentTotal', () => {
     ]
     expect(memberConsignmentTotal(cs, '@a')).toBe(400)
     expect(memberConsignmentTotal(cs, '@b')).toBe(100)
+  })
+})
+
+describe('teamTotal', () => {
+  const rec = (over: Partial<LootRecord>): LootRecord =>
+    ({
+      id: '1', date: '2026-08-05', boss: 'x', members: [], lootItems: [], purchases: [],
+      createdAt: '', updatedAt: '', ...over,
+    })
+
+  it('總表淨額 ＋ 代售淨額', () => {
+    const r = rec({
+      lootItems: [ok({ unitPrice: 1000, qty: 1 })],
+      consignments: [{ seller: '@a', name: 'y', qty: 1, unitPrice: 500 }],
+    })
+    expect(teamTotal(r)).toBe(1500)
+  })
+
+  it('沒有代售時等於總表淨額', () => {
+    expect(teamTotal(rec({ lootItems: [ok({ unitPrice: 1000, qty: 1 })] }))).toBe(1000)
+  })
+
+  it('代售也要扣掉剪刀成本', () => {
+    const r = rec({
+      consignments: [{ seller: '@a', name: 'y', qty: 2, unitPrice: 300, scissorUnitPrice: 50, scissorCount: 2 }],
+    })
+    expect(teamTotal(r)).toBe(500)
+  })
+})
+
+describe('代售收支平衡', () => {
+  // 代售是團隊收益：必須先進總額被分掉，代售者手上那份再於結算時扣抵。
+  // 驗證方式：所有人「該收/該付」的總和，應等於還在團長手上的錢（＝總表淨額）。
+  const balanced = (r: LootRecord) => {
+    const consignments = r.consignments ?? []
+    const sum = computeIncomes(r).reduce(
+      (s, inc) => s + inc.income - memberConsignmentTotal(consignments, inc.handle),
+      0,
+    )
+    return Math.round(sum * 1e6) / 1e6
+  }
+
+  const members = ['@a', '@b', '@c', '@d', '@e'].map((handle) => ({ handle, settle: 'pending' as const }))
+  const base: LootRecord = {
+    id: '1', date: '2026-08-05', boss: 'x', members,
+    lootItems: [], purchases: [], createdAt: '', updatedAt: '',
+  }
+
+  it('只有代售時，代售者交出的錢剛好等於其他人分到的', () => {
+    const r: LootRecord = {
+      ...base,
+      consignments: [{ seller: '@a', name: 'y', qty: 1, unitPrice: 500 }],
+    }
+    // 總表沒東西 → 團長手上沒錢 → 所有人結算加總應為 0
+    expect(balanced(r)).toBe(0)
+    const incomes = computeIncomes(r)
+    expect(incomes[0].income).toBe(100) // 500/5
+    expect(incomes[0].income - 500).toBe(-400) // @a 交出 400
+  })
+
+  it('總表與代售並存時仍平衡', () => {
+    const r: LootRecord = {
+      ...base,
+      lootItems: [ok({ unitPrice: 1000, qty: 1 })],
+      consignments: [{ seller: '@a', name: 'y', qty: 1, unitPrice: 500 }],
+    }
+    expect(balanced(r)).toBe(1000) // 剩下要從團長手上發出去的就是總表那 1000
+  })
+
+  it('有內購時也平衡', () => {
+    const r: LootRecord = {
+      ...base,
+      lootItems: [ok({ unitPrice: 1000, qty: 1 })],
+      purchases: [{ buyer: '@b', name: 'z', qty: 1, unitPrice: 300 }],
+      consignments: [{ seller: '@a', name: 'y', qty: 1, unitPrice: 500 }],
+    }
+    expect(balanced(r)).toBe(1000)
+  })
+})
+
+describe('leaderFee', () => {
+  const members = ['@a', '@b', '@c', '@d', '@e'].map((handle) => ({ handle, settle: 'pending' as const }))
+  const rec = (over: Partial<LootRecord>): LootRecord =>
+    ({
+      id: '1', date: '2026-08-05', boss: 'x', members,
+      lootItems: [ok({ unitPrice: 10000, qty: 1 })], purchases: [],
+      createdAt: '', updatedAt: '', ...over,
+    })
+
+  it('沒有團長時為 0', () => {
+    expect(leaderFee(rec({}))).toBe(0)
+  })
+
+  it('百分比以團隊總額為基準', () => {
+    expect(leaderFee(rec({ leader: { handle: '@a', feeMode: 'percent', feeValue: 5 } }))).toBe(500)
+  })
+
+  it('百分比基準含代售', () => {
+    const r = rec({
+      leader: { handle: '@a', feeMode: 'percent', feeValue: 10 },
+      consignments: [{ seller: '@b', name: 'y', qty: 1, unitPrice: 2000 }],
+    })
+    expect(leaderFee(r)).toBe(1200) // (10000 + 2000) × 10%
+  })
+
+  it('固定金額直接採用', () => {
+    expect(leaderFee(rec({ leader: { handle: '@a', feeMode: 'fixed', feeValue: 800 } }))).toBe(800)
+  })
+
+  it('超過團隊總額時夾在總額，不讓其他人倒貼', () => {
+    expect(leaderFee(rec({ leader: { handle: '@a', feeMode: 'fixed', feeValue: 99999 } }))).toBe(10000)
+    expect(leaderFee(rec({ leader: { handle: '@a', feeMode: 'percent', feeValue: 150 } }))).toBe(10000)
+  })
+
+  it('負數視為 0', () => {
+    expect(leaderFee(rec({ leader: { handle: '@a', feeMode: 'fixed', feeValue: -100 } }))).toBe(0)
+  })
+
+  it('團長不在團員列表時為 0（否則那筆錢會發給不在分配名單上的人）', () => {
+    expect(leaderFee(rec({ leader: { handle: '@notmember', feeMode: 'fixed', feeValue: 500 } }))).toBe(0)
+  })
+})
+
+describe('computeIncomes 團長辛苦費', () => {
+  const members = ['@a', '@b', '@c', '@d', '@e'].map((handle) => ({ handle, settle: 'pending' as const }))
+  const base: LootRecord = {
+    id: '1', date: '2026-08-05', boss: 'x', members,
+    lootItems: [ok({ unitPrice: 10000, qty: 1 })], purchases: [],
+    leader: { handle: '@a', feeMode: 'percent', feeValue: 5 },
+    createdAt: '', updatedAt: '',
+  }
+
+  it('團員拿 (總額−辛苦費)/人數，團長再加辛苦費', () => {
+    const r = computeIncomes(base)
+    expect(r[0]).toMatchObject({ handle: '@a', fee: 500, income: 1900 + 500 })
+    expect(r[1]).toMatchObject({ handle: '@b', fee: 0, income: 1900 })
+  })
+
+  it('收入總和仍等於團隊總額', () => {
+    const sum = computeIncomes(base).reduce((s, i) => s + i.income, 0)
+    expect(sum).toBe(10000)
+  })
+
+  it('與內購、代售並存時收入總和不變', () => {
+    const r: LootRecord = {
+      ...base,
+      purchases: [{ buyer: '@b', name: 'z', qty: 1, unitPrice: 300 }],
+      consignments: [{ seller: '@c', name: 'y', qty: 1, unitPrice: 2000 }],
+    }
+    const sum = computeIncomes(r).reduce((s, i) => s + i.income, 0)
+    expect(sum).toBe(12000) // 團隊總額 10000 + 代售 2000
   })
 })
 

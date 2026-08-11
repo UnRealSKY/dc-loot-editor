@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { LootRecord, SettleStatus } from '../types'
-import { netTotal, computeIncomes, memberConsignmentTotal, roundDisplay } from '../calc/distribution'
+import { teamTotal, leaderFee, computeIncomes, memberConsignmentTotal, roundDisplay } from '../calc/distribution'
 import { displayName } from '../store/roster'
 
 const props = defineProps<{ record: LootRecord }>()
 const emit = defineEmits<{ 'toggle-settle': [index: number] }>()
 
 const n = computed(() => props.record.members.length)
-const total = computed(() => netTotal(props.record.lootItems))
-const baseDisplay = computed(() => Math.ceil(n.value > 0 ? total.value / n.value : 0))
+const total = computed(() => teamTotal(props.record))
+const fee = computed(() => leaderFee(props.record))
+const baseDisplay = computed(() =>
+  Math.ceil(n.value > 0 ? (total.value - fee.value) / n.value : 0),
+)
 const consignments = computed(() => props.record.consignments ?? [])
 const hasConsignments = computed(() => consignments.value.length > 0)
 const rows = computed(() =>
@@ -33,9 +36,16 @@ const rows = computed(() =>
 
     <div class="summary">
       <div class="stat">
-        <span class="stat-label">總表淨額</span>
+        <span class="stat-label">團隊總額</span>
         <span class="stat-value">{{ total }}</span>
       </div>
+      <template v-if="fee > 0">
+        <div class="stat-op">−</div>
+        <div class="stat">
+          <span class="stat-label">辛苦費</span>
+          <span class="stat-value">{{ roundDisplay(fee) }}</span>
+        </div>
+      </template>
       <div class="stat-op">÷</div>
       <div class="stat">
         <span class="stat-label">人數</span>
@@ -51,7 +61,9 @@ const rows = computed(() =>
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th>團員</th><th class="num">基本</th><th class="num">他人內購/(N-1)</th><th class="num">自己內購</th>
+          <th>團員</th><th class="num">基本</th>
+          <th v-if="fee > 0" class="num">辛苦費</th>
+          <th class="num">他人內購/(N-1)</th><th class="num">自己內購</th>
           <th class="num">收入</th>
           <th v-if="hasConsignments" class="num">代售</th>
           <th v-if="hasConsignments" class="num">結算</th>
@@ -61,6 +73,7 @@ const rows = computed(() =>
           <tr v-for="r in rows" :key="r.index">
             <td class="handle">{{ r.handle ? displayName(r.handle) : '—' }}</td>
             <td class="num">{{ baseDisplay }}</td>
+            <td v-if="fee > 0" class="num plus">{{ r.fee ? '+' + roundDisplay(r.fee) : 0 }}</td>
             <td class="num plus">{{ n > 1 ? '+' + Math.ceil(r.others / (n - 1)) : 0 }}</td>
             <td class="num minus">{{ r.own ? '−' + roundDisplay(r.own) : 0 }}</td>
             <td class="num income">{{ r.rounded }}</td>

@@ -174,9 +174,11 @@ describe('serialize 代售併入結算', () => {
     expect(out).toContain('@a: 物品x1 = 300x1')
   })
   it('分配行併入代售額（收入 − 代售 = 結算）', () => {
-    // base=ceil(1000/2)=500；@a 持有 300 → 500 - 300 = 200；@b 無代售 → 500
-    expect(out).toContain('* :ok: @a: 500 - 300 = 200')
-    expect(out).toContain('* :ok: @b: 500 = 500')
+    // 團隊總額 = 總表 1000 ＋ 代售 300 = 1300 → base=ceil(1300/2)=650
+    // @a 持有 300 → 650 - 300 = 350；@b 無代售 → 650。兩人加總 1000 = 總表淨額
+    expect(out).toContain('總共: 1300 / 2 = 650')
+    expect(out).toContain('* :ok: @a: 650 - 300 = 350')
+    expect(out).toContain('* :ok: @b: 650') // 無運算，不再重複寫 "= 650"
   })
   it('代售剪刀後綴與淨持有額', () => {
     const r2: LootRecord = {
@@ -184,9 +186,9 @@ describe('serialize 代售併入結算', () => {
       consignments: [{ seller: '@a', name: '物品', qty: 1, unitPrice: 300, scissorUnitPrice: 80, scissorCount: 2 }],
     }
     const out2 = serialize(r2)
-    // 代售行含剪刀；持有淨額 = 300 - 80*2 = 140 → 結算 500 - 140 = 360
+    // 代售淨額 = 300 - 80*2 = 140 → 團隊總額 1140 → base 570 → @a 結算 570 - 140 = 430
     expect(out2).toContain('@a: 物品x1 = 300x1 - 80(剪刀)x2')
-    expect(out2).toContain('* :ok: @a: 500 - 140 = 360')
+    expect(out2).toContain('* :ok: @a: 570 - 140 = 430')
   })
 })
 
@@ -203,8 +205,36 @@ describe('serialize N=1', () => {
   it('不應出現 /0（others 除以 N-1 應被 N=1 守衛跳過）', () => {
     expect(out).not.toContain('/0')
   })
-  it('成員分配行以正確的 = 數值結尾', () => {
+  it('成員分配行只有金額（無運算就不加 =）', () => {
     // n=1: base=1000/1=1000; others=500-0=500 但因 n=1 被跳過; own=0 亦不列入 → income=1000
-    expect(out).toContain('* :orange_square: @me: 1000 = 1000')
+    expect(out).toContain('* :orange_square: @me: 1000')
+    expect(out).not.toContain('1000 = 1000')
+  })
+})
+
+describe('serialize 團長辛苦費', () => {
+  const base: LootRecord = {
+    id: 'r-fee', date: '2026-08-05', boss: '測王',
+    members: ['@a', '@b', '@c', '@d', '@e'].map((h) => ({ handle: h, settle: 'settled' as const })),
+    lootItems: [{ status: 'ok', name: '道具', qty: 1, unitPrice: 10000 }],
+    purchases: [],
+    createdAt: '', updatedAt: '',
+  }
+
+  it('總共行加括號，避免被當成 10000 - 500/5', () => {
+    const out = serialize({ ...base, leader: { handle: '@a', feeMode: 'percent', feeValue: 5 } })
+    expect(out).toContain('總共: (10000 - 500(辛苦費)) / 5 = 1900')
+  })
+
+  it('團長分配行接上辛苦費，其他人維持均分額', () => {
+    const out = serialize({ ...base, leader: { handle: '@a', feeMode: 'fixed', feeValue: 500 } })
+    expect(out).toContain('* :ok: @a: 1900 + 500 = 2400')
+    expect(out).toContain('* :ok: @b: 1900')
+  })
+
+  it('沒有團長時總共行維持原樣（不加括號）', () => {
+    const out = serialize(base)
+    expect(out).toContain('總共: 10000 / 5 = 2000')
+    expect(out).not.toContain('辛苦費')
   })
 })

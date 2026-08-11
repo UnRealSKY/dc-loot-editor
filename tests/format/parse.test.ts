@@ -233,3 +233,53 @@ describe('畸形行韌性', () => {
     expect(result.members[1]).toMatchObject({ handle: '@.user3', settle: 'settled' })
   })
 })
+
+describe('parse 團長辛苦費', () => {
+  const withFee = [
+    '## 2026-08-05 測王 ｜ :dollar:(5)',
+    '* :ok: 道具x1: 10000x1',
+    '',
+    '## 分配',
+    '總共: (10000 - 500(辛苦費)) / 5 = 1900',
+    '* :ok: @a: 1900 + 500 = 2400',
+    '* :orange_square: @b: 1900',
+    '* :orange_square: @c: 1900',
+  ].join('\n')
+
+  it('從總共行取辛苦費，從分配行認出團長', () => {
+    const r = parse(withFee)
+    expect(r.leader).toEqual({ handle: '@a', feeMode: 'fixed', feeValue: 500 })
+  })
+
+  it('沒有辛苦費時不產生 leader', () => {
+    const r = parse(['## 2026-08-05 測王', '', '## 分配', '總共: 10000 / 5 = 2000', '* :ok: @a: 2000'].join('\n'))
+    expect(r.leader).toBeUndefined()
+  })
+
+  it('不把他人內購的 "+ 500/4" 誤認成辛苦費', () => {
+    const md = [
+      '## 2026-08-05 測王',
+      '',
+      '## 分配',
+      '總共: (10000 - 500(辛苦費)) / 5 = 1900',
+      '* :ok: @a: 1900 + 500 = 2400',
+      '* :orange_square: @b: 1900 + 500/4 = 2025',
+    ].join('\n')
+    expect(parse(md).leader?.handle).toBe('@a')
+  })
+
+  it('serialize → parse 往返後金額一致', () => {
+    const rec: LootRecord = {
+      id: 'rt', date: '2026-08-05', boss: '測王',
+      members: ['@a', '@b', '@c', '@d', '@e'].map((h) => ({ handle: h, settle: 'pending' as const })),
+      lootItems: [{ status: 'ok', name: '道具', qty: 1, unitPrice: 10000 }],
+      purchases: [],
+      leader: { handle: '@a', feeMode: 'percent', feeValue: 5 },
+      createdAt: '', updatedAt: '',
+    }
+    const back = parse(serialize(rec))
+    // percent 會還原成等值的 fixed（金額相同，之後改總表金額才不再連動）
+    expect(back.leader).toEqual({ handle: '@a', feeMode: 'fixed', feeValue: 500 })
+    expect(serialize({ ...rec, leader: back.leader })).toBe(serialize(rec))
+  })
+})

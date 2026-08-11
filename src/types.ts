@@ -69,11 +69,22 @@ export interface DcBinding {
   sentContent?: string     // 上次送出的主貼內文（本地判定同步狀態，不必打 API）
 }
 
+export type LeaderFeeMode = 'percent' | 'fixed'
+
+// 團長辛苦費：先從團隊總額扣掉，剩下的均分給所有人（含團長），團長再額外拿走這筆。
+// handle 與費用綁在同一個物件，「有辛苦費卻沒團長」這種狀態就無法表示。
+export interface Leader {
+  handle: string           // 須是 members 之一，否則辛苦費視為 0
+  feeMode: LeaderFeeMode
+  feeValue: number         // percent：5 表示 5%；fixed：直接是金額
+}
+
 export interface LootRecord {
   id: string
   date: string             // YYYY-MM-DD
   boss: string             // 王名，即紀錄標題（列表顯示用）
   members: Member[]        // 人數 N 由 members.length 推導
+  leader?: Leader          // 未指定＝沒有團長，辛苦費 0
   lootItems: LootItem[]
   purchases: Purchase[]
   streams?: Stream[]        // 直播檔連結
