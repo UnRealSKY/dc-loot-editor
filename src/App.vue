@@ -2,6 +2,12 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRecordsStore } from './store/records'
 import { dcSyncStatus } from './dc/publish'
+import ChangelogDialog from './components/ChangelogDialog.vue'
+import pkg from '../package.json'
+
+// 版本號從 package.json 讀（CI 發版時更新的權威來源），不依賴網路
+const version = pkg.version
+const showChangelog = ref(false)
 
 // 關閉分頁守衛：有已發佈紀錄未同步 DC 時，先跳瀏覽器標準確認；
 // 使用者選擇留下（頁面仍存活）→ 再跳自訂 dialog 列出未同步紀錄
@@ -35,9 +41,13 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
         <router-link to="/shield" class="nav-link" active-class="nav-active">反盾計算機</router-link>
       </nav>
       <div class="appbar-spacer" />
+      <button type="button" class="btn btn-ghost btn-sm version" title="看更新內容"
+        @click="showChangelog = true">v{{ version }}</button>
       <router-link to="/settings" class="btn btn-icon gear" active-class="gear-active"
         title="設定（DC 群組、名單、品名清單）">⚙</router-link>
     </header>
+
+    <ChangelogDialog :open="showChangelog" @close="showChangelog = false" />
 
     <div v-if="showUnsynced" class="unsync-overlay" @click.self="showUnsynced = false">
       <div class="unsync-dialog">
@@ -129,6 +139,10 @@ body {
   box-shadow: var(--shadow-sm);
 }
 .brand h1 { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: .01em; }
+.version {
+  font-family: var(--mono); font-size: 12px; color: var(--text-muted); flex: none;
+}
+.version:hover { color: var(--text); }
 .gear { text-decoration: none; font-size: 17px; }
 .gear-active { color: var(--primary-hover); background: var(--primary-soft); }
 
