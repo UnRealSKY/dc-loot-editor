@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useRecordsStore } from './store/records'
 import { dcSyncStatus } from './dc/publish'
 import ChangelogDialog from './components/ChangelogDialog.vue'
@@ -9,19 +10,26 @@ import pkg from '../package.json'
 const version = pkg.version
 const showChangelog = ref(false)
 
-// 關閉分頁守衛：有已發佈紀錄未同步 DC 時，先跳瀏覽器標準確認；
-// 使用者選擇留下（頁面仍存活）→ 再跳自訂 dialog 列出未同步紀錄
+// 關閉分頁守衛：只管「當下正在編輯的這一筆」。掃全部紀錄會讓刻意留著不同步的
+// 場次（例如東西還在慢慢賣）每次關分頁都跳提醒。
+// 先跳瀏覽器標準確認；使用者選擇留下（頁面仍存活）→ 再跳自訂 dialog 補上原因。
 const store = useRecordsStore()
-const dirtyRecords = computed(() => store.records.filter((r) => dcSyncStatus(r) === 'dirty'))
+const route = useRoute()
 const showUnsynced = ref(false)
 
+const currentDirty = computed(() => {
+  if (!route.path.startsWith('/edit/')) return undefined
+  const r = store.get(route.params.id as string)
+  return r && dcSyncStatus(r) === 'dirty' ? r : undefined
+})
+
 function onBeforeUnload(e: BeforeUnloadEvent) {
-  if (!dirtyRecords.value.length) return
+  if (!currentDirty.value) return
   e.preventDefault()
   e.returnValue = '' // 觸發瀏覽器標準「未儲存變更」確認
   setTimeout(() => {
     // 走到這裡代表使用者取消了關閉，補上原因說明
-    if (dirtyRecords.value.length) showUnsynced.value = true
+    if (currentDirty.value) showUnsynced.value = true
   }, 400)
 }
 onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
@@ -51,15 +59,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
 
     <div v-if="showUnsynced" class="unsync-overlay" @click.self="showUnsynced = false">
       <div class="unsync-dialog">
-        <h3>有紀錄尚未同步到 DC</h3>
-        <p class="unsync-note">資料都已存在本機，不會遺失；要更新 DC 貼文請進入紀錄按「同步至 DC」。</p>
-        <ul class="unsync-list">
-          <li v-for="r in dirtyRecords" :key="r.id">
-            <router-link :to="`/edit/${r.id}`" @click="showUnsynced = false">
-              {{ r.date }} {{ r.boss || '(未命名)' }}
-            </router-link>
-          </li>
-        </ul>
+        <h3>這筆紀錄尚未同步到 DC</h3>
+        <p class="unsync-note">資料已存在本機，不會遺失；要更新 DC 貼文請按「同步至 DC」。</p>
         <div class="unsync-actions">
           <button type="button" class="btn btn-primary" @click="showUnsynced = false">知道了</button>
         </div>
@@ -245,9 +246,6 @@ button { font-family: inherit; }
 }
 .unsync-dialog h3 { margin: 0 0 8px; font-size: 16px; font-weight: 650; }
 .unsync-note { margin: 0 0 12px; font-size: 13px; color: var(--text-muted); }
-.unsync-list { margin: 0; padding: 0 0 0 18px; }
-.unsync-list li { margin: 4px 0; }
-.unsync-list a { color: var(--primary-hover); }
 .unsync-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
 
 /* ---- 窄螢幕（手機）----

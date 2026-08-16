@@ -79,6 +79,13 @@ export function startBlocked(now: number): ShieldState {
   return { phase: 'blocked', phaseStart: now, dispelValid: false }
 }
 
+// [±1 秒]：微調當前階段。倒數、進度條、引信、事件表都是從 phaseStart 算出來的，
+// 移動起點等於整條時間軸一起平移，不會只有倒數變而其他沒跟上。
+export function nudge(state: ShieldState, deltaSec: number): ShieldState {
+  if (state.phase === 'idle') return state
+  return { ...state, phaseStart: state.phaseStart + deltaSec * 1000 }
+}
+
 export type DispelResult = 'valid' | 'tooEarly' | 'wrongPhase'
 
 // [魔消成功]：僅間隔中有效，且必須落在有效窗（間隔最後「魔消持續」秒）

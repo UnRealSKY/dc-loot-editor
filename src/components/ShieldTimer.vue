@@ -5,6 +5,7 @@ import {
   advance,
   dispelWindowStart,
   markDispel,
+  nudge,
   phaseEnd,
   resistRemaining,
   cooldownRemaining,
@@ -152,6 +153,10 @@ function onReset() {
   state.value = IDLE
   dispelFeedback.value = ''
   remindedForPhase = 0 // 清掉上一場殘留，換王後第一個間隔才會提醒魔消
+}
+// 實況與倒數差一兩秒時就地校正，不必整段重按
+function onNudge(deltaSec: number) {
+  state.value = nudge(state.value, deltaSec)
 }
 
 // ---- 選王與參數 ----
@@ -309,7 +314,13 @@ const nextPhaseInfo = computed(() => {
         <rect pathLength="100" :stroke-dasharray="`${fuseLeft} 100`" />
       </svg>
       <div class="phase-title">{{ meta.title }}</div>
-      <div v-if="state.phase !== 'idle'" class="phase-remaining">{{ remaining }}<span class="unit">s</span></div>
+      <div v-if="state.phase !== 'idle'" class="remaining-row">
+        <button type="button" class="btn btn-sm nudge" title="當前階段減 1 秒"
+          @click="onNudge(-1)">−1s</button>
+        <div class="phase-remaining">{{ remaining }}<span class="unit">s</span></div>
+        <button type="button" class="btn btn-sm nudge" title="當前階段加 1 秒"
+          @click="onNudge(1)">＋1s</button>
+      </div>
       <div v-if="state.phase !== 'idle'" class="phase-bar"><div class="phase-bar-fill" :style="{ width: progress + '%' }" /></div>
       <div v-if="nextPhaseInfo" class="phase-next">
         下一階段：{{ nextPhaseInfo.label }} <span class="next-time">{{ nextPhaseInfo.time }}</span>
@@ -451,6 +462,8 @@ const nextPhaseInfo = computed(() => {
 .phase-title { font-size: 22px; font-weight: 750; }
 .phase-shield .phase-title { color: var(--danger); }
 .phase-attack .phase-title { color: var(--success); }
+.remaining-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.nudge { flex: none; font-variant-numeric: tabular-nums; }
 .phase-remaining { font-size: 64px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .phase-remaining .unit { font-size: 24px; font-weight: 600; margin-left: 4px; }
 .phase-bar { height: 6px; border-radius: 999px; background: rgba(0,0,0,.08); margin: 12px auto 0; max-width: 420px; overflow: hidden; }

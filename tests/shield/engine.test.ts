@@ -3,6 +3,7 @@ import {
   advance,
   dispelWindowStart,
   markDispel,
+  nudge,
   phaseDuration,
   phaseEnd,
   resistRemaining,
@@ -196,5 +197,41 @@ describe('事件表考慮耐性', () => {
   it('沒有魔消紀錄時每輪都提示', () => {
     const labels = upcomingEvents(startShield(T0), P2, T0, 6).map((e) => e.label)
     expect(labels.filter((l) => l === '使用魔消！').length).toBeGreaterThan(0)
+  })
+})
+
+describe('微調當前階段', () => {
+  const P3 = { shieldDuration: 25, interval: 20, dispelDuration: 20, intervalFloat: 3 }
+
+  it('+1 秒讓倒數多一秒（起點往後挪）', () => {
+    const s = nudge(startShield(T0), 1)
+    expect(s.phaseStart).toBe(T0 + 1000)
+    expect(phaseEnd(s, P3)).toBe(T0 + 1000 + 25_000)
+  })
+
+  it('−1 秒讓倒數少一秒', () => {
+    expect(nudge(startShield(T0), -1).phaseStart).toBe(T0 - 1000)
+  })
+
+  it('idle 時不動', () => {
+    expect(nudge(IDLE, 1)).toBe(IDLE)
+  })
+
+  it('保留階段、魔消標記與上次施放時刻', () => {
+    const s = { ...startInterval(T0), dispelValid: true, lastDispelAt: T0 - 5000 }
+    const out = nudge(s, 1)
+    expect(out).toMatchObject({ phase: 'interval', dispelValid: true, lastDispelAt: T0 - 5000 })
+  })
+
+  it('不改動傳入的狀態', () => {
+    const s = startShield(T0)
+    nudge(s, 1)
+    expect(s.phaseStart).toBe(T0)
+  })
+
+  it('事件表跟著一起平移，不會只有倒數變', () => {
+    const before = upcomingEvents(startShield(T0), P3, T0, 1)[0].at
+    const after = upcomingEvents(nudge(startShield(T0), 1), P3, T0, 1)[0].at
+    expect(after - before).toBe(1000)
   })
 })
