@@ -53,9 +53,24 @@ export function memberConsignmentTotal(consignments: Consignment[], handle: stri
     .reduce((s, c) => s + consignmentValue(c), 0)
 }
 
+// 辛苦費是否啟用由 DC 群組決定（設定頁的開關）。calc 層保持純函式不碰 store，
+// 由呼叫端把開關傳進來；沒傳就是啟用（維持既有行為）。
+export interface DistOptions {
+  leaderFeeEnabled?: boolean
+}
+
+// 交易手續費：遊戲賣東西時就被收走的那筆，不屬於任何人。
+// 沒填的舊紀錄視為 0，既有金額不受影響。
+export function serviceFee(record: LootRecord): number {
+  const pct = record.serviceFeePercent ?? 0
+  const total = teamTotal(record)
+  return Math.max(0, Math.min((total * pct) / 100, total))
+}
+
 // 團長辛苦費金額。夾在 0 ~ 團隊總額之間：填超過總額就取總額（base 歸零），
 // 不讓 base 變負數導致其他人倒貼。
-export function leaderFee(record: LootRecord): number {
+export function leaderFee(record: LootRecord, opts: DistOptions = {}): number {
+  if (opts.leaderFeeEnabled === false) return 0
   const l = record.leader
   // 團長被移出團員列表時視同沒有團長，否則這筆錢會發給不在分配名單上的人
   if (!l || !record.members.some((m) => m.handle === l.handle)) return 0
@@ -73,10 +88,11 @@ export interface Income {
   income: number
 }
 
-export function computeIncomes(record: LootRecord): Income[] {
+export function computeIncomes(record: LootRecord, opts: DistOptions = {}): Income[] {
   const n = record.members.length
-  const fee = leaderFee(record)
-  const base = n > 0 ? (teamTotal(record) - fee) / n : 0
+  const fee = leaderFee(record, opts)
+  // 手續費與辛苦費並列，都從團隊總額扣掉，不是一層扣完再扣另一層
+  const base = n > 0 ? (teamTotal(record) - serviceFee(record) - fee) / n : 0
   // own/others 以「實付額」計：均攤內購買家只付 1/N，其他人仍分 (實付)/(N-1)
   const totalCharge = record.purchases.reduce((s, p) => s + purchaseCharge(p, n), 0)
   return record.members.map((m) => {

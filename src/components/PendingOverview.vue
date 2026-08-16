@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRecordsStore } from '../store/records'
-import { displayNameIn } from '../store/groups'
+import { displayNameIn, distOptionsFor } from '../store/groups'
 import { pendingBlocks } from '../format/pending'
 
 const store = useRecordsStore()
@@ -12,7 +12,7 @@ const router = useRouter()
 function editHref(recordId: string): string {
   return router.resolve({ path: `/edit/${recordId}`, query: { focus: 'dist' } }).href
 }
-const blocks = computed(() => pendingBlocks(store.records, (handle, groupId) => displayNameIn(groupId, handle)))
+const blocks = computed(() => pendingBlocks(store.records, (handle, groupId) => displayNameIn(groupId, handle), distOptionsFor))
 
 const copiedKey = ref('')
 let copiedTimer: ReturnType<typeof setTimeout> | undefined

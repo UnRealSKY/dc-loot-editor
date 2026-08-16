@@ -1,6 +1,6 @@
 import type { LootRecord, DcImage } from '../types'
 import { serialize } from '../format/serialize'
-import { mentionsIn } from '../store/groups'
+import { mentionsIn, distOptionsFor } from '../store/groups'
 import {
   createForumPost,
   editMessage,
@@ -39,7 +39,7 @@ export function applyMentions(
 
 // 發佈到 DC 的最終內文（serialize + 真 mention 轉換）；一致性檢查也用同一份
 export function publishContent(record: LootRecord): string {
-  return applyMentions(serialize(record), mentionsIn(record.groupId))
+  return applyMentions(serialize(record, distOptionsFor(record.groupId)), mentionsIn(record.groupId))
 }
 
 // 串內圖片訊息的內文（領錢綁團員、外購帶註解）；比對 sentContent 偵測變更

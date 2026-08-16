@@ -1,20 +1,30 @@
 import type { LootRecord, Member } from '../types'
-import { teamTotal, leaderFee, computeIncomes, memberConsignmentTotal, roundDisplay } from '../calc/distribution'
+import {
+  teamTotal,
+  leaderFee,
+  serviceFee,
+  computeIncomes,
+  memberConsignmentTotal,
+  roundDisplay,
+  type DistOptions,
+} from '../calc/distribution'
 
 export interface DistSummary {
   total: number // 團隊總收益（總表淨額 ＋ 代售淨額）
-  fee: number // 團長辛苦費（沒有團長為 0）
+  service: number // 交易手續費（未填為 0）
+  fee: number // 團長辛苦費（沒有團長或群組關閉為 0）
   n: number
   base: number // 顯示用均分額（無條件進位）
 }
 
-export function distSummary(record: LootRecord): DistSummary {
+export function distSummary(record: LootRecord, opts?: DistOptions): DistSummary {
   const total = teamTotal(record)
-  const fee = leaderFee(record)
+  const service = serviceFee(record)
+  const fee = leaderFee(record, opts)
   const n = record.members.length
-  const base = Math.ceil(n > 0 ? (total - fee) / n : 0)
-  // fee 與 base 同為顯示用（base 進位、fee 截到 2 位），計算一律用上面的原值
-  return { total, fee: roundDisplay(fee), n, base }
+  const base = Math.ceil(n > 0 ? (total - service - fee) / n : 0)
+  // service / fee 與 base 同為顯示用（base 進位、費用截到 2 位），計算一律用上面的原值
+  return { total, service: roundDisplay(service), fee: roundDisplay(fee), n, base }
 }
 
 export interface MemberDist {
@@ -24,10 +34,10 @@ export interface MemberDist {
 }
 
 // serialize 與未領總覽共用的每人分配公式，保證兩邊輸出一致
-export function memberDists(record: LootRecord): MemberDist[] {
-  const { n, base } = distSummary(record)
+export function memberDists(record: LootRecord, opts?: DistOptions): MemberDist[] {
+  const { n, base } = distSummary(record, opts)
   const consignments = record.consignments ?? []
-  const incomeByHandle = new Map(computeIncomes(record).map((i) => [i.handle, i]))
+  const incomeByHandle = new Map(computeIncomes(record, opts).map((i) => [i.handle, i]))
   const out: MemberDist[] = []
   for (const m of record.members) {
     const inc = incomeByHandle.get(m.handle)
@@ -46,11 +56,26 @@ export function memberDists(record: LootRecord): MemberDist[] {
 
 // 分配區塊的「總共」行。有辛苦費時一定要括號，
 // 否則 "10000 - 500 / 5" 按四則運算會算成 9900。
-export function summaryLine(record: LootRecord): string {
-  const { total, fee, n, base } = distSummary(record)
-  return fee > 0
-    ? `總共: (${total} - ${fee}(辛苦費)) / ${n} = ${base}`
-    : `總共: ${total} / ${n} = ${base}`
+// 扣除項寫成百分比留在算式裡（而不是先換算成金額），匯入時才讀得回原本的設定；
+// 註記用方括號，跟運算用的圓括號分開。
+// 固定金額的辛苦費沒辦法放進乘法括號，改放外面減——數學上等價，順序也仍然正確。
+export function summaryLine(record: LootRecord, opts?: DistOptions): string {
+  const { total, service, fee, n, base } = distSummary(record, opts)
+  const asPct = (amount: number) => roundDisplay(total > 0 ? (amount / total) * 100 : 0)
+
+  const percentTerms: string[] = []
+  let flat = ''
+  if (service > 0) percentTerms.push(`${asPct(service)}%[手續費]`)
+  if (fee > 0) {
+    // 夾在總額上限時實際生效的比例會與填的值不同，一律用生效值才對得上金額
+    if (record.leader?.feeMode === 'percent') percentTerms.push(`${asPct(fee)}%[辛苦費]`)
+    else flat = `${fee}[辛苦費]`
+  }
+
+  let expr = `${total}`
+  if (percentTerms.length) expr = `${total} * (1 - ${percentTerms.join(' - ')})`
+  if (flat) expr = `(${expr} - ${flat})`
+  return `總共: ${expr} / ${n} = ${base}`
 }
 
 // 每人分配行的算式部分：沒有運算時算式本身就是答案，不再重複寫一次

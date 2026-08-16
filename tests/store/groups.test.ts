@@ -8,6 +8,7 @@ import {
   nameIn,
   countRecordsIn,
   applyMagicRoster,
+  leaderFeeEnabled,
   DEFAULT_ROSTER_URL,
   type DcGroup,
 } from '#src/store/groups'
@@ -228,5 +229,17 @@ describe('applyMagicRoster（隱藏設定：群組取名「贖罪券」）', () 
   it('保留名冊以外的設定（webhook 不受影響）', () => {
     const g = applyMagicRoster(group({ name: '贖罪券', webhookUrl: 'https://x/y' }))
     expect(g.webhookUrl).toBe('https://x/y')
+  })
+})
+
+describe('辛苦費開關', () => {
+  it('未設定時視為啟用，維持既有行為', () => {
+    expect(leaderFeeEnabled(group({}))).toBe(true)
+    expect(leaderFeeEnabled(undefined)).toBe(true)
+  })
+
+  it('明確關閉才是關閉', () => {
+    expect(leaderFeeEnabled(group({ enableLeaderFee: false }))).toBe(false)
+    expect(leaderFeeEnabled(group({ enableLeaderFee: true }))).toBe(true)
   })
 })

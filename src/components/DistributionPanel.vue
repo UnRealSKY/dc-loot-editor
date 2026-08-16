@@ -1,22 +1,31 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { LootRecord, SettleStatus } from '../types'
-import { teamTotal, leaderFee, computeIncomes, memberConsignmentTotal, roundDisplay } from '../calc/distribution'
-import { displayNameIn } from '../store/groups'
+import {
+  teamTotal,
+  leaderFee,
+  serviceFee,
+  computeIncomes,
+  memberConsignmentTotal,
+  roundDisplay,
+} from '../calc/distribution'
+import { displayNameIn, distOptionsFor } from '../store/groups'
 
 const props = defineProps<{ record: LootRecord }>()
 const emit = defineEmits<{ 'toggle-settle': [index: number] }>()
 
 const n = computed(() => props.record.members.length)
 const total = computed(() => teamTotal(props.record))
-const fee = computed(() => leaderFee(props.record))
+const opts = computed(() => distOptionsFor(props.record.groupId))
+const service = computed(() => serviceFee(props.record))
+const fee = computed(() => leaderFee(props.record, opts.value))
 const baseDisplay = computed(() =>
-  Math.ceil(n.value > 0 ? (total.value - fee.value) / n.value : 0),
+  Math.ceil(n.value > 0 ? (total.value - service.value - fee.value) / n.value : 0),
 )
 const consignments = computed(() => props.record.consignments ?? [])
 const hasConsignments = computed(() => consignments.value.length > 0)
 const rows = computed(() =>
-  computeIncomes(props.record).map((inc, i) => {
+  computeIncomes(props.record, opts.value).map((inc, i) => {
     const held = memberConsignmentTotal(consignments.value, inc.handle)
     return {
       ...inc,
@@ -39,6 +48,13 @@ const rows = computed(() =>
         <span class="stat-label">團隊總額</span>
         <span class="stat-value">{{ total }}</span>
       </div>
+      <template v-if="service > 0">
+        <div class="stat-op">−</div>
+        <div class="stat">
+          <span class="stat-label">手續費</span>
+          <span class="stat-value">{{ roundDisplay(service) }}</span>
+        </div>
+      </template>
       <template v-if="fee > 0">
         <div class="stat-op">−</div>
         <div class="stat">

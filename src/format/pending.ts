@@ -1,5 +1,6 @@
 import type { LootRecord } from '../types'
 import { memberDists, summaryLine, distLine } from './dist'
+import type { DistOptions } from '../calc/distribution'
 
 export interface PendingRecordDetail {
   recordId: string
@@ -31,12 +32,14 @@ export function pendingBlocks(
   records: LootRecord[],
   // 每筆紀錄可能屬於不同 DC 群組，名字要在該群組的名冊裡查
   display: (handle: string, groupId?: string) => string,
+  // 辛苦費開關是群組層級的，逐筆紀錄查
+  optionsFor?: (groupId?: string) => DistOptions,
 ): PendingBlock[] {
   const blocks = new Map<string, PendingBlock>()
   for (const r of [...records].sort(byDateAsc)) {
     if (r.shelved) continue // 擱置中：暫不列入統計
     const hasCart = r.lootItems.some((it) => it.status === 'cart')
-    for (const d of memberDists(r)) {
+    for (const d of memberDists(r, optionsFor?.(r.groupId))) {
       if (d.member.settle !== 'pending') continue
       const handle = d.member.handle
       const lines: string[] = [[r.date, r.boss].filter(Boolean).join(' ')]
@@ -45,7 +48,7 @@ export function pendingBlocks(
         const mode = p.mode === 'split' ? ' (均攤)' : ''
         lines.push(`${display(p.buyer, r.groupId)}: 內購 ${p.name}x${p.qty} = ${p.unitPrice}x${p.qty}${mode}`)
       }
-      lines.push(summaryLine(r))
+      lines.push(summaryLine(r, optionsFor?.(r.groupId)))
       lines.push(`${display(handle, r.groupId)}: ${distLine(d)}`)
       let block = blocks.get(handle)
       if (!block) {

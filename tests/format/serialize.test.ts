@@ -221,9 +221,14 @@ describe('serialize 團長辛苦費', () => {
     createdAt: '', updatedAt: '',
   }
 
-  it('總共行加括號，避免被當成 10000 - 500/5', () => {
+  it('百分比的辛苦費寫成乘法，運算順序天然正確', () => {
     const out = serialize({ ...base, leader: { handle: '@a', feeMode: 'percent', feeValue: 5 } })
-    expect(out).toContain('總共: (10000 - 500(辛苦費)) / 5 = 1900')
+    expect(out).toContain('總共: 10000 * (1 - 5%[辛苦費]) / 5 = 1900')
+  })
+
+  it('固定金額的辛苦費放乘法外面減，靠括號保住運算順序', () => {
+    const out = serialize({ ...base, leader: { handle: '@a', feeMode: 'fixed', feeValue: 500 } })
+    expect(out).toContain('總共: (10000 - 500[辛苦費]) / 5 = 1900')
   })
 
   it('團長分配行接上辛苦費，其他人維持均分額', () => {

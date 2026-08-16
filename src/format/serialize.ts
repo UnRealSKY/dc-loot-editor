@@ -1,5 +1,6 @@
 import type { LootRecord, LootItem, SettleStatus } from '../types'
 import { memberDists, summaryLine, distLine } from './dist'
+import type { DistOptions } from '../calc/distribution'
 
 function lootLine(it: LootItem): string {
   const q = it.qty ?? ''
@@ -32,7 +33,7 @@ function statusSuffix(record: LootRecord): string {
   return marks.length ? marks.join(' ') : ':ballot_box_with_check:'
 }
 
-export function serialize(record: LootRecord): string {
+export function serialize(record: LootRecord, opts?: DistOptions): string {
   const lines: string[] = []
   lines.push(`## ${record.date} ${record.boss} ｜ ${statusSuffix(record)}`)
   for (const it of record.lootItems) {
@@ -70,9 +71,9 @@ export function serialize(record: LootRecord): string {
   }
 
   lines.push('', '## 分配')
-  lines.push(summaryLine(record))
+  lines.push(summaryLine(record, opts))
 
-  for (const d of memberDists(record)) {
+  for (const d of memberDists(record, opts)) {
     lines.push(`* ${settleEmoji(d.member.settle)} ${d.member.handle}: ${distLine(d)}`)
   }
 

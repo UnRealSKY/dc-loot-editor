@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { distSummary, memberDists } from '#src/format/dist'
+import { distSummary, memberDists, summaryLine } from '#src/format/dist'
 import type { LootRecord } from '#src/types'
 
 function makeRecord(over: Partial<LootRecord>): LootRecord {
@@ -17,11 +17,11 @@ describe('distSummary', () => {
       members: ['@a', '@b', '@c', '@d', '@e'].map((h) => ({ handle: h, settle: 'pending' as const })),
       lootItems: [{ status: 'ok', name: 'x', qty: 1, unitPrice: 3266 }],
     })
-    expect(distSummary(r)).toEqual({ total: 3266, fee: 0, n: 5, base: 654 })
+    expect(distSummary(r)).toEqual({ total: 3266, service: 0, fee: 0, n: 5, base: 654 })
   })
   it('無團員時 base 為 0', () => {
     const r = makeRecord({ lootItems: [{ status: 'ok', name: 'x', qty: 1, unitPrice: 100 }] })
-    expect(distSummary(r)).toEqual({ total: 100, fee: 0, n: 0, base: 0 })
+    expect(distSummary(r)).toEqual({ total: 100, service: 0, fee: 0, n: 0, base: 0 })
   })
   it('有團長時 base 用扣掉辛苦費後的餘額均分', () => {
     const r = makeRecord({
@@ -29,7 +29,7 @@ describe('distSummary', () => {
       lootItems: [{ status: 'ok', name: 'x', qty: 1, unitPrice: 10000 }],
       leader: { handle: '@a', feeMode: 'percent', feeValue: 5 },
     })
-    expect(distSummary(r)).toEqual({ total: 10000, fee: 500, n: 5, base: 1900 })
+    expect(distSummary(r)).toEqual({ total: 10000, service: 0, fee: 500, n: 5, base: 1900 })
   })
 })
 
@@ -90,5 +90,74 @@ describe('memberDists', () => {
     const [me] = memberDists(r)
     expect(me.expr).toBe('1000')
     expect(me.amount).toBe(1000)
+  })
+})
+
+describe('手續費在 distSummary 與輸出', () => {
+  const r = makeRecord({
+    members: ['@a', '@b', '@c', '@d', '@e'].map((h) => ({ handle: h, settle: 'pending' as const })),
+    lootItems: [{ status: 'ok', name: 'x', qty: 1, unitPrice: 10000 }],
+    serviceFeePercent: 3,
+  })
+
+  it('base 用扣掉手續費後的餘額均分', () => {
+    expect(distSummary(r)).toEqual({ total: 10000, service: 300, fee: 0, n: 5, base: 1940 })
+  })
+
+  it('總共行用百分比寫在算式裡，註記用方括號', () => {
+    expect(summaryLine(r)).toBe('總共: 10000 * (1 - 3%[手續費]) / 5 = 1940')
+  })
+
+  it('手續費與辛苦費並列在同一個括號裡，手續費在前', () => {
+    const withLeader = makeRecord({
+      ...r,
+      leader: { handle: '@a', feeMode: 'percent', feeValue: 5 },
+    })
+    expect(summaryLine(withLeader)).toBe('總共: 10000 * (1 - 3%[手續費] - 5%[辛苦費]) / 5 = 1840')
+  })
+
+  it('群組關閉辛苦費時只剩手續費', () => {
+    const withLeader = makeRecord({
+      ...r,
+      leader: { handle: '@a', feeMode: 'percent', feeValue: 5 },
+    })
+    expect(summaryLine(withLeader, { leaderFeeEnabled: false })).toBe(
+      '總共: 10000 * (1 - 3%[手續費]) / 5 = 1940',
+    )
+  })
+
+  it('都沒有時維持原本不加括號的寫法', () => {
+    expect(summaryLine(makeRecord({ ...r, serviceFeePercent: 0 }))).toBe('總共: 10000 / 5 = 2000')
+  })
+})
+
+describe('summaryLine 各種組合', () => {
+  const five = ['@a', '@b', '@c', '@d', '@e'].map((h) => ({ handle: h, settle: 'pending' as const }))
+  const r = (over: Partial<LootRecord>) =>
+    makeRecord({
+      members: five,
+      lootItems: [{ status: 'ok', name: 'x', qty: 1, unitPrice: 10000 }],
+      ...over,
+    })
+
+  it('固定金額的辛苦費放在乘法外面減，運算順序才對', () => {
+    const line = summaryLine(r({
+      serviceFeePercent: 3,
+      leader: { handle: '@a', feeMode: 'fixed', feeValue: 500 },
+    }))
+    expect(line).toBe('總共: (10000 * (1 - 3%[手續費]) - 500[辛苦費]) / 5 = 1840')
+  })
+
+  it('只有固定金額辛苦費時不出現乘法', () => {
+    const line = summaryLine(r({ leader: { handle: '@a', feeMode: 'fixed', feeValue: 500 } }))
+    expect(line).toBe('總共: (10000 - 500[辛苦費]) / 5 = 1900')
+  })
+
+  it('兩者都沒有時維持最單純的寫法', () => {
+    expect(summaryLine(r({}))).toBe('總共: 10000 / 5 = 2000')
+  })
+
+  it('百分比帶小數也照原樣寫出來', () => {
+    expect(summaryLine(r({ serviceFeePercent: 2.5 }))).toBe('總共: 10000 * (1 - 2.5%[手續費]) / 5 = 1950')
   })
 })
