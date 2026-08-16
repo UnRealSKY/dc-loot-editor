@@ -33,6 +33,7 @@ export interface DcGroup {
   webhookUrl: string
   rosterMode: RosterMode
   rosterUrl?: string // url 模式的來源
+  enableLeaderFee?: boolean // 是否啟用團長辛苦費（未設＝啟用，維持既有行為）
   roster: RosterEntry[] // url 模式時是快取
 }
 
@@ -116,6 +117,11 @@ export function applyMagicRoster(group: DcGroup): DcGroup {
   if (group.name.trim() !== MAGIC_GROUP_NAME) return group
   if (group.rosterMode === 'url' && group.rosterUrl === DEFAULT_ROSTER_URL) return group
   return { ...group, rosterMode: 'url', rosterUrl: DEFAULT_ROSTER_URL }
+}
+
+// 辛苦費開關。未設定＝啟用，既有群組不必特地補這個欄位就維持原本行為。
+export function leaderFeeEnabled(group: DcGroup | undefined): boolean {
+  return group?.enableLeaderFee !== false
 }
 
 // 綁在某群組的紀錄數。沒設 groupId 的舊紀錄算在第一個群組頭上——
@@ -249,6 +255,11 @@ export function deleteGroup(id: string): void {
 
 export function groupOf(groupId: string | undefined): DcGroup | undefined {
   return groupById(groups.value, groupId)
+}
+
+// 給 calc/format 用的選項：那兩層是純函式，開關由這裡查好再傳進去
+export function distOptionsFor(groupId: string | undefined) {
+  return { leaderFeeEnabled: leaderFeeEnabled(groupOf(groupId)) }
 }
 
 // 顯示用名稱：依紀錄所屬群組的名冊查，查不到就用原 handle

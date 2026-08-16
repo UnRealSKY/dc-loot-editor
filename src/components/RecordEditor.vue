@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useRecordsStore } from '../store/records'
 import { useHistory } from '../store/history'
-import { aliasOfIn, groupOf, useGroups } from '../store/groups'
+import { aliasOfIn, groupOf, useGroups, leaderFeeEnabled } from '../store/groups'
 import { publishOrSync, publishContent, hasImageChanges, dcSyncStatus } from '../dc/publish'
 import { parseMessageLink, isBindingLost, getMessage } from '../dc/webhook'
 import type { LootRecord, LootItem, Member, Purchase, Stream, Consignment, DcImage, DcImageKind } from '../types'
@@ -46,10 +46,19 @@ function setGroup(id: string) {
   patch({ groupId: id })
 }
 
+// 群組關掉辛苦費時，整張「團長」卡片與團員列上的標記都不顯示
+const showLeader = computed(() => leaderFeeEnabled(groupOf(groupId.value)))
+
 // 團長那一列在團員清單裡唯讀（改人與移除都在上方「團長」做），空 handle 不算
 function isLeaderRow(handle: string): boolean {
-  return !!handle && record.value?.leader?.handle === handle
+  return showLeader.value && !!handle && record.value?.leader?.handle === handle
 }
+
+// 交易手續費 %：未填的舊紀錄是 0，新紀錄由 records store 帶入預設 3
+const serviceFeePercent = computed({
+  get: () => record.value?.serviceFeePercent ?? 0,
+  set: (v: number) => patch({ serviceFeePercent: Number.isFinite(v) && v > 0 ? v : 0 }),
+})
 
 // 下拉顯示「別名 (handle)」，選取仍存 handle
 function handleLabel(h: string): string {
@@ -436,10 +445,14 @@ function toggleSettle(i: number) {
             <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
           </select>
         </label>
+        <label class="field">
+          <span class="field-label">交易手續費（%）</span>
+          <input v-model.number="serviceFeePercent" type="number" min="0" step="0.1" />
+        </label>
       </div>
     </div>
 
-    <div class="card">
+    <div v-if="showLeader" class="card">
       <div class="section-head"><h3>團長</h3></div>
       <div class="leader-fields">
         <label class="field">

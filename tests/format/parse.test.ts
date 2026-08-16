@@ -278,8 +278,58 @@ describe('parse 團長辛苦費', () => {
       createdAt: '', updatedAt: '',
     }
     const back = parse(serialize(rec))
-    // percent 會還原成等值的 fixed（金額相同，之後改總表金額才不再連動）
-    expect(back.leader).toEqual({ handle: '@a', feeMode: 'fixed', feeValue: 500 })
+    // 百分比留在算式裡，所以 percent 模式原樣還原，不再降級成 fixed
+    expect(back.leader).toEqual({ handle: '@a', feeMode: 'percent', feeValue: 5 })
     expect(serialize({ ...rec, leader: back.leader })).toBe(serialize(rec))
+  })
+})
+
+describe('parse 手續費', () => {
+  const md = (totalLine: string) =>
+    ['## 2026-08-16 測王', '', '## 分配', totalLine, '* :ok: @a: 1940'].join('\n')
+
+  it('手續費金額回存成百分比，才能跟著總額連動', () => {
+    const r = parse(md('總共: (10000 - 300(手續費)) / 5 = 1940'))
+    expect(r.serviceFeePercent).toBe(3)
+  })
+
+  it('手續費與辛苦費並列時兩個都讀得回來', () => {
+    const r = parse(
+      [
+        '## 2026-08-16 測王',
+        '',
+        '## 分配',
+        '總共: (10000 - 300(手續費) - 500(辛苦費)) / 5 = 1840',
+        '* :ok: @a: 1840 + 500 = 2340',
+        '* :orange_square: @b: 1840',
+      ].join('\n'),
+    )
+    expect(r.serviceFeePercent).toBe(3)
+    expect(r.leader).toEqual({ handle: '@a', feeMode: 'fixed', feeValue: 500 })
+  })
+
+  it('只有辛苦費時不產生手續費', () => {
+    const r = parse(md('總共: (10000 - 500(辛苦費)) / 5 = 1900'))
+    expect(r.serviceFeePercent).toBeUndefined()
+  })
+
+  it('沒有括號的舊格式照樣讀得進來', () => {
+    const r = parse(md('總共: 10000 / 5 = 2000'))
+    expect(r.serviceFeePercent).toBeUndefined()
+    expect(r.leader).toBeUndefined()
+  })
+
+  it('serialize → parse 往返後手續費金額一致', () => {
+    const rec: LootRecord = {
+      id: 'rt', date: '2026-08-16', boss: '測王',
+      members: ['@a', '@b', '@c', '@d', '@e'].map((h) => ({ handle: h, settle: 'pending' as const })),
+      lootItems: [{ status: 'ok', name: '道具', qty: 1, unitPrice: 10000 }],
+      purchases: [],
+      serviceFeePercent: 3,
+      createdAt: '', updatedAt: '',
+    }
+    const back = parse(serialize(rec))
+    expect(back.serviceFeePercent).toBe(3)
+    expect(serialize({ ...rec, serviceFeePercent: back.serviceFeePercent })).toBe(serialize(rec))
   })
 })

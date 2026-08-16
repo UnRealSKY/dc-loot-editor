@@ -7,6 +7,9 @@ import { activeGroup } from './groups'
 
 export const STORAGE_KEY = 'dc-loot-records'
 
+// 遊戲交易手續費，新紀錄的預設值
+export const DEFAULT_SERVICE_FEE_PERCENT = 3
+
 function load(): LootRecord[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -73,6 +76,8 @@ export const useRecordsStore = defineStore('records', () => {
     if (!rec.date) rec.date = todayLocal()
     // 新紀錄預設落在設定頁選中的群組
     if (!rec.groupId) rec.groupId = activeGroup()?.id
+    // 手續費固定存在，新紀錄帶預設值；舊紀錄沒有這欄就是 0，金額不受影響
+    if (rec.serviceFeePercent == null) rec.serviceFeePercent = DEFAULT_SERVICE_FEE_PERCENT
     records.value.push(rec)
     return rec
   }

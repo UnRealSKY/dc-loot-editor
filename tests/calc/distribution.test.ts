@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { itemNet, netTotal, teamTotal, leaderFee, purchaseValue, memberPurchaseTotal, computeIncomes, consignmentValue, memberConsignmentTotal } from '#src/calc/distribution'
+import { itemNet, netTotal, teamTotal, leaderFee, serviceFee, purchaseValue, memberPurchaseTotal, computeIncomes, consignmentValue, memberConsignmentTotal } from '#src/calc/distribution'
 import type { LootItem, LootRecord } from '#src/types'
 
 const ok = (over: Partial<LootItem>): LootItem =>
@@ -239,5 +239,77 @@ describe('computeIncomes', () => {
     const r = computeIncomes(base)
     const o = r.find((x) => x.handle === '@xiangjiaojiu')!
     expect(Math.round(o.income)).toBe(2633) // 2257.6 + 375 = 2632.6 → 2633
+  })
+})
+
+describe('手續費', () => {
+  const members = ['@a', '@b', '@c', '@d', '@e'].map((handle) => ({ handle, settle: 'pending' as const }))
+  const base: LootRecord = {
+    id: '1', date: '2026-08-16', boss: 'x', members,
+    lootItems: [ok({ unitPrice: 10000, qty: 1 })], purchases: [],
+    createdAt: '', updatedAt: '',
+  }
+
+  it('沒填的舊紀錄視為 0，金額不變', () => {
+    expect(serviceFee(base)).toBe(0)
+    expect(computeIncomes(base)[0].income).toBe(2000)
+  })
+
+  it('依團隊總額計算', () => {
+    expect(serviceFee({ ...base, serviceFeePercent: 3 })).toBe(300)
+  })
+
+  it('基準含代售', () => {
+    const r = { ...base, serviceFeePercent: 3, consignments: [{ seller: '@b', name: 'y', qty: 1, unitPrice: 2000 }] }
+    expect(serviceFee(r)).toBe(360) // (10000 + 2000) × 3%
+  })
+
+  it('0 與負數都當 0', () => {
+    expect(serviceFee({ ...base, serviceFeePercent: 0 })).toBe(0)
+    expect(serviceFee({ ...base, serviceFeePercent: -5 })).toBe(0)
+  })
+
+  it('超過 100% 以總額為上限，不讓其他人倒貼', () => {
+    expect(serviceFee({ ...base, serviceFeePercent: 150 })).toBe(10000)
+  })
+
+  it('扣掉手續費後才均分', () => {
+    const r = { ...base, serviceFeePercent: 3 }
+    expect(computeIncomes(r)[0].income).toBe(1940) // (10000 − 300) / 5
+  })
+})
+
+describe('手續費與辛苦費並列', () => {
+  const members = ['@a', '@b', '@c', '@d', '@e'].map((handle) => ({ handle, settle: 'pending' as const }))
+  const base: LootRecord = {
+    id: '1', date: '2026-08-16', boss: 'x', members,
+    lootItems: [ok({ unitPrice: 10000, qty: 1 })], purchases: [],
+    serviceFeePercent: 3,
+    leader: { handle: '@a', feeMode: 'percent', feeValue: 5 },
+    createdAt: '', updatedAt: '',
+  }
+
+  it('兩者都從團隊總額算，不是一層扣完再扣另一層', () => {
+    expect(serviceFee(base)).toBe(300) // 10000 × 3%
+    expect(leaderFee(base)).toBe(500) // 10000 × 5%，不是 (10000−300) × 5%
+  })
+
+  it('每人基本＝(總額 − 手續費 − 辛苦費) ÷ 人數', () => {
+    const r = computeIncomes(base)
+    expect(r[1].income).toBe(1840) // (10000 − 300 − 500) / 5
+    expect(r[0].income).toBe(1840 + 500) // 團長再加辛苦費
+  })
+
+  it('收入總和＝團隊總額 − 手續費（手續費被遊戲收走，不屬於任何人）', () => {
+    const sum = computeIncomes(base).reduce((s, i) => s + i.income, 0)
+    expect(sum).toBe(9700)
+  })
+
+  it('群組關閉辛苦費時當作沒有團長', () => {
+    const opts = { leaderFeeEnabled: false }
+    expect(leaderFee(base, opts)).toBe(0)
+    const r = computeIncomes(base, opts)
+    expect(r[0].income).toBe(1940) // (10000 − 300) / 5，沒有辛苦費
+    expect(r[0].fee).toBe(0)
   })
 })

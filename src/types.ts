@@ -82,6 +82,7 @@ export interface Leader {
 export interface LootRecord {
   id: string
   groupId?: string         // 所屬 DC 群組；未設＝第一個群組（舊紀錄相容）
+  serviceFeePercent?: number  // 交易手續費 %（未填＝0）；遊戲收走的錢，不屬於任何人
   date: string             // YYYY-MM-DD
   boss: string             // 王名，即紀錄標題（列表顯示用）
   members: Member[]        // 人數 N 由 members.length 推導

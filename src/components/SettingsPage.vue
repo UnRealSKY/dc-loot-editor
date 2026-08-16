@@ -8,6 +8,7 @@ import {
   patchGroup,
   deleteGroup,
   countRecordsIn,
+  leaderFeeEnabled,
   rosterLoading,
   type DcGroup,
   type RosterMode,
@@ -258,6 +259,11 @@ async function copyJson(key: 'roster' | 'items') {
             </div>
           </label>
         </div>
+        <label class="toggle-row">
+          <input type="checkbox" :checked="leaderFeeEnabled(current)"
+            @change="patchGroup(current.id, { enableLeaderFee: ($event.target as HTMLInputElement).checked })" />
+          啟用團長辛苦費
+        </label>
         <p v-if="hookError" class="field-error">{{ hookError }}</p>
         <p v-if="hookInfo" class="ok-note">
           ✓ 已驗證並儲存：<strong>{{ hookInfo.name }}</strong>
@@ -387,6 +393,8 @@ async function copyJson(key: 'roster' | 'items') {
 .hook-row input { font-family: var(--mono); font-size: 13px; }
 .hook-row .btn { flex: none; }
 .hook-note { margin: 10px 0 0; font-size: 12.5px; }
+.toggle-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 14px; cursor: pointer; }
+.toggle-row input { width: auto; }
 
 .roster-head { margin-top: 22px; }
 .mode-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }

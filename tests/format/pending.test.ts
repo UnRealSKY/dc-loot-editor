@@ -137,10 +137,10 @@ describe('pendingBlocks 團長辛苦費', () => {
     leader: { handle: '@a', feeMode: 'percent', feeValue: 5 },
   })
 
-  it('總共行與 serialize 共用，含括號與辛苦費', () => {
+  it('總共行與 serialize 共用，百分比寫在算式裡', () => {
     const blocks = pendingBlocks([r], display)
     const lines = blocks.find((b) => b.handle === '@a')!.records[0].lines
-    expect(lines).toContain('總共: (10000 - 500(辛苦費)) / 5 = 1900')
+    expect(lines).toContain('總共: 10000 * (1 - 5%[辛苦費]) / 5 = 1900')
   })
 
   it('團長的應領含辛苦費', () => {

@@ -18,8 +18,17 @@ const STREAM_RE = /^\*\s*(.+?)\s*:\s*(https?:\/\/\S+)\s*$/
 const DIST_RE = /^\*\s*(\S+)\s+(<@\d+>|@[^\s:：]+)/
 // 同一行的算式部分（辨識團長用）
 const DIST_EXPR_RE = /^\*\s*\S+\s+(?:<@\d+>|@[^\s:：]+)\s*[:：]?\s*(.*)$/
-// 有團長時的總共行：總共: (總額 - 辛苦費(辛苦費)) / N = 均分額
-const DIST_FEE_RE = /^總共\s*[:：]\s*\(\s*[\d.]+\s*-\s*([\d.]+)\(辛苦費\)\s*\)/
+// 總共行：先抓到除號前的整個算式，再從裡面挑出扣除項。
+// 形如 10000 * (1 - 3%[手續費] - 5%[辛苦費]) / 5 = 1840
+//   或 (10000 * (1 - 3%[手續費]) - 500[辛苦費]) / 5 = 1840
+const DIST_TOTAL_RE = /^總共\s*[:：]\s*(.+?)\s*\/\s*\d+\s*=/
+const DIST_BASE_RE = /^\(?\s*([\d.]+)/
+// 百分比項寫在算式裡，金額項寫在乘法外面
+const PERCENT_RE = /([\d.]+)%\[(手續費|辛苦費)\]/g
+const FLAT_RE = /([\d.]+)\[(辛苦費)\]/g
+// v1.20 以前的格式：(10000 - 300(手續費) - 500(辛苦費)) / 5
+// DC 上已經發佈的貼文都長這樣，匯入時仍要讀得懂
+const LEGACY_RE = /([\d.]+)\((手續費|辛苦費)\)/g
 
 // 算式裡的辛苦費項＝「+ 純數字」；他人內購是「+ 數字/N」有斜線，不能誤認
 function hasFeeTerm(expr: string, fee: number): boolean {
@@ -85,6 +94,8 @@ export function parse(md: string): LootRecord {
   const consignments: Consignment[] = record.consignments!
   let section: Section = 'none'
   let fee = 0
+  let leaderFeeValue = 0
+  let leaderFeeMode: 'percent' | 'fixed' = 'fixed'
   let leaderHandle = ''
 
   for (const raw of md.split('\n')) {
@@ -140,9 +151,36 @@ export function parse(md: string): LootRecord {
         consignments.push(entry)
       }
     } else if (section === 'dist') {
-      const feeLine = line.match(DIST_FEE_RE)
-      if (feeLine) {
-        fee = Number(feeLine[1])
+      const totalLine = line.match(DIST_TOTAL_RE)
+      if (totalLine) {
+        const expr = totalLine[1]
+        const total = Number(expr.match(DIST_BASE_RE)?.[1] ?? 0)
+        for (const [, value, kind] of expr.matchAll(PERCENT_RE)) {
+          if (kind === '手續費') record.serviceFeePercent = Number(value)
+          else {
+            leaderFeeValue = Number(value)
+            leaderFeeMode = 'percent'
+            // 分配行寫的是金額，先換算好才比對得到誰是團長
+            fee = (total * Number(value)) / 100
+          }
+        }
+        // 金額形式的辛苦費（percent 的已在上面處理，不會重複命中）
+        const withoutPercent = expr.replace(PERCENT_RE, '')
+        for (const [, amount] of withoutPercent.matchAll(FLAT_RE)) {
+          leaderFeeValue = Number(amount)
+          leaderFeeMode = 'fixed'
+          fee = Number(amount)
+        }
+        // 舊格式：兩者都是金額，手續費換算回百分比才能跟著總額連動
+        for (const [, amount, kind] of withoutPercent.matchAll(LEGACY_RE)) {
+          if (kind === '辛苦費') {
+            leaderFeeValue = Number(amount)
+            leaderFeeMode = 'fixed'
+            fee = Number(amount)
+          } else if (total > 0) {
+            record.serviceFeePercent = (Number(amount) / total) * 100
+          }
+        }
         continue
       }
       const d = line.match(DIST_RE)
@@ -153,9 +191,9 @@ export function parse(md: string): LootRecord {
     }
   }
 
-  // percent 無法從輸出還原（算式只寫金額），一律存成等值的 fixed
-  if (leaderHandle && fee > 0) {
-    record.leader = { handle: leaderHandle, feeMode: 'fixed', feeValue: fee }
+  // 百分比留在算式裡，所以 percent 模式現在讀得回來，不必再降級成 fixed
+  if (leaderHandle && leaderFeeValue > 0) {
+    record.leader = { handle: leaderHandle, feeMode: leaderFeeMode, feeValue: leaderFeeValue }
   }
 
   return record
