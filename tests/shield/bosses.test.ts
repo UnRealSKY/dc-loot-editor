@@ -27,25 +27,28 @@ describe('paramsOf', () => {
     expect(paramsOf(DUNAS, {}, DEFAULT_DISPEL_DURATION)).toEqual({
       shieldDuration: 20,
       interval: 25,
-      dispelDuration: 15,
+      intervalFloat: 0,
+      dispelDuration: 20,
     })
   })
 
   it('有覆寫時用覆寫值', () => {
-    const ov = { dunas: { shieldDuration: 21, interval: 26 } }
-    expect(paramsOf(DUNAS, ov, 15)).toEqual({
+    const ov = { dunas: { shieldDuration: 21, interval: 26, intervalFloat: 2 } }
+    expect(paramsOf(DUNAS, ov, 20)).toEqual({
       shieldDuration: 21,
       interval: 26,
-      dispelDuration: 15,
+      intervalFloat: 2,
+      dispelDuration: 20,
     })
   })
 
   it('別隻王的覆寫不互相污染', () => {
-    const ov = { pika: { shieldDuration: 99, interval: 99 } }
-    expect(paramsOf(DUNAS, ov, 15)).toEqual({
+    const ov = { pika: { shieldDuration: 99, interval: 99, intervalFloat: 9 } }
+    expect(paramsOf(DUNAS, ov, 20)).toEqual({
       shieldDuration: 20,
       interval: 25,
-      dispelDuration: 15,
+      intervalFloat: 0,
+      dispelDuration: 20,
     })
   })
 
@@ -68,24 +71,27 @@ describe('normalizeOverrides', () => {
       dunas: { shieldDuration: 0, interval: 25 },
       ghost: { shieldDuration: 10, interval: 10 },
     }
-    expect(normalizeOverrides(raw)).toEqual({ pika: { shieldDuration: 26, interval: 21 } })
+    // 舊資料沒有 intervalFloat，補上該王的預設（皮卡 3）
+    expect(normalizeOverrides(raw)).toEqual({
+      pika: { shieldDuration: 26, interval: 21, intervalFloat: 3 },
+    })
   })
 })
 
 describe('setOverride', () => {
   it('寫入覆寫值', () => {
-    const next = setOverride({}, DUNAS, { shieldDuration: 22, interval: 25 })
-    expect(next).toEqual({ dunas: { shieldDuration: 22, interval: 25 } })
+    const next = setOverride({}, DUNAS, { shieldDuration: 22, interval: 25, intervalFloat: 0 })
+    expect(next).toEqual({ dunas: { shieldDuration: 22, interval: 25, intervalFloat: 0 } })
   })
 
   it('值等於王的預設時移除該筆（讓「還原預設」自然消失）', () => {
-    const ov = { dunas: { shieldDuration: 22, interval: 25 } }
-    expect(setOverride(ov, DUNAS, { shieldDuration: 20, interval: 25 })).toEqual({})
+    const ov = { dunas: { shieldDuration: 22, interval: 25, intervalFloat: 0 } }
+    expect(setOverride(ov, DUNAS, { shieldDuration: 20, interval: 25, intervalFloat: 0 })).toEqual({})
   })
 
   it('不改動傳入的物件', () => {
-    const ov = { pika: { shieldDuration: 26, interval: 20 } }
-    setOverride(ov, DUNAS, { shieldDuration: 22, interval: 25 })
-    expect(ov).toEqual({ pika: { shieldDuration: 26, interval: 20 } })
+    const ov = { pika: { shieldDuration: 26, interval: 20, intervalFloat: 3 } }
+    setOverride(ov, DUNAS, { shieldDuration: 22, interval: 25, intervalFloat: 0 })
+    expect(ov).toEqual({ pika: { shieldDuration: 26, interval: 20, intervalFloat: 3 } })
   })
 })

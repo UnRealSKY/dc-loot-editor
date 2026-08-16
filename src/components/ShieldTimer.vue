@@ -6,7 +6,11 @@ import {
   dispelWindowStart,
   markDispel,
   phaseEnd,
-  startFailed,
+  resistRemaining,
+  cooldownRemaining,
+  DISPEL_RESIST,
+  DISPEL_COOLDOWN,
+  startBlocked,
   startInterval,
   startShield,
   upcomingEvents,
@@ -19,6 +23,7 @@ import {
   normalizeOverrides,
   paramsOf,
   setOverride,
+  type BossOverride,
   type BossOverrides,
 } from '../shield/bosses'
 
@@ -106,11 +111,11 @@ function tick() {
     if (next.phase === 'shield') soundShieldWarn()
     else soundAttackOk()
   }
-  // 魔消提醒：間隔進入有效窗那一刻
+  // 魔消提醒：間隔進入有效窗那一刻。王的耐性還在就不響——放了也擋不掉
   const s = state.value
   if (s.phase === 'interval' && remindedForPhase !== s.phaseStart) {
     const elapsed = (now.value - s.phaseStart) / 1000
-    if (elapsed >= dispelWindowStart(params.value)) {
+    if (elapsed >= dispelWindowStart(params.value) && resistRemaining(s, now.value) === 0) {
       remindedForPhase = s.phaseStart
       soundDispel()
     }
@@ -130,8 +135,8 @@ function onStartInterval() {
   state.value = startInterval(Date.now())
   ensureAudio()
 }
-function onStartFailed() {
-  state.value = startFailed(Date.now())
+function onStartBlocked() {
+  state.value = startBlocked(Date.now())
   ensureAudio()
 }
 function onDispel() {
@@ -159,25 +164,27 @@ function selectBoss(id: string) {
 }
 
 // 參數輸入框寫入的是「該王的覆寫」；秒數改回內建預設會自動移除覆寫
+function patchOverride(part: Partial<BossOverride>) {
+  const p = params.value
+  overrides.value = setOverride(overrides.value, boss.value, {
+    shieldDuration: p.shieldDuration,
+    interval: p.interval,
+    intervalFloat: p.intervalFloat ?? 0,
+    ...part,
+  })
+}
 const shieldDuration = computed({
   get: () => params.value.shieldDuration,
-  set: (v: number) => {
-    if (!(v > 0)) return
-    overrides.value = setOverride(overrides.value, boss.value, {
-      shieldDuration: v,
-      interval: params.value.interval,
-    })
-  },
+  set: (v: number) => v > 0 && patchOverride({ shieldDuration: v }),
 })
 const intervalSeconds = computed({
   get: () => params.value.interval,
-  set: (v: number) => {
-    if (!(v > 0)) return
-    overrides.value = setOverride(overrides.value, boss.value, {
-      shieldDuration: params.value.shieldDuration,
-      interval: v,
-    })
-  },
+  set: (v: number) => v > 0 && patchOverride({ interval: v }),
+})
+// 浮動可以是 0（杜納斯沒有浮動），只擋負數
+const intervalFloat = computed({
+  get: () => params.value.intervalFloat ?? 0,
+  set: (v: number) => Number.isFinite(v) && v >= 0 && patchOverride({ intervalFloat: v }),
 })
 
 const isOverridden = computed(() => !!overrides.value[boss.value.id])
@@ -197,23 +204,31 @@ const progress = computed(() => {
   const total = phaseEnd(state.value, params.value) - state.value.phaseStart
   return Math.min(100, Math.max(0, ((now.value - state.value.phaseStart) / total) * 100))
 })
+// 引信：邊框剩下的比例。pathLength=100 把周長正規化，這裡直接給百分比
+const fuseLeft = computed(() => 100 - progress.value)
 const PHASE_META = {
   idle: { cls: 'phase-idle', title: '待機', note: '開戰看到反盾出現時按「反盾開始」' },
   shield: { cls: 'phase-shield', title: '反盾中 ⛔ 禁止輸出', note: '' },
   interval: { cls: 'phase-attack', title: '間隔 ⚔ 可輸出', note: '' },
-  failed: { cls: 'phase-attack', title: '反盾失敗 ⚔ 可輸出', note: '' },
+  blocked: { cls: 'phase-attack', title: '反盾阻止成功 ⚔ 可輸出', note: '' },
 } as const
 const meta = computed(() => PHASE_META[state.value.phase])
-// 魔消有效中（間隔進入有效窗且尚未標記）：色塊閃爍提醒
+// 王的耐性／技能冷卻剩餘（純提醒，不阻擋任何按鈕）
+const resistLeft = computed(() => resistRemaining(state.value, now.value))
+const cooldownLeft = computed(() => cooldownRemaining(state.value, now.value))
+
+// 魔消有效中（間隔進入有效窗、尚未標記、且王的耐性已退）：色塊閃爍提醒。
+// 耐性還在時放了也擋不掉，閃爍催人去放會誤導。
 const dispelActive = computed(() => {
   const s = state.value
-  if (s.phase !== 'interval' || s.dispelValid) return false
+  if (s.phase !== 'interval' || s.dispelValid || resistLeft.value > 0) return false
   return (now.value - s.phaseStart) / 1000 >= dispelWindowStart(params.value)
 })
 const intervalNote = computed(() => {
   const s = state.value
   if (s.phase !== 'interval') return ''
-  if (s.dispelValid) return '✓ 魔消已標記——間隔結束進入反盾失敗（繼續輸出）'
+  if (s.dispelValid) return '✓ 魔消已標記——間隔結束反盾會被擋掉（繼續輸出）'
+  if (resistLeft.value > 0) return `王的耐性中 ${resistLeft.value} 秒——這段時間魔消擋不掉反盾`
   if (dispelActive.value) return '🔮 魔消有效中——現在使用魔消！'
   const winStart = dispelWindowStart(params.value)
   return `魔消有效窗：第 ${winStart}～${params.value.interval} 秒（提早無效）`
@@ -264,7 +279,7 @@ const nextPhaseInfo = computed(() => {
       ? '間隔（可輸出）'
       : s.phase === 'interval'
         ? s.dispelValid
-          ? '反盾失敗（可輸出）'
+          ? '反盾阻止成功（可輸出）'
           : '反盾開始（禁止輸出）'
         : '間隔（可輸出）'
   return { label, time: fmtEventTime(phaseEnd(s, params.value)) }
@@ -289,6 +304,10 @@ const nextPhaseInfo = computed(() => {
 
     <!-- 大字現況 -->
     <div class="card phase-panel" :class="[meta.cls, { 'dispel-active': dispelActive, 'flash-early': earlyFlash }]">
+      <!-- 引信：邊框繞著色塊燒短，燒完就是本階段結束 -->
+      <svg v-if="state.phase !== 'idle'" class="fuse" aria-hidden="true">
+        <rect pathLength="100" :stroke-dasharray="`${fuseLeft} 100`" />
+      </svg>
       <div class="phase-title">{{ meta.title }}</div>
       <div v-if="state.phase !== 'idle'" class="phase-remaining">{{ remaining }}<span class="unit">s</span></div>
       <div v-if="state.phase !== 'idle'" class="phase-bar"><div class="phase-bar-fill" :style="{ width: progress + '%' }" /></div>
@@ -296,6 +315,7 @@ const nextPhaseInfo = computed(() => {
         下一階段：{{ nextPhaseInfo.label }} <span class="next-time">{{ nextPhaseInfo.time }}</span>
       </div>
       <div v-if="meta.note || intervalNote" class="phase-note">{{ intervalNote || meta.note }}</div>
+      <div v-if="cooldownLeft > 0" class="phase-sub muted">技能冷卻 {{ cooldownLeft }} 秒</div>
       <div v-if="dispelFeedback" class="dispel-feedback" :class="dispelFeedback">
         {{ dispelFeedback === 'valid' ? '✓ 有效魔消' : '✕ 無效魔消（太早，反盾重施前就失效了）' }}
       </div>
@@ -306,15 +326,18 @@ const nextPhaseInfo = computed(() => {
       <div class="controls">
         <button type="button" class="btn ctrl ctrl-shield" @click="onStartShield">反盾開始</button>
         <button type="button" class="btn ctrl ctrl-interval" @click="onStartInterval">反盾結束</button>
-        <button type="button" class="btn ctrl ctrl-interval" @click="onStartFailed">反盾失敗開始</button>
+        <button type="button" class="btn ctrl ctrl-interval" @click="onStartBlocked">反盾阻止成功</button>
         <button type="button" class="btn btn-primary ctrl" :disabled="state.phase !== 'interval'"
           @click="onDispel">魔消成功</button>
         <button type="button" class="btn btn-ghost ctrl" @click="onReset">重置</button>
       </div>
       <p class="muted ctrl-hint">
-        反盾持續是標準 {{ params.shieldDuration }} 秒；間隔是「最少」{{ params.interval }} 秒，可能因王的出招動畫推遲——
+        反盾持續是標準 {{ params.shieldDuration }} 秒；間隔是「最少」{{ params.interval }} 秒，
+        <template v-if="params.intervalFloat">最晚可能拖到 {{ params.interval + params.intervalFloat }} 秒才重施——</template>
+        <template v-else>——</template>
         倒數到 0 會自動推進，看到遊戲內實況時按上方按鈕即可隨時校正。
-        魔消只在間隔的最後 {{ params.dispelDuration }} 秒內有效。
+        魔消要在間隔第 {{ dispelWindowStart(params) }} 秒之後放才撐得到反盾重施；
+        對王有 {{ DISPEL_RESIST }} 秒耐性、技能本身 {{ DISPEL_COOLDOWN }} 秒冷卻。
       </p>
     </div>
 
@@ -356,6 +379,10 @@ const nextPhaseInfo = computed(() => {
             <span class="field-label">反盾間隔（秒）</span>
             <input v-model.number="intervalSeconds" type="number" min="1" />
           </label>
+          <label class="field">
+            <span class="field-label">間隔浮動（秒）</span>
+            <input v-model.number="intervalFloat" type="number" min="0" />
+          </label>
         </div>
         <button v-if="isOverridden" type="button" class="btn btn-sm btn-ghost reset-boss"
           @click="resetBossParams">還原{{ boss.name }}預設</button>
@@ -392,7 +419,21 @@ const nextPhaseInfo = computed(() => {
 }
 .lock-hint { font-size: 12.5px; }
 
-.phase-panel { text-align: center; padding: 26px 20px; transition: background .25s, border-color .25s; }
+.phase-panel {
+  position: relative; text-align: center; padding: 26px 20px;
+  transition: background .25s, border-color .25s;
+}
+
+/* 引信：SVG 不設 viewBox，rect 用 100% 貼齊容器，所以圓角與線寬都不會被拉伸。
+   pathLength=100 把周長正規化成 100，dasharray 直接吃百分比。 */
+.fuse { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.fuse rect {
+  x: 1.5px; y: 1.5px; width: calc(100% - 3px); height: calc(100% - 3px);
+  rx: 11px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round;
+  transition: stroke-dasharray .1s linear;
+}
+.phase-shield .fuse rect { stroke: var(--danger); }
+.phase-attack .fuse rect { stroke: var(--success); }
 .phase-idle { background: var(--surface-2); }
 .phase-shield { background: var(--danger-soft); border-color: var(--danger); }
 .phase-attack { background: var(--success-soft); border-color: var(--success); }
@@ -420,6 +461,7 @@ const nextPhaseInfo = computed(() => {
   padding: 2px 8px; border-radius: 6px; background: rgba(0, 0, 0, .07); margin-left: 4px;
 }
 .phase-note { margin-top: 12px; font-size: 14.5px; font-weight: 550; }
+.phase-sub { margin-top: 4px; font-size: 12.5px; }
 .dispel-feedback { margin-top: 10px; font-size: 14px; font-weight: 650; }
 .dispel-feedback.valid { color: var(--success); }
 .dispel-feedback.tooEarly { color: var(--danger); }

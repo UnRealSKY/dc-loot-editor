@@ -2,10 +2,10 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ShieldTimer from '#src/components/ShieldTimer.vue'
 
-// 皮卡啾／粉豆 反25 間20；杜納斯 反20 間25；魔消預設 15（玩家技能）
+// 皮卡啾／粉豆 反25 間20 浮動3；杜納斯 反20 間25 浮動0；魔消預設 20（玩家技能）
 const chips = (w: ReturnType<typeof mount>) => w.findAll('.boss-chip')
 const numberInputs = (w: ReturnType<typeof mount>) => w.findAll('input[type="number"]')
-// 0 = 反盾持續、1 = 反盾間隔、2 = 魔消持續
+// 0 = 反盾持續、1 = 反盾間隔、2 = 間隔浮動、3 = 魔消持續
 const seconds = (w: ReturnType<typeof mount>, i: number) =>
   (numberInputs(w)[i].element as HTMLInputElement).value
 
@@ -29,9 +29,9 @@ describe('ShieldTimer 選王', () => {
 
   it('魔消持續是玩家技能，換王不變', async () => {
     const w = mount(ShieldTimer)
-    expect(seconds(w, 2)).toBe('15')
+    expect(seconds(w, 3)).toBe('20')
     await chips(w)[1].trigger('click')
-    expect(seconds(w, 2)).toBe('15')
+    expect(seconds(w, 3)).toBe('20')
   })
 
   it('計時中鎖住換王，重置後解鎖', async () => {
@@ -54,7 +54,7 @@ describe('ShieldTimer 參數覆寫', () => {
     await chips(w)[1].trigger('click') // 杜納斯
     await numberInputs(w)[0].setValue(22)
     expect(JSON.parse(localStorage.getItem('dc-shield-overrides')!)).toEqual({
-      dunas: { shieldDuration: 22, interval: 25 },
+      dunas: { shieldDuration: 22, interval: 25, intervalFloat: 0 },
     })
 
     await chips(w)[0].trigger('click') // 切回皮卡啾：仍是內建預設

@@ -1,6 +1,6 @@
 // 王的反盾節奏資料（純資料＋純函式，不碰 localStorage）
 //
-// 王只定義「反盾持續」與「反盾間隔」；魔消是玩家自己放的技能，
+// 王定義反盾節奏（持續、間隔、間隔浮動）；魔消是玩家自己放的技能，
 // 秒數與打哪隻王無關，因此不進王的資料，由呼叫端當全域值傳入。
 
 import type { ShieldParams } from './engine'
@@ -10,19 +10,21 @@ export interface Boss {
   name: string
   shieldDuration: number // 反盾持續（秒）
   interval: number       // 反盾間隔（秒，實戰是「最少」這麼久）
+  intervalFloat: number  // 間隔浮動（秒）：實際重施落在 interval ~ interval+float
 }
 
 export const BOSSES: Boss[] = [
-  { id: 'pika', name: '皮卡啾／粉豆', shieldDuration: 25, interval: 20 },
-  { id: 'dunas', name: '杜納斯', shieldDuration: 20, interval: 25 },
+  { id: 'pika', name: '皮卡啾／粉豆', shieldDuration: 25, interval: 20, intervalFloat: 3 },
+  { id: 'dunas', name: '杜納斯', shieldDuration: 20, interval: 25, intervalFloat: 0 },
 ]
 
 // 玩家的魔消技能持續（秒）
-export const DEFAULT_DISPEL_DURATION = 15
+export const DEFAULT_DISPEL_DURATION = 20
 
 export interface BossOverride {
   shieldDuration: number
   interval: number
+  intervalFloat: number
 }
 
 // 只存被改過的王；沒改過的王不佔位，日後調整內建預設值才能直接生效
@@ -41,6 +43,7 @@ export function paramsOf(
   return {
     shieldDuration: ov?.shieldDuration ?? boss.shieldDuration,
     interval: ov?.interval ?? boss.interval,
+    intervalFloat: ov?.intervalFloat ?? boss.intervalFloat,
     dispelDuration,
   }
 }
@@ -52,10 +55,13 @@ export function normalizeOverrides(raw: unknown): BossOverrides {
   for (const boss of BOSSES) {
     const ov = (raw as Record<string, unknown>)[boss.id]
     if (!ov || typeof ov !== 'object') continue
-    const { shieldDuration, interval } = ov as Partial<BossOverride>
+    const { shieldDuration, interval, intervalFloat } = ov as Partial<BossOverride>
     if (!(typeof shieldDuration === 'number' && shieldDuration > 0)) continue
     if (!(typeof interval === 'number' && interval > 0)) continue
-    out[boss.id] = { shieldDuration, interval }
+    // 浮動可以是 0（杜納斯就沒有），只擋負數與非數字；舊資料沒這欄就用王的預設
+    const float =
+      typeof intervalFloat === 'number' && intervalFloat >= 0 ? intervalFloat : boss.intervalFloat
+    out[boss.id] = { shieldDuration, interval, intervalFloat: float }
   }
   return out
 }
@@ -67,7 +73,11 @@ export function setOverride(
   patch: BossOverride,
 ): BossOverrides {
   const next = { ...overrides }
-  if (patch.shieldDuration === boss.shieldDuration && patch.interval === boss.interval) {
+  if (
+    patch.shieldDuration === boss.shieldDuration &&
+    patch.interval === boss.interval &&
+    patch.intervalFloat === boss.intervalFloat
+  ) {
     delete next[boss.id]
   } else {
     next[boss.id] = { ...patch }
