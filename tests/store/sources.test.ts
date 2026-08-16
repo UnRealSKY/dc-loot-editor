@@ -14,7 +14,17 @@ function jsonResponse(status: number, body: unknown): Response {
 }
 
 describe('群組名冊載入', () => {
-  it('沒有任何舊資料時，遷移出的群組跟隨官方 members.json', async () => {
+  it('全新使用者不抓任何名冊（沒設過就不該自動跟隨官方 repo）', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const groups = await import('#src/store/groups')
+    await groups.initGroups()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(groups.rosterHandlesIn(undefined)).toEqual([])
+  })
+
+  it('有舊的來源設定時，遷移出的群組跟隨官方 members.json 並回寫快取', async () => {
+    localStorage.setItem('dc-roster-source', JSON.stringify({ mode: 'default' }))
     const fetchMock = vi.fn(async () => jsonResponse(200, [{ handle: '@a', alias: 'A' }]))
     vi.stubGlobal('fetch', fetchMock)
     const groups = await import('#src/store/groups')
@@ -22,7 +32,6 @@ describe('群組名冊載入', () => {
     const [calledUrl] = fetchMock.mock.calls[0] as unknown as [string]
     expect(calledUrl).toContain('members.json')
     expect(groups.rosterHandlesIn(undefined)).toEqual(['@a'])
-    // 抓回來的名冊要回寫成群組的快取
     expect(JSON.parse(localStorage.getItem('dc-groups')!)[0].roster).toHaveLength(1)
   })
 

@@ -24,6 +24,7 @@ describe('migrateGroups', () => {
   it('沒有群組資料時，用舊的 webhook／名冊／來源合成第一個群組', () => {
     const groups = migrateGroups({
       stored: null,
+      hasLegacy: true,
       legacyWebhook: 'https://discord.com/api/webhooks/1/abc',
       legacyRoster: roster([{ discordHandle: '@a', discordNickName: '甲' }]),
       legacySource: { mode: 'default' },
@@ -41,6 +42,7 @@ describe('migrateGroups', () => {
   it('舊的自訂 URL 模式帶著網址轉過來', () => {
     const [g] = migrateGroups({
       stored: null,
+      hasLegacy: true,
       legacyWebhook: '',
       legacyRoster: [],
       legacySource: { mode: 'url', url: 'https://x/m.json' },
@@ -50,30 +52,43 @@ describe('migrateGroups', () => {
 
   it('舊的自行輸入模式轉成 local', () => {
     const [g] = migrateGroups({
-      stored: null, legacyWebhook: '', legacyRoster: [], legacySource: { mode: 'local' },
+      stored: null, hasLegacy: true, legacyWebhook: '', legacyRoster: [], legacySource: { mode: 'local' },
     })
     expect(g.rosterMode).toBe('local')
     expect(g.rosterUrl).toBeUndefined()
   })
 
-  it('完全沒有舊資料也會給一個空群組，設定頁才不會開起來是空白', () => {
+  it('全新使用者（localStorage 一片空白）拿到空群組，不自動帶入任何名冊', () => {
     const groups = migrateGroups({
-      stored: null, legacyWebhook: '', legacyRoster: [], legacySource: { mode: 'default' },
+      stored: null, hasLegacy: false, legacyWebhook: '', legacyRoster: [], legacySource: { mode: 'default' },
     })
     expect(groups).toHaveLength(1)
     expect(groups[0].id).toBeTruthy()
+    // 沒設過任何東西就不該跟隨官方 repo——那是「贖罪券」捷徑才做的事
+    expect(groups[0].rosterMode).toBe('local')
+    expect(groups[0].rosterUrl).toBeUndefined()
+    expect(groups[0].roster).toEqual([])
+    expect(groups[0].webhookUrl).toBe('')
+  })
+
+  it('有舊資料時才沿用「預設來源」＝跟隨官方 repo', () => {
+    const [g] = migrateGroups({
+      stored: null, hasLegacy: true, legacyWebhook: '', legacyRoster: [], legacySource: { mode: 'default' },
+    })
+    expect(g.rosterMode).toBe('url')
+    expect(g.rosterUrl).toBe(DEFAULT_ROSTER_URL)
   })
 
   it('已有群組資料時原樣沿用，不再做遷移', () => {
     const stored = [group({ id: 'x', name: '第二公會' })]
     expect(migrateGroups({
-      stored, legacyWebhook: 'https://should.not/matter', legacyRoster: [], legacySource: { mode: 'default' },
+      stored, hasLegacy: true, legacyWebhook: 'https://should.not/matter', legacyRoster: [], legacySource: { mode: 'default' },
     })).toEqual(stored)
   })
 
   it('壞掉的群組資料退回遷移路徑', () => {
     const groups = migrateGroups({
-      stored: 'not an array', legacyWebhook: '', legacyRoster: [], legacySource: { mode: 'default' },
+      stored: 'not an array', hasLegacy: true, legacyWebhook: '', legacyRoster: [], legacySource: { mode: 'default' },
     })
     expect(groups).toHaveLength(1)
   })
@@ -81,7 +96,7 @@ describe('migrateGroups', () => {
   it('過濾掉缺 id 或名稱的項目', () => {
     const stored = [group({ id: 'ok' }), { id: '', name: 'x' }, { name: '沒有 id' }]
     expect(migrateGroups({
-      stored, legacyWebhook: '', legacyRoster: [], legacySource: { mode: 'default' },
+      stored, hasLegacy: true, legacyWebhook: '', legacyRoster: [], legacySource: { mode: 'default' },
     }).map((g) => g.id)).toEqual(['ok'])
   })
 })

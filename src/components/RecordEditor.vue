@@ -46,6 +46,11 @@ function setGroup(id: string) {
   patch({ groupId: id })
 }
 
+// 團長那一列在團員清單裡唯讀（改人與移除都在上方「團長」做），空 handle 不算
+function isLeaderRow(handle: string): boolean {
+  return !!handle && record.value?.leader?.handle === handle
+}
+
 // 下拉顯示「別名 (handle)」，選取仍存 handle
 function handleLabel(h: string): string {
   const a = aliasOfIn(groupId.value, h)
@@ -474,12 +479,15 @@ function toggleSettle(i: number) {
       <p v-if="!record.members.length" class="muted">尚無團員。</p>
       <ul class="members">
         <li v-for="(m, i) in record.members" :key="m.id" class="member-row">
-          <AutocompleteInput class="member-handle" :model-value="m.handle" :suggestions="history.handles.value"
+          <!-- 團長那列在這裡唯讀：他是上面「團長」欄位設的，兩處都能改會互相打架 -->
+          <div v-if="isLeaderRow(m.handle)" class="member-handle locked">{{ m.handle }}</div>
+          <AutocompleteInput v-else class="member-handle" :model-value="m.handle" :suggestions="history.handles.value"
             :label-for="handleLabel" :loading="history.handlesLoading.value" placeholder="@handle"
             @update:model-value="updateMember(i, { handle: $event })" />
           <span v-if="aliasOfIn(groupId, m.handle)" class="alias-badge">{{ aliasOfIn(groupId, m.handle) }}</span>
-          <span v-if="record.leader?.handle === m.handle" class="chip chip-cart leader-tag">團長</span>
-          <button type="button" class="btn btn-icon btn-danger" title="移除" @click="removeMember(i)">✕</button>
+          <span v-if="isLeaderRow(m.handle)" class="chip chip-cart leader-tag">團長</span>
+          <button v-else type="button" class="btn btn-icon btn-danger" title="移除"
+            @click="removeMember(i)">✕</button>
         </li>
       </ul>
     </div>
@@ -578,6 +586,11 @@ function toggleSettle(i: number) {
 .members { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .member-row { display: flex; gap: 8px; align-items: center; }
 .member-handle { flex: 1; max-width: 320px; }
+/* 唯讀的團長列：外觀比照輸入框但明確表示不能改 */
+.member-handle.locked {
+  padding: 8px 11px; border: 1px dashed var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface-2); color: var(--text-muted); font-size: 14px;
+}
 .alias-badge {
   padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
   background: var(--primary-soft); color: var(--primary-hover); white-space: nowrap;

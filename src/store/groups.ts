@@ -44,6 +44,9 @@ function newId(): string {
 
 export interface MigrateInput {
   stored: unknown
+  // 舊版的三個 key 是否真的存在。loadListSource 找不到時會回 { mode: 'default' }，
+  // 光看 legacySource 分不出「使用者選過預設來源」與「全新使用者什麼都沒有」
+  hasLegacy: boolean
   legacyWebhook: string
   legacyRoster: RosterEntry[]
   legacySource: ListSource
@@ -65,6 +68,12 @@ export function migrateGroups(input: MigrateInput): DcGroup[] {
       roster: Array.isArray(g.roster) ? migrateEntries(g.roster) : [],
     }))
     if (valid.length) return valid
+  }
+
+  // 全新使用者：給一個空群組。沒設過任何東西就不該自動跟隨官方 repo，
+  // 那是取名「贖罪券」才做的事
+  if (!input.hasLegacy) {
+    return [{ id: newId(), name: '我的公會', webhookUrl: '', rosterMode: 'local', roster: [] }]
   }
 
   const { legacySource } = input
@@ -157,6 +166,9 @@ function loadGroups(): DcGroup[] {
   }
   const groups = migrateGroups({
     stored,
+    hasLegacy: [LEGACY_WEBHOOK_KEY, LEGACY_ROSTER_KEY, LEGACY_SOURCE_KEY].some(
+      (k) => localStorage.getItem(k) !== null,
+    ),
     legacyWebhook: localStorage.getItem(LEGACY_WEBHOOK_KEY) ?? '',
     legacyRoster,
     legacySource: loadListSource(LEGACY_SOURCE_KEY),
