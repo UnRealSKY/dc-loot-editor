@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useRecordsStore } from '#src/store/records'
 import { useHistory } from '#src/store/history'
+import { useGroups } from '#src/store/groups'
 
 beforeEach(() => {
   localStorage.clear()
@@ -83,5 +84,59 @@ describe('history', () => {
     // 驗證嚴格去重：高頻品只出現一次
     expect(itemNames.filter(n => n === '高頻品')).toHaveLength(1)
     expect(itemNames.filter(n => n === '低頻品')).toHaveLength(1)
+  })
+})
+
+describe('handle 建議依群組分開', () => {
+  const { groups } = useGroups()
+
+  function seedGroups() {
+    groups.value = [
+      {
+        id: 'g1', name: '甲團', webhookUrl: '', rosterMode: 'local',
+        roster: [{ discordHandle: '@roster1', discordNickName: '甲名冊' }],
+      },
+      {
+        id: 'g2', name: '乙團', webhookUrl: '', rosterMode: 'local',
+        roster: [{ discordHandle: '@roster2', discordNickName: '乙名冊' }],
+      },
+    ]
+    const store = useRecordsStore()
+    store.create({
+      date: '2026-08-01', boss: '甲王', groupId: 'g1',
+      members: [{ handle: '@onlyG1', settle: 'settled' }], lootItems: [], purchases: [],
+    })
+    store.create({
+      date: '2026-08-02', boss: '乙王', groupId: 'g2',
+      members: [{ handle: '@onlyG2', settle: 'settled' }], lootItems: [], purchases: [],
+    })
+  }
+
+  it('只看得到同群紀錄裡出現過的人', () => {
+    seedGroups()
+    const h1 = useHistory(() => 'g1')
+    expect(h1.handles.value).toContain('@onlyG1')
+    expect(h1.handles.value).not.toContain('@onlyG2')
+    const h2 = useHistory(() => 'g2')
+    expect(h2.handles.value).toContain('@onlyG2')
+    expect(h2.handles.value).not.toContain('@onlyG1')
+  })
+
+  it('名冊也只帶自己那群的', () => {
+    seedGroups()
+    expect(useHistory(() => 'g1').handles.value).toEqual(
+      expect.arrayContaining(['@roster1']),
+    )
+    expect(useHistory(() => 'g1').handles.value).not.toContain('@roster2')
+  })
+
+  it('沒有 groupId 的舊紀錄算在第一個群組', () => {
+    seedGroups()
+    useRecordsStore().create({
+      date: '2026-08-03', boss: '舊王',
+      members: [{ handle: '@legacy', settle: 'settled' }], lootItems: [], purchases: [],
+    })
+    expect(useHistory(() => 'g1').handles.value).toContain('@legacy')
+    expect(useHistory(() => 'g2').handles.value).not.toContain('@legacy')
   })
 })
