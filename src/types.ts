@@ -45,8 +45,10 @@ export interface Consignment {
   id?: string
 }
 
-export type DcImageKind = 'drop' | 'payout' | 'external'
-// drop：掉落截圖（主貼附件）；payout：領錢截圖（串內訊息、綁團員）；external：外購截圖（串內訊息、可註解）
+export type DcImageKind = 'drop' | 'sale' | 'payout' | 'external'
+// drop：掉落截圖（主貼附件）；sale：物品出售（串內一則，全部圖共用）；
+// payout：領錢截圖（串內訊息、綁團員）；external：外購截圖（串內訊息、可註解）
+// drop 與 sale 是「多張共用一則訊息」，受 Discord 每則 10 個附件的上限。
 
 export interface DcImage {
   id: string               // 也是 IndexedDB blob key
@@ -55,8 +57,8 @@ export interface DcImage {
   memberHandle?: string    // payout：綁定團員
   note?: string            // external：註解
   url?: string             // DC CDN URL（上傳成功後；本地 blob 隨即刪除）
-  attachmentId?: string    // drop：主貼附件 id（同步時保留清單用）
-  dcMessageId?: string     // payout/external：串內訊息 id
+  attachmentId?: string    // drop/sale：所屬訊息的附件 id（同步時保留清單用）
+  dcMessageId?: string     // sale/payout/external：串內訊息 id（sale 同區共用一個）
   sentContent?: string     // payout/external：上次送出的訊息內文（變更偵測）
   removed?: boolean        // 已發佈圖片標記待刪，同步時執行
 }

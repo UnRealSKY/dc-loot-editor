@@ -4,7 +4,7 @@ import { useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useRecordsStore } from '../store/records'
 import { useHistory } from '../store/history'
 import { aliasOfIn, groupOf, useGroups, leaderFeeEnabled } from '../store/groups'
-import { publishOrSync, publishContent, hasImageChanges, dcSyncStatus } from '../dc/publish'
+import { publishOrSync, publishContent, hasImageChanges, dcSyncStatus, ATTACHMENT_LIMIT } from '../dc/publish'
 import { parseMessageLink, isBindingLost, getMessage } from '../dc/webhook'
 import type { LootRecord, LootItem, Member, Purchase, Stream, Consignment, DcImage, DcImageKind } from '../types'
 import { filesToImages, hoveredImageKind } from '../images'
@@ -511,7 +511,9 @@ function toggleSettle(i: number) {
     <StreamTable :model-value="record.streams ?? []" @update:model-value="setStreams" />
     <ConsignmentTable :model-value="record.consignments ?? []" :members="record.members" :group-id="record.groupId"
       @update:model-value="setConsignments" />
-    <ImageSection title="掉落截圖" kind="drop" :images="imagesOf('drop')"
+    <ImageSection title="掉落截圖" kind="drop" :images="imagesOf('drop')" :limit="ATTACHMENT_LIMIT"
+      @add="addImages" @update="updateImage" @remove="removeImage" @refresh="refreshImageUrl" />
+    <ImageSection title="物品出售" kind="sale" :images="imagesOf('sale')" :limit="ATTACHMENT_LIMIT"
       @add="addImages" @update="updateImage" @remove="removeImage" @refresh="refreshImageUrl" />
     <ImageSection title="領錢截圖" kind="payout" :images="imagesOf('payout')" :members="record.members" :group-id="record.groupId"
       @add="addImages" @update="updateImage" @remove="removeImage" @refresh="refreshImageUrl" />
@@ -529,6 +531,7 @@ function toggleSettle(i: number) {
         <h3>剪貼簿有 {{ pastePending.length }} 張圖片，要加到哪一區？</h3>
         <div class="paste-choices">
           <button type="button" class="btn" @click="choosePasteKind('drop')">掉落截圖</button>
+          <button type="button" class="btn" @click="choosePasteKind('sale')">物品出售</button>
           <button type="button" class="btn" @click="choosePasteKind('payout')">領錢截圖</button>
           <button type="button" class="btn" @click="choosePasteKind('external')">外購截圖</button>
         </div>
