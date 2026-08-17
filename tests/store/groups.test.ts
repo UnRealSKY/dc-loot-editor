@@ -233,9 +233,9 @@ describe('applyMagicRoster（隱藏設定：群組取名「贖罪券」）', () 
 })
 
 describe('辛苦費開關', () => {
-  it('未設定時視為啟用，維持既有行為', () => {
-    expect(leaderFeeEnabled(group({}))).toBe(true)
-    expect(leaderFeeEnabled(undefined)).toBe(true)
+  it('未設定時關閉——多數團只收手續費', () => {
+    expect(leaderFeeEnabled(group({}))).toBe(false)
+    expect(leaderFeeEnabled(undefined)).toBe(false)
   })
 
   it('明確關閉才是關閉', () => {
