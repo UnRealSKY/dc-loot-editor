@@ -33,7 +33,7 @@ export interface DcGroup {
   webhookUrl: string
   rosterMode: RosterMode
   rosterUrl?: string // url 模式的來源
-  enableLeaderFee?: boolean // 是否啟用團長辛苦費（未設＝啟用，維持既有行為）
+  enableLeaderFee?: boolean // 是否啟用團長辛苦費（未設＝關閉）
   roster: RosterEntry[] // url 模式時是快取
 }
 
@@ -119,9 +119,9 @@ export function applyMagicRoster(group: DcGroup): DcGroup {
   return { ...group, rosterMode: 'url', rosterUrl: DEFAULT_ROSTER_URL }
 }
 
-// 辛苦費開關。未設定＝啟用，既有群組不必特地補這個欄位就維持原本行為。
+// 辛苦費開關。未設定＝關閉——多數團只收手續費不收辛苦費，要用的群組自己去設定頁打開。
 export function leaderFeeEnabled(group: DcGroup | undefined): boolean {
-  return group?.enableLeaderFee !== false
+  return group?.enableLeaderFee === true
 }
 
 // 綁在某群組的紀錄數。沒設 groupId 的舊紀錄算在第一個群組頭上——
