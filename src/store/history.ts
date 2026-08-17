@@ -1,7 +1,7 @@
 import { computed } from 'vue'
 import type { ComputedRef } from 'vue'
 import { useRecordsStore } from './records'
-import { rosterHandlesIn, rosterLoading } from './groups'
+import { rosterHandlesIn, rosterLoading, groupOf } from './groups'
 import { sharedItemNames, sharedItemsLoading } from './sharedItems'
 
 function uniqueByFrequency(values: string[]): string[] {
@@ -29,13 +29,18 @@ export function useHistory(groupId?: () => string | undefined) {
     ]),
   )
 
-  // 建議 = 共用名冊 handle ∪ 本機歷史 handle（名冊優先列前）
-  const handles: ComputedRef<string[]> = computed(() =>
-    uniqueByFrequency([
+  // 建議 = 該群名冊 handle ∪ 該群歷史 handle（名冊優先列前）。
+  // 人是分群的：別團的團員不該出現在這團的建議裡。歸屬用 groupOf 正規化，
+  // 沒有 groupId 的舊紀錄跟著第一個群組走。
+  const handles: ComputedRef<string[]> = computed(() => {
+    const id = groupOf(groupId?.())?.id
+    return uniqueByFrequency([
       ...rosterHandlesIn(groupId?.()),
-      ...store.records.flatMap((r) => r.members.map((m) => m.handle)),
-    ]),
-  )
+      ...store.records
+        .filter((r) => groupOf(r.groupId)?.id === id)
+        .flatMap((r) => r.members.map((m) => m.handle)),
+    ])
+  })
 
   const bosses: ComputedRef<string[]> = computed(() =>
     uniqueByFrequency(store.records.map((r) => r.boss)),
