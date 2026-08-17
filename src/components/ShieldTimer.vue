@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   IDLE,
   advance,
+  attackRemaining,
   dispelWindowStart,
   markDispel,
   nudge,
@@ -211,6 +212,10 @@ const progress = computed(() => {
 })
 // 引信：邊框剩下的比例。pathLength=100 把周長正規化，這裡直接給百分比
 const fuseLeft = computed(() => 100 - progress.value)
+// 到下次反盾為止還能打幾秒。跟本段倒數一樣時不顯示——那是同一個數字
+const attackTotal = computed(() =>
+  Math.ceil(attackRemaining(state.value, params.value, now.value)),
+)
 const PHASE_META = {
   idle: { cls: 'phase-idle', title: '待機', note: '開戰看到反盾出現時按「反盾開始」' },
   shield: { cls: 'phase-shield', title: '反盾中 ⛔ 禁止輸出', note: '' },
@@ -321,6 +326,7 @@ const nextPhaseInfo = computed(() => {
         <button type="button" class="btn btn-sm nudge" title="當前階段加 1 秒"
           @click="onNudge(1)">＋1s</button>
       </div>
+      <div v-if="attackTotal > remaining" class="phase-sub attack-total">可輸出還有 {{ attackTotal }}s</div>
       <div v-if="state.phase !== 'idle'" class="phase-bar"><div class="phase-bar-fill" :style="{ width: progress + '%' }" /></div>
       <div v-if="nextPhaseInfo" class="phase-next">
         下一階段：{{ nextPhaseInfo.label }} <span class="next-time">{{ nextPhaseInfo.time }}</span>
@@ -475,6 +481,7 @@ const nextPhaseInfo = computed(() => {
 }
 .phase-note { margin-top: 12px; font-size: 14.5px; font-weight: 550; }
 .phase-sub { margin-top: 4px; font-size: 12.5px; }
+.attack-total { font-weight: 650; color: var(--success); }
 .dispel-feedback { margin-top: 10px; font-size: 14px; font-weight: 650; }
 .dispel-feedback.valid { color: var(--success); }
 .dispel-feedback.tooEarly { color: var(--danger); }
