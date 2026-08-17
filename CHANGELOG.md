@@ -1,5 +1,11 @@
 # dc-loot-editor
 
+## 1.25.1
+
+### Patch Changes
+
+- 1fff072: 團員 handle 建議依群組分開：本機歷史只取同群紀錄裡出現過的人，不再把別團的團員混進建議清單（沒有 groupId 的舊紀錄跟著第一個群組走）。
+
 ## 1.25.0
 
 ### Minor Changes
