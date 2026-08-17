@@ -12,6 +12,14 @@ import {
 import { getBlob, deleteBlob } from '../db/imageBlobs'
 
 export const CONTENT_LIMIT = 2000 // Discord 訊息內文上限
+// Discord 每則訊息最多 10 個附件。只有「多張共用一則」的兩區受限——
+// 領錢／外購每張自己一則訊息，不受影響。
+export const ATTACHMENT_LIMIT = 10
+const SALE_CONTENT = '物品出售'
+const MULTI_IMAGE_SECTIONS = [
+  { kind: 'drop' as const, label: '掉落截圖' },
+  { kind: 'sale' as const, label: '物品出售' },
+]
 
 // 討論串標題：[MM-DD]團名。不帶人數（人數會變，凍結的標題只放不變資訊）；
 // 年份省略（內文標題行有完整日期）。建立後不可再改。
@@ -44,6 +52,7 @@ export function publishContent(record: LootRecord): string {
 
 // 串內圖片訊息的內文（領錢綁團員、外購帶註解）；比對 sentContent 偵測變更
 export function imageMessageContent(image: DcImage, groupId?: string): string {
+  if (image.kind === 'sale') return SALE_CONTENT
   if (image.kind === 'payout') {
     const who = image.memberHandle ?? ''
     return applyMentions(`${who} 領錢`.trim(), mentionsIn(groupId))
@@ -107,18 +116,32 @@ export async function publishOrSync(
   if (content.length > CONTENT_LIMIT) {
     throw new Error(`內文 ${content.length} 字元，超過 Discord 上限 ${CONTENT_LIMIT}，請精簡後再發佈`)
   }
+  // 先擋下來，不要送出請求才失敗（待刪的不算）
+  for (const { kind, label } of MULTI_IMAGE_SECTIONS) {
+    const n = (record.images ?? []).filter((i) => i.kind === kind && !i.removed).length
+    if (n > ATTACHMENT_LIMIT) {
+      throw new Error(`${label} ${n} 張，超過一則訊息 ${ATTACHMENT_LIMIT} 張的上限，請移除幾張再發佈`)
+    }
+  }
   const now = new Date().toISOString()
   let work: LootRecord = { ...record, images: record.images ? [...record.images] : undefined }
 
   const images = activeImages(work)
   const dropNew = images.filter((i) => i.kind === 'drop' && !i.removed && !i.url)
   const dropRemoved = images.filter((i) => i.kind === 'drop' && i.removed)
+  // sale 與 drop 一樣是「多張共用一則」，走自己的分支，不逐張處理
+  const saleKeep = images.filter((i) => i.kind === 'sale' && !i.removed)
+  const saleNew = saleKeep.filter((i) => !i.url)
+  const saleRemoved = images.filter((i) => i.kind === 'sale' && i.removed)
+  const saleMessageId = images.find((i) => i.kind === 'sale' && i.dcMessageId)?.dcMessageId
+  const saleChanged = saleNew.length > 0 || saleRemoved.length > 0
   const threadOps = images.filter(
     (i) =>
       i.kind !== 'drop' &&
+      i.kind !== 'sale' &&
       (i.removed || !i.url || (i.dcMessageId && i.sentContent !== imageMessageContent(i, record.groupId))),
   )
-  const total = 1 + threadOps.length
+  const total = 1 + threadOps.length + (saleChanged ? 1 : 0)
   let done = 0
   const step = () => hooks.onProgress?.(++done, total)
   const emit = () => hooks.onUpdate?.(work)
@@ -164,6 +187,52 @@ export async function publishOrSync(
   }
   step()
   emit()
+
+  // ---- 物品出售（整區共用一則串內訊息）----
+  if (saleChanged) {
+    if (!saleKeep.length && saleMessageId) {
+      // 整區清空：連訊息一起刪掉，不留一則沒有圖的空訊息
+      await deleteMessage(url, saleMessageId, work.dc!.threadId)
+      for (const i of saleRemoved) await io.deleteBlob(i.id)
+      work = { ...work, images: (work.images ?? []).filter((i) => i.kind !== 'sale') }
+    } else if (saleKeep.length) {
+      const files = await loadFiles(saleNew, io)
+      const attachments = saleMessageId
+        ? (
+            await editMessage(url, saleMessageId, work.dc!.threadId, SALE_CONTENT, {
+              keepAttachmentIds: saleKeep.filter((i) => i.attachmentId).map((i) => i.attachmentId!),
+              files,
+            })
+          ).attachments
+        : undefined
+      let messageId = saleMessageId
+      let list = attachments
+      if (!messageId) {
+        const posted = await postThreadMessage(url, work.dc!.threadId, SALE_CONTENT, files)
+        messageId = posted.messageId
+        list = posted.attachments
+      }
+      const byFilename = new Map((list ?? []).map((a) => [a.filename, a]))
+      work = {
+        ...work,
+        images: (work.images ?? [])
+          .filter((i) => !(i.kind === 'sale' && i.removed))
+          .map((i) => {
+            if (i.kind !== 'sale') return i
+            const att = byFilename.get(i.filename)
+            return {
+              ...i,
+              dcMessageId: messageId,
+              sentContent: SALE_CONTENT,
+              ...(att ? { attachmentId: att.id, url: att.url } : {}),
+            }
+          }),
+      }
+      for (const i of [...saleNew, ...saleRemoved]) await io.deleteBlob(i.id)
+    }
+    step()
+    emit()
+  }
 
   // ---- 串內圖片訊息 ----
   for (const img of threadOps) {

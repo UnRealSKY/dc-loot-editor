@@ -133,3 +133,134 @@ describe('publishOrSync 含圖片', () => {
     expect(JSON.parse(patchInit.body as string).content).toBe('外購: 賣給路人')
   })
 })
+
+describe('物品出售：全部圖共用一則訊息', () => {
+  const published = { threadId: 't1', messageId: 'm0', publishedAt: '', sentContent: 'x' }
+
+  it('第一次同步時發成一則訊息，帶所有新圖', async () => {
+    const calls: Array<{ url: string; method: string }> = []
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method ?? 'GET' })
+      if (init?.method === 'POST') {
+        return jsonResponse(200, {
+          id: 'saleMsg',
+          attachments: [
+            { id: 'a1', filename: 's1.png', url: 'https://cdn/s1.png' },
+            { id: 'a2', filename: 's2.png', url: 'https://cdn/s2.png' },
+          ],
+        })
+      }
+      return jsonResponse(200, { id: 'm0', content: 'x', attachments: [] })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const images: DcImage[] = [
+      { id: 's1', kind: 'sale', filename: 's1.png' },
+      { id: 's2', kind: 'sale', filename: 's2.png' },
+    ]
+    const out = await publishOrSync(URL_, makeRecord({ dc: published, images }), { blobIO: makeBlobIO() })
+    // 兩張圖只發一則訊息
+    const posts = calls.filter((c) => c.method === 'POST' && c.url.includes('thread_id'))
+    expect(posts).toHaveLength(1)
+    const sale = out.images!.filter((i) => i.kind === 'sale')
+    expect(sale.every((i) => i.dcMessageId === 'saleMsg')).toBe(true)
+    expect(sale.map((i) => i.url)).toEqual(['https://cdn/s1.png', 'https://cdn/s2.png'])
+    expect(sale.map((i) => i.attachmentId)).toEqual(['a1', 'a2'])
+  })
+
+  it('加新圖時 PATCH 原訊息並保留既有附件', async () => {
+    let patchBody: FormData | undefined
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'PATCH' && url.includes('saleMsg')) patchBody = init.body as FormData
+      if (url.includes('saleMsg')) {
+        return jsonResponse(200, {
+          id: 'saleMsg',
+          attachments: [
+            { id: 'a1', filename: 's1.png', url: 'https://cdn/s1.png' },
+            { id: 'a3', filename: 's3.png', url: 'https://cdn/s3.png' },
+          ],
+        })
+      }
+      return jsonResponse(200, { id: 'm0', content: 'x', attachments: [] })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const images: DcImage[] = [
+      { id: 's1', kind: 'sale', filename: 's1.png', url: 'https://cdn/s1.png', attachmentId: 'a1', dcMessageId: 'saleMsg' },
+      { id: 's3', kind: 'sale', filename: 's3.png' },
+    ]
+    const out = await publishOrSync(URL_, makeRecord({ dc: published, images }), { blobIO: makeBlobIO() })
+    expect(patchBody).toBeDefined()
+    const payload = JSON.parse(patchBody!.get('payload_json') as string)
+    expect(payload.attachments[0]).toEqual({ id: 'a1' }) // 保留舊的那張，後面接新檔佔位
+    expect(out.images!.find((i) => i.id === 's3')?.attachmentId).toBe('a3')
+  })
+
+  it('整區清空時刪掉那則訊息', async () => {
+    const calls: Array<{ url: string; method: string }> = []
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method ?? 'GET' })
+      return jsonResponse(200, { id: 'm0', content: 'x', attachments: [] })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const images: DcImage[] = [
+      { id: 's1', kind: 'sale', filename: 's1.png', url: 'u', attachmentId: 'a1', dcMessageId: 'saleMsg', removed: true },
+    ]
+    const out = await publishOrSync(URL_, makeRecord({ dc: published, images }), { blobIO: makeBlobIO() })
+    expect(calls.some((c) => c.method === 'DELETE' && c.url.includes('saleMsg'))).toBe(true)
+    expect(out.images!.filter((i) => i.kind === 'sale')).toHaveLength(0)
+  })
+
+  it('沒有變更時不動那則訊息', async () => {
+    const calls: Array<{ url: string; method: string }> = []
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method ?? 'GET' })
+      return jsonResponse(200, { id: 'm0', content: 'x', attachments: [] })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const images: DcImage[] = [
+      { id: 's1', kind: 'sale', filename: 's1.png', url: 'u', attachmentId: 'a1', dcMessageId: 'saleMsg' },
+    ]
+    await publishOrSync(URL_, makeRecord({ dc: published, images }), { blobIO: makeBlobIO() })
+    expect(calls.some((c) => c.url.includes('saleMsg'))).toBe(false)
+  })
+})
+
+describe('每則訊息 10 張附件上限', () => {
+  const many = (kind: DcImage['kind'], n: number): DcImage[] =>
+    Array.from({ length: n }, (_, i) => ({ id: `${kind}${i}`, kind, filename: `${kind}${i}.png` }))
+
+  it('掉落截圖超過 10 張擋在發佈之前', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+    await expect(
+      publishOrSync(URL_, makeRecord({ images: many('drop', 11) }), { blobIO: makeBlobIO() }),
+    ).rejects.toThrow(/掉落截圖.*10/)
+  })
+
+  it('物品出售超過 10 張也擋下', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+    await expect(
+      publishOrSync(URL_, makeRecord({ images: many('sale', 11) }), { blobIO: makeBlobIO() }),
+    ).rejects.toThrow(/物品出售.*10/)
+  })
+
+  it('剛好 10 張放行', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, { id: 'm', attachments: [] })))
+    await expect(
+      publishOrSync(URL_, makeRecord({ images: many('drop', 10) }), { blobIO: makeBlobIO() }),
+    ).resolves.toBeDefined()
+  })
+
+  it('待刪的不算在上限內', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, { id: 'm', attachments: [] })))
+    const images = [...many('drop', 10), { id: 'x', kind: 'drop' as const, filename: 'x.png', url: 'u', removed: true }]
+    await expect(
+      publishOrSync(URL_, makeRecord({ images }), { blobIO: makeBlobIO() }),
+    ).resolves.toBeDefined()
+  })
+
+  it('領錢截圖每張自己一則，不受上限影響', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, { id: 'm', attachments: [] })))
+    await expect(
+      publishOrSync(URL_, makeRecord({ images: many('payout', 11) }), { blobIO: makeBlobIO() }),
+    ).resolves.toBeDefined()
+  })
+})

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import type { DcImage, DcImageKind, Member } from '../types'
 import { displayNameIn } from '../store/groups'
 import { getBlob, deleteBlob } from '../db/imageBlobs'
@@ -11,6 +11,7 @@ const props = defineProps<{
   images: DcImage[] // 已過濾為本區 kind
   members?: Member[] // payout：團員選單
   groupId?: string // 顯示名字要用所屬群組的名冊
+  limit?: number // 本區共用一則訊息時的張數上限（drop／sale）
 }>()
 const emit = defineEmits<{
   add: [images: DcImage[]]
@@ -72,6 +73,10 @@ async function removeImage(img: DcImage) {
   }
   emit('update', { ...img, removed: !img.removed })
 }
+// 本區全部圖共用一則訊息時，Discord 每則最多 10 個附件；超過就發不出去（待刪的不算）
+const overLimit = computed(
+  () => !!props.limit && props.images.filter((i) => !i.removed).length > props.limit,
+)
 function statusOf(img: DcImage): { cls: string; label: string } {
   if (img.removed) return { cls: 'chip-struck', label: '待刪除' }
   if (!img.url) return { cls: 'chip-pending', label: '未上傳' }
@@ -91,7 +96,8 @@ function statusOf(img: DcImage): { cls: string; label: string } {
   >
     <div class="section-head">
       <h3>{{ title }}</h3>
-      <span class="count">{{ images.length }} 張</span>
+      <span class="count" :class="{ over: overLimit }">{{ images.length }} 張</span>
+      <span v-if="overLimit" class="chip chip-struck">超過一則訊息 {{ limit }} 張上限</span>
       <span v-if="hovered" class="chip chip-cart paste-hint">📋 Ctrl+V 貼到這裡</span>
       <div class="spacer" />
       <button type="button" class="btn btn-sm" @click="fileInput?.click()">＋ 選擇圖片</button>
@@ -142,6 +148,7 @@ function statusOf(img: DcImage): { cls: string; label: string } {
   from { opacity: 0; transform: translateY(-3px); }
 }
 .hidden-input { display: none; }
+.section-head .count.over { color: var(--danger); font-weight: 700; }
 .drop-hint { border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); padding: 18px; text-align: center; }
 .image-grid {
   list-style: none; margin: 0; padding: 0;
