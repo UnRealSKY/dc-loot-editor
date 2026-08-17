@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   advance,
+  attackRemaining,
   dispelWindowStart,
   markDispel,
   nudge,
@@ -233,5 +234,34 @@ describe('微調當前階段', () => {
     const before = upcomingEvents(startShield(T0), P3, T0, 1)[0].at
     const after = upcomingEvents(nudge(startShield(T0), 1), P3, T0, 1)[0].at
     expect(after - before).toBe(1000)
+  })
+})
+
+describe('可輸出總計', () => {
+  const P4 = { shieldDuration: 25, interval: 20, dispelDuration: 20, intervalFloat: 3 }
+
+  it('反盾中與待機都是 0', () => {
+    expect(attackRemaining(startShield(T0), P4, T0)).toBe(0)
+    expect(attackRemaining(IDLE, P4, T0)).toBe(0)
+  })
+
+  it('阻止成功時要把後面那段間隔一起算進來', () => {
+    // blocked 之後必定接 interval，兩段都能打
+    expect(attackRemaining(startBlocked(T0), P4, T0)).toBe(25 + 20)
+  })
+
+  it('間隔中沒標記魔消時就只有本段——結束就是反盾', () => {
+    expect(attackRemaining(startInterval(T0), P4, T0)).toBe(20)
+  })
+
+  it('間隔中已標記魔消時，後面的阻止成功與下一段間隔都算得到', () => {
+    const s = { ...startInterval(T0), dispelValid: true }
+    expect(attackRemaining(s, P4, T0)).toBe(20 + 25 + 20)
+  })
+
+  it('隨時間遞減，不會變負數', () => {
+    const s = startBlocked(T0)
+    expect(attackRemaining(s, P4, T0 + 10_000)).toBe(15 + 20)
+    expect(attackRemaining(s, P4, T0 + 999_000)).toBe(20)
   })
 })

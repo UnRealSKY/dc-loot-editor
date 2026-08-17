@@ -79,6 +79,16 @@ export function startBlocked(now: number): ShieldState {
   return { phase: 'blocked', phaseStart: now, dispelValid: false }
 }
 
+// 到下次反盾為止還能輸出幾秒。阻止成功後接的那段間隔也是能打的，算進來才有意義；
+// 已標記魔消的間隔同理——後面接的「阻止成功 + 下一段間隔」都還能打。
+// 下一輪魔消成不成功是未知數，不預測。
+export function attackRemaining(state: ShieldState, p: ShieldParams, now: number): number {
+  if (state.phase === 'idle' || state.phase === 'shield') return 0
+  const left = Math.max(0, (phaseEnd(state, p) - now) / 1000)
+  if (state.phase === 'blocked') return left + p.interval
+  return state.dispelValid ? left + p.shieldDuration + p.interval : left
+}
+
 // [±1 秒]：微調當前階段。倒數、進度條、引信、事件表都是從 phaseStart 算出來的，
 // 移動起點等於整條時間軸一起平移，不會只有倒數變而其他沒跟上。
 export function nudge(state: ShieldState, deltaSec: number): ShieldState {
