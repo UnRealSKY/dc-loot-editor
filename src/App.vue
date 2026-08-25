@@ -46,7 +46,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
       <nav class="nav">
         <router-link to="/" class="nav-link" exact-active-class="nav-active">分寶紀錄</router-link>
         <router-link to="/pending" class="nav-link" active-class="nav-active">未領總覽</router-link>
-        <router-link to="/shield" class="nav-link" active-class="nav-active">反盾計算機</router-link>
+        <router-link to="/shield" class="nav-link" active-class="nav-active">機制計算機</router-link>
       </nav>
       <div class="appbar-spacer" />
       <button type="button" class="btn btn-ghost btn-sm version" title="看更新內容"
@@ -274,5 +274,45 @@ button { font-family: inherit; }
 .empty {
   text-align: center; color: var(--text-muted); padding: 48px 20px;
   border: 1px dashed var(--border-strong); border-radius: var(--radius); background: var(--surface);
+}
+
+/* ---- 機制計算機的色塊面板（反盾與女皇兩種模板共用同一套視覺語言）----
+   idle 灰＝還沒開始；attack 綠＝安全可打；shield 紅＝機制正在發生或即將發生。
+   引信邊框與進度條都表示「本段剩多少」。 */
+.phase-panel {
+  position: relative; text-align: center; padding: 26px 20px;
+  transition: background .25s, border-color .25s;
+}
+
+/* 引信：SVG 不設 viewBox，rect 用 100% 貼齊容器，所以圓角與線寬都不會被拉伸。
+   pathLength=100 把周長正規化成 100，dasharray 直接吃百分比。 */
+.fuse { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.fuse rect {
+  x: 1.5px; y: 1.5px; width: calc(100% - 3px); height: calc(100% - 3px);
+  rx: 11px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round;
+}
+.phase-shield .fuse rect { stroke: var(--danger); }
+.phase-attack .fuse rect { stroke: var(--success); }
+.phase-idle { background: var(--surface-2); }
+.phase-shield { background: var(--danger-soft); border-color: var(--danger); }
+.phase-attack { background: var(--success-soft); border-color: var(--success); }
+.phase-title { font-size: 22px; font-weight: 750; }
+.phase-shield .phase-title { color: var(--danger); }
+.phase-attack .phase-title { color: var(--success); }
+.remaining-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.nudge { flex: none; font-variant-numeric: tabular-nums; }
+.phase-remaining { font-size: 64px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.phase-remaining .unit { font-size: 24px; font-weight: 600; margin-left: 4px; }
+.phase-bar { height: 6px; border-radius: 999px; background: rgba(0,0,0,.08); margin: 12px auto 0; max-width: 420px; overflow: hidden; }
+.phase-bar-fill { height: 100%; background: currentColor; opacity: .45; }
+
+/* 對齊遊戲計時：反盾與女皇兩個面板共用 */
+.anchor-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+/* 用 flex-basis 定寬：全域的 input{width:100%} 特異性較高，
+   在有 spacer 的標題列裡會把輸入框整條撐開 */
+.anchor-input { flex: 0 0 130px; font-family: var(--mono); font-size: 13px; }
+.game-clock {
+  font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 750;
+  padding: 3px 10px; border-radius: 6px; background: var(--primary-soft); color: var(--primary);
 }
 </style>

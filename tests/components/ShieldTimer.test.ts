@@ -1,6 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import ShieldTimer from '#src/components/ShieldTimer.vue'
+import { BOSSES } from '#src/shield/bosses'
+import { clearAnchor } from '#src/shield/anchor'
 
 // 皮卡啾／粉豆 反25 間20 浮動3；杜納斯 反20 間25 浮動0；魔消預設 20（玩家技能）
 const chips = (w: ReturnType<typeof mount>) => w.findAll('.boss-chip')
@@ -10,11 +13,14 @@ const seconds = (w: ReturnType<typeof mount>, i: number) =>
   (numberInputs(w)[i].element as HTMLInputElement).value
 
 describe('ShieldTimer 選王', () => {
-  beforeEach(() => localStorage.clear())
+  beforeEach(() => {
+    localStorage.clear()
+    clearAnchor()
+  })
 
   it('列出所有王，預設選第一隻', () => {
     const w = mount(ShieldTimer)
-    expect(chips(w).map((c) => c.text())).toEqual(['皮卡啾／粉豆', '杜納斯'])
+    expect(chips(w).map((c) => c.text())).toEqual(BOSSES.map((b) => b.name))
     expect(chips(w)[0].classes()).toContain('boss-on')
   })
 
@@ -79,5 +85,151 @@ describe('ShieldTimer 參數覆寫', () => {
     await numberInputs(w)[0].setValue(25)
     expect(w.find('.reset-boss').exists()).toBe(false)
     expect(JSON.parse(localStorage.getItem('dc-shield-overrides')!)).toEqual({})
+  })
+})
+
+describe('ShieldTimer 切到循環模板的王（女皇）', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    clearAnchor()
+  })
+
+  const queenChip = (w: ReturnType<typeof mount>) =>
+    chips(w)[BOSSES.findIndex((b) => b.id === 'queen')]
+  const items = (w: ReturnType<typeof mount>) => w.findAll('.cycle-item')
+
+  it('換到女皇時反盾面板收起，改列出全部機制', async () => {
+    const w = mount(ShieldTimer)
+    await queenChip(w).trigger('click')
+    expect(w.find('.controls').exists()).toBe(false) // 反盾的操作區
+    expect(items(w).map((li) => li.find('.phase-title').text())).toEqual([
+      '活屍60s', '鎖潛能90s', '變豬60s', '反盾80s', '小黑屋90s',
+    ])
+  })
+
+  it('每個機制各自觸發，沒按過的維持未開始', async () => {
+    const w = mount(ShieldTimer)
+    await queenChip(w).trigger('click')
+    await items(w)[0].find('.trigger').trigger('click')
+    expect(items(w)[0].find('.seg-remaining').text()).toBe('60s')
+    expect(items(w)[1].find('.not-started').exists()).toBe(true)
+  })
+
+  it('微調只影響按下去的那個機制', async () => {
+    const w = mount(ShieldTimer)
+    await queenChip(w).trigger('click')
+    await items(w)[0].find('.trigger').trigger('click')
+    await items(w)[0].findAll('.nudge')[1].trigger('click') // ＋1s
+    expect(items(w)[0].find('.seg-remaining').text()).toBe('61s')
+    expect(items(w)[1].find('.not-started').exists()).toBe(true)
+  })
+
+  it('沒開始的機制不給微調', async () => {
+    const w = mount(ShieldTimer)
+    await queenChip(w).trigger('click')
+    expect(items(w)[0].findAll('.nudge')).toHaveLength(0)
+  })
+
+  it('倒數到剩 5 秒內轉成警戒色，過了那一輪就恢復', async () => {
+    vi.useFakeTimers()
+    try {
+      const w = mount(ShieldTimer)
+      await queenChip(w).trigger('click')
+      await items(w)[0].find('.trigger').trigger('click') // 活屍 60s
+      vi.advanceTimersByTime(56_000)
+      await nextTick()
+      expect(items(w)[0].find('.seg-remaining').text()).toBe('4s')
+      expect(items(w)[0].classes()).toContain('phase-shield') // 跟反盾面板同一組配色語意
+      // 到點後自動接下一輪，回到 60 秒
+      vi.advanceTimersByTime(4_000)
+      await nextTick()
+      expect(items(w)[0].find('.seg-remaining').text()).toBe('60s')
+      expect(items(w)[0].classes()).toContain('phase-attack')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('有循環在跑就鎖住換王，重置後才放開', async () => {
+    const w = mount(ShieldTimer)
+    await queenChip(w).trigger('click')
+    await items(w)[0].find('.trigger').trigger('click')
+    expect(chips(w)[0].attributes('disabled')).toBeDefined()
+    await w.find('.cycle-head .btn').trigger('click') // 重置
+    expect(chips(w)[0].attributes('disabled')).toBeUndefined()
+  })
+})
+
+describe('對齊遊戲計時後顯示的是時間，而且不會一直跳', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    clearAnchor()
+  })
+
+  async function align(w: ReturnType<typeof mount>, mmss: string) {
+    await w.find('.anchor-input').setValue(mmss)
+    await w.findAll('.anchor-row .btn')[0].trigger('click')
+  }
+
+  it('對齊後有一個持續走的遊戲計時可以核對', async () => {
+    vi.useFakeTimers()
+    try {
+      const w = mount(ShieldTimer)
+      expect(w.find('.game-clock').exists()).toBe(false) // 沒對齊就沒有
+      await align(w, '12:00')
+      expect(w.find('.game-clock').text()).toBe('12:00')
+      vi.advanceTimersByTime(5_000)
+      await nextTick()
+      expect(w.find('.game-clock').text()).toBe('11:55') // 跟著遊戲一起倒數
+      // 校準 −1 秒後也要跟著改
+      await w.findAll('.anchor-row .btn')[1].trigger('click')
+      await nextTick()
+      expect(w.find('.game-clock').text()).toBe('11:54')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('反盾：可輸出到顯示遊戲時間，倒數走動時那個時刻不動', async () => {
+    vi.useFakeTimers()
+    try {
+      const w = mount(ShieldTimer)
+      await align(w, '12:00')
+      await w.findAll('.ctrl')[2].trigger('click') // 反盾阻止成功
+      await nextTick()
+      const at = w.find('.until-time').text()
+      expect(at).toMatch(/^\d{2}:\d{2}$/)
+      // 阻止成功 25s + 間隔 20s＝可以打到 11:15
+      expect(at).toBe('11:15')
+      vi.advanceTimersByTime(3_000)
+      await nextTick()
+      expect(w.find('.until-time').text()).toBe(at) // 秒數在走，時刻不該跟著漂
+      // 25 秒那段走掉 3 秒（更新是逐幀的，最後一幀落在 2992ms，進位後 23）
+      expect(w.find('.seg-remaining').text()).toBe('本段 23s')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('女皇：每個機制顯示下次觸發的遊戲時間，並列出接下來的時間表', async () => {
+    vi.useFakeTimers()
+    try {
+      const w = mount(ShieldTimer)
+      await chips(w)[BOSSES.findIndex((b) => b.id === 'queen')].trigger('click')
+      await align(w, '12:00')
+      await w.findAll('.cycle-item')[0].find('.trigger').trigger('click') // 活屍 60s
+      await nextTick()
+      expect(w.findAll('.cycle-item')[0].find('.until-time').text()).toBe('11:00')
+      vi.advanceTimersByTime(3_000)
+      await nextTick()
+      expect(w.findAll('.cycle-item')[0].find('.until-time').text()).toBe('11:00')
+      // 時間表列出同一個機制接下來的每一輪
+      const rows = w.findAll('.events-card .event')
+      expect(rows.length).toBeGreaterThan(0)
+      expect(rows[0].find('.ev-time').text()).toBe('11:00')
+      expect(rows[0].find('.ev-label').text()).toBe('活屍')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

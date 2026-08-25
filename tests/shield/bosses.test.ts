@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest'
+import { DEFAULT_MECHANIC, mechanicById } from '#src/shield/mechanics'
 import {
   BOSSES,
+  bossesOf,
+  defaultBoss,
+  shieldBossById,
   DEFAULT_DISPEL_DURATION,
   bossById,
   normalizeOverrides,
@@ -8,8 +12,8 @@ import {
   setOverride,
 } from '#src/shield/bosses'
 
-const PIKA = bossById('pika')
-const DUNAS = bossById('dunas')
+const PIKA = shieldBossById('pika')
+const DUNAS = shieldBossById('dunas')
 
 describe('王清單', () => {
   it('id 唯一', () => {
@@ -93,5 +97,32 @@ describe('setOverride', () => {
     const ov = { pika: { shieldDuration: 26, interval: 20, intervalFloat: 3 } }
     setOverride(ov, DUNAS, { shieldDuration: 22, interval: 25, intervalFloat: 0 })
     expect(ov).toEqual({ pika: { shieldDuration: 26, interval: 20, intervalFloat: 3 } })
+  })
+})
+
+describe('機制模板', () => {
+  it('每隻王都指到存在的模板', () => {
+    for (const b of BOSSES) expect(mechanicById(b.mechanic).id).toBe(b.mechanic)
+  })
+
+  it('bossesOf 取出套用該模板的王', () => {
+    expect(bossesOf('shield').map((b) => b.id)).toEqual(['pika', 'dunas'])
+    expect(bossesOf('cycle').map((b) => b.id)).toEqual(['queen'])
+  })
+
+  it('循環模板的王拿去反盾面板時退回反盾王', () => {
+    expect(shieldBossById('queen').mechanic).toBe('shield')
+  })
+
+  it('沒有王套用的模板回空陣列', () => {
+    expect(bossesOf('nope')).toEqual([])
+  })
+
+  it('未知模板 id 回預設模板', () => {
+    expect(mechanicById('nope')).toBe(DEFAULT_MECHANIC)
+  })
+
+  it('預設王套用預設模板', () => {
+    expect(defaultBoss().mechanic).toBe(DEFAULT_MECHANIC.id)
   })
 })

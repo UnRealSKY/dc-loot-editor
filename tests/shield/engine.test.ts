@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   advance,
   attackRemaining,
+  attackEndAt,
   dispelWindowStart,
   markDispel,
   nudge,
@@ -262,6 +263,37 @@ describe('可輸出總計', () => {
   it('隨時間遞減，不會變負數', () => {
     const s = startBlocked(T0)
     expect(attackRemaining(s, P4, T0 + 10_000)).toBe(15 + 20)
-    expect(attackRemaining(s, P4, T0 + 999_000)).toBe(20)
+    // 整段都過完（實際使用時 advance 早就推進到下一階段了）：回 0，不謊報還能打
+    expect(attackRemaining(s, P4, T0 + 999_000)).toBe(0)
+  })
+})
+
+describe('可輸出到的時刻', () => {
+  const P = { shieldDuration: 25, interval: 20, dispelDuration: 20 }
+  const T0 = 1_000_000
+
+  it('是固定的一刻，不隨時間流逝而漂移', () => {
+    const s = { phase: 'blocked' as const, phaseStart: T0, dispelValid: false }
+    const at = attackEndAt(s, P)
+    // 同一個狀態不管什麼時候問，答案都一樣（顯示時刻才不會每秒跳）
+    expect(attackEndAt(s, P)).toBe(at)
+    expect(at).toBe(T0 + (25 + 20) * 1000) // 阻止成功這段 + 後面接的間隔
+  })
+
+  it('間隔中沒魔消就是這段結束，有魔消再加上被擋掉的反盾與下一段間隔', () => {
+    const plain = { phase: 'interval' as const, phaseStart: T0, dispelValid: false }
+    expect(attackEndAt(plain, P)).toBe(T0 + 20 * 1000)
+    const dispelled = { ...plain, dispelValid: true }
+    expect(attackEndAt(dispelled, P)).toBe(T0 + (20 + 25 + 20) * 1000)
+  })
+
+  it('反盾中與待機沒有可輸出時刻', () => {
+    expect(attackEndAt({ phase: 'shield', phaseStart: T0, dispelValid: false }, P)).toBeNull()
+    expect(attackEndAt(IDLE, P)).toBeNull()
+  })
+
+  it('剩餘秒數就是時刻減現在', () => {
+    const s = { phase: 'blocked' as const, phaseStart: T0, dispelValid: false }
+    expect(attackRemaining(s, P, T0 + 5000)).toBe(40)
   })
 })

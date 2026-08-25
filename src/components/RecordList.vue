@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useRecordsStore } from '../store/records'
 import { allSold, allSettled } from '../calc/status'
 import { dcSyncStatus } from '../dc/publish'
+import { groupOf } from '../store/groups'
 import type { LootRecord } from '../types'
 import ImportDialog from './ImportDialog.vue'
 
@@ -17,6 +18,11 @@ const sorted = computed(() =>
     return a.boss.localeCompare(b.boss)
   }),
 )
+
+// 紀錄屬於哪個群組（沒設 groupId 的舊紀錄跟著第一個群組走，與名冊、統計同一套判定）
+function groupName(groupId?: string): string {
+  return groupOf(groupId)?.name ?? ''
+}
 
 const showImport = ref(false)
 
@@ -66,6 +72,7 @@ function toggleShelve(id: string) {
         <router-link :to="`/edit/${r.id}`" class="record-main">
           <span class="record-title">{{ r.boss || '(未命名)' }}</span>
           <span class="record-meta">
+            <span v-if="groupName(r.groupId)" class="record-group">{{ groupName(r.groupId) }}</span>
             <span v-if="r.date">{{ r.date }}</span>
             <span v-if="r.members.length">{{ r.members.length }} 人</span>
           </span>
@@ -111,7 +118,11 @@ function toggleShelve(id: string) {
   text-decoration: none; color: inherit; padding: 10px 0; min-width: 0;
 }
 .record-title { font-weight: 600; font-size: 15px; }
-.record-meta { display: flex; gap: 12px; font-size: 12.5px; color: var(--text-muted); flex-wrap: wrap; }
+.record-meta { display: flex; gap: 12px; align-items: center; font-size: 12.5px; color: var(--text-muted); flex-wrap: wrap; }
+.record-group {
+  padding: 1px 8px; border-radius: 999px; font-weight: 650;
+  background: var(--primary-soft); color: var(--primary);
+}
 .record-actions { display: flex; gap: 4px; flex: none; }
 .record-status { display: flex; gap: 6px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
 .badge { padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }

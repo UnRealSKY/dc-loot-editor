@@ -1,4 +1,4 @@
-// 反盾計算機核心狀態機（純函式，UI 只負責渲染與計時觸發）
+// 「反盾」機制模板的核心狀態機（純函式，UI 只負責渲染與計時觸發）
 //
 // 循環：shield(反盾持續) → interval(反盾間隔) → 有效魔消 ? blocked(反盾持續) → interval
 //                                              : shield
@@ -82,11 +82,20 @@ export function startBlocked(now: number): ShieldState {
 // 到下次反盾為止還能輸出幾秒。阻止成功後接的那段間隔也是能打的，算進來才有意義；
 // 已標記魔消的間隔同理——後面接的「阻止成功 + 下一段間隔」都還能打。
 // 下一輪魔消成不成功是未知數，不預測。
+// 可以打到「什麼時候」（絕對時刻 ms）。反盾中與待機沒有這個時刻，回 null。
+// 這是固定的一刻，不隨 now 變動——顯示時刻時必須用它，
+// 用「現在 + 剩餘秒數」回推會因為秒數進位而每秒抖一下。
+export function attackEndAt(state: ShieldState, p: ShieldParams): number | null {
+  if (state.phase === 'idle' || state.phase === 'shield') return null
+  const end = phaseEnd(state, p)
+  if (state.phase === 'blocked') return end + p.interval * 1000
+  return state.dispelValid ? end + (p.shieldDuration + p.interval) * 1000 : end
+}
+
 export function attackRemaining(state: ShieldState, p: ShieldParams, now: number): number {
-  if (state.phase === 'idle' || state.phase === 'shield') return 0
-  const left = Math.max(0, (phaseEnd(state, p) - now) / 1000)
-  if (state.phase === 'blocked') return left + p.interval
-  return state.dispelValid ? left + p.shieldDuration + p.interval : left
+  const at = attackEndAt(state, p)
+  if (at == null) return 0
+  return Math.max(0, (at - now) / 1000)
 }
 
 // [±1 秒]：微調當前階段。倒數、進度條、引信、事件表都是從 phaseStart 算出來的，

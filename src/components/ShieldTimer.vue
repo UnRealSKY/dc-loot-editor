@@ -4,6 +4,7 @@ import {
   IDLE,
   advance,
   attackRemaining,
+  attackEndAt,
   dispelWindowStart,
   markDispel,
   nudge,
@@ -22,12 +23,17 @@ import {
   BOSSES,
   DEFAULT_DISPEL_DURATION,
   bossById,
+  shieldBossById,
   normalizeOverrides,
   paramsOf,
   setOverride,
   type BossOverride,
   type BossOverrides,
+  type CycleBoss,
 } from '../shield/bosses'
+import CycleBoard from './CycleBoard.vue'
+import { anchorRef, setAnchor, calibrateAnchor, fmtTime, gameClock } from '../shield/anchor'
+import { beep as playBeep, ensureAudio } from '../shield/sound'
 
 const BOSS_KEY = 'dc-shield-boss'
 const OVERRIDES_KEY = 'dc-shield-overrides'
@@ -47,11 +53,16 @@ function loadDispelDuration(): number {
   return n > 0 ? n : DEFAULT_DISPEL_DURATION
 }
 
+// 王選單列出所有王；選到誰就換成該王機制模板的面板
+const bosses = BOSSES
 const bossId = ref(bossById(localStorage.getItem(BOSS_KEY) ?? '').id)
 const overrides = ref<BossOverrides>(loadOverrides())
 const dispelDuration = ref(loadDispelDuration())
 
-const boss = computed(() => bossById(bossId.value))
+const current = computed(() => bossById(bossId.value))
+const cycleBoss = computed(() => (current.value.mechanic === 'cycle' ? (current.value as CycleBoss) : null))
+// 反盾面板的王：選到循環模板的王時退回反盾王，參數不會落空
+const boss = computed(() => shieldBossById(bossId.value))
 const params = computed(() => paramsOf(boss.value, overrides.value, dispelDuration.value))
 
 watch(bossId, (v) => localStorage.setItem(BOSS_KEY, v))
@@ -61,32 +72,10 @@ watch(dispelDuration, (v) => localStorage.setItem(DISPEL_KEY, String(v)))
 const soundOn = ref(localStorage.getItem(SOUND_KEY) !== 'off')
 watch(soundOn, (v) => localStorage.setItem(SOUND_KEY, v ? 'on' : 'off'))
 
-// ---- 聲音（WebAudio，首次操作時建立以符合瀏覽器自動播放限制）----
-let audio: AudioContext | null = null
-// 建立失敗（無音訊環境）就靜默略過，讓計時功能照常運作
-function ensureAudio() {
-  try {
-    audio ??= new AudioContext()
-  } catch {
-    // 無音訊環境忽略
-  }
-}
+// ---- 聲音（實作在 shield/sound.ts，與女皇面板共用同一個 AudioContext）----
 function beep(freq: number, ms: number, delayMs = 0) {
   if (!soundOn.value) return
-  ensureAudio()
-  if (!audio) return
-  try {
-    const osc = audio.createOscillator()
-    const gain = audio.createGain()
-    osc.frequency.value = freq
-    gain.gain.value = 0.12
-    osc.connect(gain).connect(audio.destination)
-    const t = audio.currentTime + delayMs / 1000
-    osc.start(t)
-    osc.stop(t + ms / 1000)
-  } catch {
-    // 無聲環境忽略
-  }
+  playBeep(freq, ms, delayMs)
 }
 const soundAttackOk = () => beep(880, 180)
 const soundDispel = () => {
@@ -101,10 +90,11 @@ const soundShieldWarn = () => {
 // ---- 引擎狀態與計時 ----
 const state = ref<ShieldState>(IDLE)
 const now = ref(Date.now())
-let timer: ReturnType<typeof setInterval> | undefined
+let timer: number | undefined
 let remindedForPhase = 0 // 已提醒魔消的 phaseStart（每個間隔提醒一次）
 
 function tick() {
+  if (cycleBoss.value) return // 循環面板自己計時，反盾狀態機在旁邊空轉沒有意義
   now.value = Date.now()
   const prev = state.value
   const next = advance(prev, now.value, params.value)
@@ -123,8 +113,13 @@ function tick() {
     }
   }
 }
-onMounted(() => (timer = setInterval(tick, 100)))
-onBeforeUnmount(() => clearInterval(timer))
+// 每一幀更新，引信與進度條才會連續移動（100ms 一跳看起來會頓）
+function loop() {
+  tick()
+  timer = requestAnimationFrame(loop)
+}
+onMounted(() => (timer = requestAnimationFrame(loop)))
+onBeforeUnmount(() => timer != null && cancelAnimationFrame(timer))
 
 // ---- 操作 ----
 const dispelFeedback = ref<'valid' | 'tooEarly' | ''>('')
@@ -162,7 +157,8 @@ function onNudge(deltaSec: number) {
 
 // ---- 選王與參數 ----
 // 計時中換王會拿到錯的倒數，鎖住；要換先按「重置」
-const locked = computed(() => state.value.phase !== 'idle')
+const cycleRunning = ref(false)
+const locked = computed(() => state.value.phase !== 'idle' || cycleRunning.value)
 
 function selectBoss(id: string) {
   if (locked.value) return
@@ -216,6 +212,8 @@ const fuseLeft = computed(() => 100 - progress.value)
 const attackTotal = computed(() =>
   Math.ceil(attackRemaining(state.value, params.value, now.value)),
 )
+// 可以打到什麼時候。這是固定的一刻（由階段結束時間推出），不隨 now 抖動
+const attackEnd = computed(() => attackEndAt(state.value, params.value))
 const PHASE_META = {
   idle: { cls: 'phase-idle', title: '待機', note: '開戰看到反盾出現時按「反盾開始」' },
   shield: { cls: 'phase-shield', title: '反盾中 ⛔ 禁止輸出', note: '' },
@@ -256,28 +254,20 @@ function flashEarly() {
   })
 }
 
-// ---- 遊戲計時器對齊（倒數顯示）----
+// ---- 遊戲計時器對齊（與女皇面板共用同一個對齊點）----
 const gameInput = ref('')
-const anchor = ref<{ gameSec: number; at: number } | null>(null)
+const anchor = anchorRef()
 function applyAnchor() {
-  const m = gameInput.value.trim().match(/^(\d{1,2}):(\d{2})$/)
-  if (!m) return
-  anchor.value = { gameSec: Number(m[1]) * 60 + Number(m[2]), at: Date.now() }
+  setAnchor(gameInput.value, Date.now())
 }
 function calibrate(deltaSec: number) {
-  if (anchor.value) anchor.value = { ...anchor.value, gameSec: anchor.value.gameSec + deltaSec }
+  calibrateAnchor(deltaSec)
 }
 function fmtEventTime(at: number): string {
-  if (anchor.value) {
-    const sec = Math.round(anchor.value.gameSec - (at - anchor.value.at) / 1000)
-    if (sec >= 0) {
-      const mm = String(Math.floor(sec / 60)).padStart(2, '0')
-      const ss = String(sec % 60).padStart(2, '0')
-      return `${mm}:${ss}`
-    }
-  }
-  return `+${Math.max(0, Math.round((at - now.value) / 1000))}s`
+  return fmtTime(at, now.value)
 }
+// 對齊後的當前遊戲計時，用來跟遊戲畫面核對
+const clockNow = computed(() => gameClock(now.value))
 const events = computed(() => upcomingEvents(state.value, params.value, now.value, 6))
 
 // 大色塊的「下一階段」列（僅在有遊戲計時對齊時顯示）
@@ -299,9 +289,9 @@ const nextPhaseInfo = computed(() => {
 <template>
   <section>
     <div class="page-head">
-      <h2>反盾計算機</h2>
+      <h2>機制計算機</h2>
       <div class="boss-tabs" role="group" aria-label="選擇王">
-        <button v-for="b in BOSSES" :key="b.id" type="button" class="btn btn-sm boss-chip"
+        <button v-for="b in bosses" :key="b.id" type="button" class="btn btn-sm boss-chip"
           :class="{ 'boss-on': b.id === bossId }" :disabled="locked" :aria-pressed="b.id === bossId"
           @click="selectBoss(b.id)">{{ b.name }}</button>
       </div>
@@ -312,6 +302,9 @@ const nextPhaseInfo = computed(() => {
       </label>
     </div>
 
+    <CycleBoard v-if="cycleBoss" :boss="cycleBoss" :sound-on="soundOn" @running="cycleRunning = $event" />
+
+    <template v-else>
     <!-- 大字現況 -->
     <div class="card phase-panel" :class="[meta.cls, { 'dispel-active': dispelActive, 'flash-early': earlyFlash }]">
       <!-- 引信：邊框繞著色塊燒短，燒完就是本階段結束 -->
@@ -319,14 +312,26 @@ const nextPhaseInfo = computed(() => {
         <rect pathLength="100" :stroke-dasharray="`${fuseLeft} 100`" />
       </svg>
       <div class="phase-title">{{ meta.title }}</div>
-      <div v-if="state.phase !== 'idle'" class="remaining-row">
+      <!-- 可輸出時：主角是「可以打到什麼時候」；本段倒數退成旁邊的小字 -->
+      <template v-if="attackEnd != null">
+        <div class="until-label">可輸出到</div>
+        <div class="phase-remaining until-time">{{ fmtEventTime(attackEnd) }}</div>
+        <div class="remaining-row seg-row">
+          <button type="button" class="btn btn-sm nudge" title="當前階段減 1 秒"
+            @click="onNudge(-1)">−1s</button>
+          <span class="seg-remaining">本段 {{ remaining }}s</span>
+          <button type="button" class="btn btn-sm nudge" title="當前階段加 1 秒"
+            @click="onNudge(1)">＋1s</button>
+        </div>
+      </template>
+      <!-- 反盾中沒得打，主角就是這段還要忍多久 -->
+      <div v-else-if="state.phase !== 'idle'" class="remaining-row">
         <button type="button" class="btn btn-sm nudge" title="當前階段減 1 秒"
           @click="onNudge(-1)">−1s</button>
         <div class="phase-remaining">{{ remaining }}<span class="unit">s</span></div>
         <button type="button" class="btn btn-sm nudge" title="當前階段加 1 秒"
           @click="onNudge(1)">＋1s</button>
       </div>
-      <div v-if="attackTotal > remaining" class="phase-sub attack-total">可輸出還有 {{ attackTotal }}s</div>
       <div v-if="state.phase !== 'idle'" class="phase-bar"><div class="phase-bar-fill" :style="{ width: progress + '%' }" /></div>
       <div v-if="nextPhaseInfo" class="phase-next">
         下一階段：{{ nextPhaseInfo.label }} <span class="next-time">{{ nextPhaseInfo.time }}</span>
@@ -370,6 +375,7 @@ const nextPhaseInfo = computed(() => {
           <template v-if="anchor">
             <button type="button" class="btn btn-sm" title="校準 -1 秒" @click="calibrate(-1)">−1s</button>
             <button type="button" class="btn btn-sm" title="校準 +1 秒" @click="calibrate(1)">＋1s</button>
+            <span class="game-clock">{{ clockNow }}</span>
           </template>
         </div>
       </div>
@@ -414,6 +420,7 @@ const nextPhaseInfo = computed(() => {
         </div>
       </fieldset>
     </div>
+    </template>
   </section>
 </template>
 
@@ -436,24 +443,6 @@ const nextPhaseInfo = computed(() => {
 }
 .lock-hint { font-size: 12.5px; }
 
-.phase-panel {
-  position: relative; text-align: center; padding: 26px 20px;
-  transition: background .25s, border-color .25s;
-}
-
-/* 引信：SVG 不設 viewBox，rect 用 100% 貼齊容器，所以圓角與線寬都不會被拉伸。
-   pathLength=100 把周長正規化成 100，dasharray 直接吃百分比。 */
-.fuse { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.fuse rect {
-  x: 1.5px; y: 1.5px; width: calc(100% - 3px); height: calc(100% - 3px);
-  rx: 11px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round;
-  transition: stroke-dasharray .1s linear;
-}
-.phase-shield .fuse rect { stroke: var(--danger); }
-.phase-attack .fuse rect { stroke: var(--success); }
-.phase-idle { background: var(--surface-2); }
-.phase-shield { background: var(--danger-soft); border-color: var(--danger); }
-.phase-attack { background: var(--success-soft); border-color: var(--success); }
 /* 魔消有效中：綠⇄琥珀持續閃爍（80% 時間看顏色，文字是輔助） */
 .phase-attack.dispel-active { border-color: var(--warn); animation: dispel-pulse .55s ease-in-out infinite alternate; }
 @keyframes dispel-pulse {
@@ -465,15 +454,6 @@ const nextPhaseInfo = computed(() => {
 @keyframes early-flash {
   50% { background: #fde047; }
 }
-.phase-title { font-size: 22px; font-weight: 750; }
-.phase-shield .phase-title { color: var(--danger); }
-.phase-attack .phase-title { color: var(--success); }
-.remaining-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
-.nudge { flex: none; font-variant-numeric: tabular-nums; }
-.phase-remaining { font-size: 64px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
-.phase-remaining .unit { font-size: 24px; font-weight: 600; margin-left: 4px; }
-.phase-bar { height: 6px; border-radius: 999px; background: rgba(0,0,0,.08); margin: 12px auto 0; max-width: 420px; overflow: hidden; }
-.phase-bar-fill { height: 100%; background: currentColor; opacity: .45; transition: width .1s linear; }
 .phase-next { margin-top: 12px; font-size: 15.5px; font-weight: 600; }
 .phase-next .next-time {
   font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 750;
@@ -482,6 +462,13 @@ const nextPhaseInfo = computed(() => {
 .phase-note { margin-top: 12px; font-size: 14.5px; font-weight: 550; }
 .phase-sub { margin-top: 4px; font-size: 12.5px; }
 .attack-total { font-weight: 650; color: var(--success); }
+.until-label { margin-top: 6px; font-size: 13px; font-weight: 650; color: var(--success); }
+.until-time { font-family: var(--mono); color: var(--success); letter-spacing: -1px; }
+.seg-row { margin-top: 6px; }
+.seg-remaining {
+  font-size: 13.5px; font-weight: 650; font-variant-numeric: tabular-nums;
+  padding: 2px 8px; border-radius: 6px; background: rgba(0, 0, 0, .07);
+}
 .dispel-feedback { margin-top: 10px; font-size: 14px; font-weight: 650; }
 .dispel-feedback.valid { color: var(--success); }
 .dispel-feedback.tooEarly { color: var(--danger); }
@@ -494,8 +481,6 @@ const nextPhaseInfo = computed(() => {
 .ctrl-interval:hover { background: var(--success-soft); }
 .ctrl-hint { margin: 12px 0 0; font-size: 13px; }
 
-.anchor-row { display: flex; gap: 6px; align-items: center; }
-.anchor-input { width: 130px; font-family: var(--mono); font-size: 13px; }
 .event-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .event { display: flex; gap: 12px; align-items: center; padding: 7px 12px; border-radius: var(--radius-sm); font-size: 14.5px; }
 .ev-ok { background: var(--success-soft); color: var(--success); }

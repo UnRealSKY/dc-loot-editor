@@ -1,22 +1,66 @@
-// 王的反盾節奏資料（純資料＋純函式，不碰 localStorage）
+// 王的機制節奏資料（純資料＋純函式，不碰 localStorage）
 //
-// 王定義反盾節奏（持續、間隔、間隔浮動）；魔消是玩家自己放的技能，
-// 秒數與打哪隻王無關，因此不進王的資料，由呼叫端當全域值傳入。
+// 每隻王指定套用哪一份機制模板（mechanic），模板決定規則、王只填秒數。
+// 反盾模板的王各自填反盾秒數；循環模板的王填一串「多久觸發一次」的機制。
+// 魔消是玩家自己放的技能，秒數與打哪隻王無關，因此不進王的資料，由呼叫端當全域值傳入。
 
 import type { ShieldParams } from './engine'
+import { DEFAULT_MECHANIC } from './mechanics'
 
-export interface Boss {
+// 反盾模板的王：一組反盾節奏
+export interface ShieldBoss {
   id: string
   name: string
+  mechanic: 'shield'
   shieldDuration: number // 反盾持續（秒）
   interval: number       // 反盾間隔（秒，實戰是「最少」這麼久）
   intervalFloat: number  // 間隔浮動（秒）：實際重施落在 interval ~ interval+float
 }
 
+// 循環模板的王：多個機制各自固定間隔，只在意多久觸發一次（不管持續多久）
+export interface CycleBoss {
+  id: string
+  name: string
+  mechanic: 'cycle'
+  cycles: Array<{ id: string; name: string; interval: number }>
+}
+
+export type Boss = ShieldBoss | CycleBoss
+
 export const BOSSES: Boss[] = [
-  { id: 'pika', name: '皮卡啾／粉豆', shieldDuration: 25, interval: 20, intervalFloat: 3 },
-  { id: 'dunas', name: '杜納斯', shieldDuration: 20, interval: 25, intervalFloat: 0 },
+  { id: 'pika', name: '皮卡啾／粉豆', mechanic: 'shield', shieldDuration: 25, interval: 20, intervalFloat: 3 },
+  { id: 'dunas', name: '杜納斯', mechanic: 'shield', shieldDuration: 20, interval: 25, intervalFloat: 0 },
+  {
+    id: 'queen',
+    name: '女皇',
+    mechanic: 'cycle',
+    cycles: [
+      { id: 'zombie', name: '活屍', interval: 60 },
+      { id: 'seal', name: '鎖潛能', interval: 90 },
+      { id: 'pig', name: '變豬', interval: 60 },
+      { id: 'shield', name: '反盾', interval: 80 },
+      { id: 'jail', name: '小黑屋', interval: 90 },
+    ],
+  },
 ]
+
+// 套用某機制模板的王；頁面就是拿這個清單當王選單
+export function bossesOf(mechanicId: 'shield'): ShieldBoss[]
+export function bossesOf(mechanicId: 'cycle'): CycleBoss[]
+export function bossesOf(mechanicId: string): Boss[]
+export function bossesOf(mechanicId: string): Boss[] {
+  return BOSSES.filter((b) => b.mechanic === mechanicId)
+}
+
+export function defaultBoss(): Boss {
+  return bossesOf(DEFAULT_MECHANIC.id)[0] ?? BOSSES[0]
+}
+
+// 反盾模板專用的取王：拿到別種模板的王就退回第一隻反盾王，讓反盾面板永遠有合法參數
+export function shieldBossById(id: string): ShieldBoss {
+  const b = bossById(id)
+  return b.mechanic === 'shield' ? b : bossesOf('shield')[0]
+}
 
 // 玩家的魔消技能持續（秒）
 export const DEFAULT_DISPEL_DURATION = 20
@@ -31,11 +75,11 @@ export interface BossOverride {
 export type BossOverrides = Record<string, BossOverride>
 
 export function bossById(id: string): Boss {
-  return BOSSES.find((b) => b.id === id) ?? BOSSES[0]
+  return BOSSES.find((b) => b.id === id) ?? defaultBoss()
 }
 
 export function paramsOf(
-  boss: Boss,
+  boss: ShieldBoss,
   overrides: BossOverrides,
   dispelDuration: number,
 ): ShieldParams {
@@ -52,7 +96,7 @@ export function paramsOf(
 export function normalizeOverrides(raw: unknown): BossOverrides {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
   const out: BossOverrides = {}
-  for (const boss of BOSSES) {
+  for (const boss of bossesOf('shield')) {
     const ov = (raw as Record<string, unknown>)[boss.id]
     if (!ov || typeof ov !== 'object') continue
     const { shieldDuration, interval, intervalFloat } = ov as Partial<BossOverride>
@@ -69,7 +113,7 @@ export function normalizeOverrides(raw: unknown): BossOverrides {
 // 寫入覆寫；值與王的內建預設相同時移除該筆，「還原預設」按鈕便會自然消失
 export function setOverride(
   overrides: BossOverrides,
-  boss: Boss,
+  boss: ShieldBoss,
   patch: BossOverride,
 ): BossOverrides {
   const next = { ...overrides }
