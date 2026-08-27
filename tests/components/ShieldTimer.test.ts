@@ -124,10 +124,12 @@ describe('ShieldTimer 切到循環模板的王（女皇）', () => {
     expect(items(w)[1].find('.not-started').exists()).toBe(true)
   })
 
-  it('沒開始的機制不給微調', async () => {
+  it('沒開始的機制不給微調（欄位仍在，一按觸發卡片才不會突然撐高）', async () => {
     const w = mount(ShieldTimer)
     await queenChip(w).trigger('click')
-    expect(items(w)[0].findAll('.nudge')).toHaveLength(0)
+    const nudges = items(w)[0].findAll('.nudge')
+    expect(nudges).toHaveLength(2)
+    expect(nudges.every((b) => b.attributes('disabled') != null)).toBe(true)
   })
 
   it('倒數到剩 5 秒內轉成警戒色，過了那一輪就恢復', async () => {

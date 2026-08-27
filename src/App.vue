@@ -316,34 +316,56 @@ button { font-family: inherit; }
   padding: 3px 10px; border-radius: 6px; background: var(--primary-soft); color: var(--primary);
 }
 
-/* ---- 子母畫面：整組面板搬到一個很小的置頂視窗，字級與留白全部收緊 ---- */
-.pip-body { margin: 0; padding: 8px; background: var(--bg); overflow: hidden; }
-.pip-body.app { max-width: none; padding: 8px; }
-.pip-body .card { margin-bottom: 6px; padding: 8px 10px; }
-.pip-body .phase-panel { padding: 8px 10px; }
+/* ---- 子母畫面：整組面板搬到一個很小的置頂視窗 ----
+   這裡的每一條都在擠高度：視窗只有 200px，內容越矮、等比縮放的倍率就越大，
+   字反而看得更清楚。 */
+.pip-body {
+  margin: 0; padding: 5px; background: var(--bg); overflow: hidden;
+  /* 時鐘與血量擠成同一列，省下來的高度全部回饋到縮放倍率 */
+  display: flex; flex-wrap: wrap; align-content: flex-start;
+}
+.pip-body > * { flex: 0 0 100%; }
+.pip-body > .pip-clock { flex: 0 0 auto; align-self: center; margin-right: 6px; }
+.pip-body > .hp-card { flex: 1 1 180px; }
+.pip-body.app { max-width: none; padding: 5px; }
+.pip-body .card { margin-bottom: 4px; padding: 5px 7px; }
+.pip-body .phase-panel { padding: 6px 8px; }
 .pip-body .phase-title { font-size: 15px; }
 .pip-body .phase-remaining { font-size: 26px; }
-.pip-body .until-label { margin-top: 2px; font-size: 11px; }
-.pip-body .phase-bar { margin-top: 6px; }
-.pip-body .remaining-row, .pip-body .seg-row { margin-top: 2px; gap: 6px; }
-.pip-body .ctrl { min-width: 0; padding: 6px 4px; font-size: 12px; }
-.pip-body .controls { gap: 5px; }
+.pip-body .phase-bar { height: 4px; margin-top: 4px; }
+.pip-body .remaining-row, .pip-body .seg-row { margin-top: 2px; gap: 5px; }
+.pip-body .ctrl { min-width: 0; padding: 5px 4px; font-size: 12px; }
+.pip-body .controls { gap: 4px; }
 /* 小視窗放不下也不需要的：操作說明、事件表、待機時的提示 */
 .pip-body .ctrl-hint, .pip-body .phase-note, .pip-body .events-card { display: none; }
+/* 標題在小視窗裡是廢話，血條本身就說明一切；「下次」「60s」同理 */
+.pip-body .hp-card h3, .pip-body .until-label, .pip-body .cycle-interval { display: none; }
+.pip-body .hp-card .section-head { margin-bottom: 2px; }
+.pip-body .hp-card .btn { padding: 3px 8px; font-size: 12px; }
+.pip-body .hp-bar { height: 12px; }
+.pip-body .hp-row { margin-top: 2px; }
+.pip-body .hp-percent { font-size: 24px; min-width: 5ch; }
+.pip-body .hp-dps { font-size: 11px; }
 /* 小視窗裡排成一列：疊成多排會讓整體變高，等比縮下來字就小到看不清 */
 .pip-body .cycle-grid {
   grid-template-columns: none !important;
-  grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 5px;
+  grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px;
+  align-items: stretch;
 }
-.pip-body .cycle-item { padding: 6px 4px; }
+.pip-body .cycle-head { margin-bottom: 2px; }
+.pip-body .cycle-head .btn { padding: 2px 8px; font-size: 11.5px; }
+.pip-body .cycle-item { padding: 4px 3px; gap: 2px; }
 .pip-body .cycle-item .phase-title { font-size: 13px; }
 .pip-body .cycle-item .phase-remaining { font-size: 19px; }
-.pip-body .cycle-item .trigger { margin-top: 5px; padding: 4px 6px; font-size: 12px; }
-.pip-body .cycle-head { margin-bottom: 5px; }
-/* 血量：標題那行收成一列小字，數字與血條擠在同一張卡裡 */
-.pip-body .hp-card .section-head { margin-bottom: 4px; }
-.pip-body .hp-card h3 { font-size: 13px; }
-.pip-body .hp-percent { font-size: 26px; min-width: 5ch; }
-.pip-body .hp-row { margin-top: 4px; }
-.pip-body .hp-bar { height: 14px; }
+.pip-body .cycle-item .nudge { padding: 1px 4px; font-size: 11px; }
+.pip-body .cycle-item .seg-remaining { padding: 1px 4px; font-size: 11px; }
+.pip-body .cycle-item .trigger { margin-top: 3px; padding: 3px 4px; font-size: 12px; }
+.pip-body .pip-clock {
+  padding: 0 2px 3px; margin-bottom: 3px;
+  background: none; border: none; box-shadow: none;
+}
+.pip-body .pip-clock .anchor-row { justify-content: flex-start; gap: 4px; }
+.pip-body .pip-clock .anchor-input { flex: 0 0 92px; font-size: 11.5px; padding: 3px 6px; }
+.pip-body .pip-clock .btn { padding: 3px 7px; font-size: 11.5px; }
+.pip-body .game-clock { font-size: 13px; padding: 1px 7px; }
 </style>

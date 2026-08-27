@@ -328,6 +328,20 @@ const nextPhaseInfo = computed(() => {
     </div>
 
     <Teleport :to="pipBody" :disabled="!pipBody">
+    <!-- 小視窗裡看不到下面的事件表，遊戲計時要自己帶一份過去 -->
+    <div v-if="pipBody" class="card pip-clock">
+      <div class="anchor-row">
+        <input v-model="gameInput" class="anchor-input" placeholder="遊戲計時 mm:ss" spellcheck="false"
+          @keyup.enter="applyAnchor" />
+        <button type="button" class="btn btn-sm" @click="applyAnchor">對齊</button>
+        <template v-if="anchor">
+          <button type="button" class="btn btn-sm" title="校準 -1 秒" @click="calibrate(-1)">−1s</button>
+          <button type="button" class="btn btn-sm" title="校準 +1 秒" @click="calibrate(1)">＋1s</button>
+          <span class="game-clock">{{ clockNow }}</span>
+        </template>
+      </div>
+    </div>
+
     <HpCapture />
 
     <CycleBoard v-if="cycleBoss" :boss="cycleBoss" :sound-on="soundOn" @running="cycleRunning = $event" />

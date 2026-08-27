@@ -125,19 +125,19 @@ const events = computed(() =>
         <div class="phase-title">
           {{ c.name }}<span class="cycle-interval">{{ c.interval }}s</span>
         </div>
-        <template v-if="clocks[c.id] != null">
-          <!-- 主角是「下次幾點觸發」，本輪剩幾秒退成小字（跟反盾面板同一個安排） -->
-          <div class="until-label">下次</div>
-          <div class="phase-remaining until-time">{{ fmtTime(nextAt(c.id, c.interval)!, now) }}</div>
-          <div class="remaining-row seg-row">
-            <button type="button" class="btn btn-sm nudge" title="減 1 秒"
-              @click="onNudge(c.id, -1)">−1s</button>
-            <span class="seg-remaining">{{ leftOf(c.id, c.interval) }}s</span>
-            <button type="button" class="btn btn-sm nudge" title="加 1 秒"
-              @click="onNudge(c.id, 1)">＋1s</button>
-          </div>
-        </template>
-        <div v-else class="phase-remaining not-started">—</div>
+        <!-- 主角是「下次幾點觸發」，本輪剩幾秒退成小字（跟反盾面板同一個安排）。
+             還沒觸發的也保留同一組欄位，不然一按下去卡片就撐高、整排高低不齊 -->
+        <div class="until-label">下次</div>
+        <div class="phase-remaining until-time" :class="{ 'not-started': clocks[c.id] == null }">
+          {{ clocks[c.id] == null ? '—' : fmtTime(nextAt(c.id, c.interval)!, now) }}
+        </div>
+        <div class="remaining-row seg-row">
+          <button type="button" class="btn btn-sm nudge" title="減 1 秒"
+            :disabled="clocks[c.id] == null" @click="onNudge(c.id, -1)">−1s</button>
+          <span class="seg-remaining">{{ clocks[c.id] == null ? '—' : `${leftOf(c.id, c.interval)}s` }}</span>
+          <button type="button" class="btn btn-sm nudge" title="加 1 秒"
+            :disabled="clocks[c.id] == null" @click="onNudge(c.id, 1)">＋1s</button>
+        </div>
         <div class="phase-bar">
           <div class="phase-bar-fill" :style="{ width: progress(c.id, c.interval) + '%' }" />
         </div>
@@ -197,7 +197,7 @@ const events = computed(() =>
   padding: 2px 6px; border-radius: 6px; background: rgba(0, 0, 0, .07);
 }
 .cycle-item .phase-bar { margin-top: 10px; }
-.not-started { margin-top: 4px; color: var(--text-muted); }
+.not-started { color: var(--text-muted); }
 .trigger { margin-top: 10px; width: 100%; padding: 8px 10px; font-size: 14px; font-weight: 650; }
 
 .events-card { margin-top: 12px; }
