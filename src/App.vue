@@ -362,6 +362,11 @@ button { font-family: inherit; }
 }
 .pip-body .anchor-row { justify-content: flex-start; gap: 4px; flex-wrap: nowrap; }
 .pip-body .anchor-input { flex: 0 0 74px; font-size: 11.5px; padding: 3px 6px; text-align: center; }
+.pip-body .hp-threshold .marks { margin-top: 5px; gap: 4px; }
+.pip-body .hp-threshold .mark { padding: 2px 8px; font-size: 11.5px; }
+.pip-body .hp-threshold .sub-row { margin-top: 4px; gap: 5px; }
+.pip-body .hp-threshold .gap-value { font-size: 24px; }
+.pip-body .hp-threshold .need-capture { margin-top: 4px; }
 .pip-body .cycle-head { margin-bottom: 3px; }
 .pip-body .cycle-head .btn { padding: 2px 8px; font-size: 11.5px; }
 .pip-body .anchor-row .btn { padding: 3px 7px; font-size: 11.5px; }

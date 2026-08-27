@@ -30,11 +30,13 @@ import {
   type BossOverride,
   type BossOverrides,
   type CycleBoss,
+  type HpBoss,
 } from '../shield/bosses'
 import CycleBoard from './CycleBoard.vue'
 import HpCapture from './HpCapture.vue'
 import AnchorRow from './AnchorRow.vue'
 import CycleEvents from './CycleEvents.vue'
+import HpThresholdBoard from './HpThresholdBoard.vue'
 import { anchorRef, setAnchor, calibrateAnchor, fmtTime, gameClock } from '../shield/anchor'
 import { beep as playBeep, ensureAudio } from '../shield/sound'
 import { openPipWindow, pipSupported, keepFitted } from '../pip/documentPip'
@@ -65,6 +67,7 @@ const dispelDuration = ref(loadDispelDuration())
 
 const current = computed(() => bossById(bossId.value))
 const cycleBoss = computed(() => (current.value.mechanic === 'cycle' ? (current.value as CycleBoss) : null))
+const hpBoss = computed(() => (current.value.mechanic === 'hp' ? (current.value as HpBoss) : null))
 // 反盾面板的王：選到循環模板的王時退回反盾王，參數不會落空
 const boss = computed(() => shieldBossById(bossId.value))
 const params = computed(() => paramsOf(boss.value, overrides.value, dispelDuration.value))
@@ -100,7 +103,7 @@ let remindedForPhase = 0 // 已提醒魔消的 phaseStart（每個間隔提醒�
 function tick() {
   // now 一定要更新：遊戲計時的時鐘讀的就是它，停下來的話對齊會整個歪掉
   now.value = Date.now()
-  if (cycleBoss.value) return // 循環面板自己計時，反盾狀態機在旁邊空轉沒有意義
+  if (cycleBoss.value || hpBoss.value) return // 別的模板自己管，反盾狀態機在旁邊空轉沒有意義
   const prev = state.value
   const next = advance(prev, now.value, params.value)
   if (next !== prev && (next.phase !== prev.phase || next.phaseStart !== prev.phaseStart)) {
@@ -333,7 +336,9 @@ const nextPhaseInfo = computed(() => {
     <Teleport :to="pipBody" :disabled="!pipBody">
     <HpCapture />
 
-    <CycleBoard v-if="cycleBoss" :boss="cycleBoss" :sound-on="soundOn" @running="cycleRunning = $event">
+    <HpThresholdBoard v-if="hpBoss" :boss="hpBoss" :sound-on="soundOn" />
+
+    <CycleBoard v-else-if="cycleBoss" :boss="cycleBoss" :sound-on="soundOn" @running="cycleRunning = $event">
       <!-- 小視窗看不到下面的事件表，把遊戲計時放進重置那一列 -->
       <template #lead>
         <AnchorRow v-if="pipBody" />
@@ -407,7 +412,7 @@ const nextPhaseInfo = computed(() => {
     <!-- 時間表留在主視窗：子母畫面塞不下，大畫面才看得到完整的接下來 -->
     <CycleEvents v-if="cycleBoss" :boss="cycleBoss" />
 
-    <template v-if="!cycleBoss">
+    <template v-if="!cycleBoss && !hpBoss">
 
     <!-- 時間軸 -->
     <div class="card">

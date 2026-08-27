@@ -10,6 +10,7 @@ export interface Mechanic {
 export const MECHANICS: Mechanic[] = [
   { id: 'shield', name: '反盾' }, // 反盾持續／間隔的階段循環（engine.ts）
   { id: 'cycle', name: '循環' }, // 多個各自固定間隔的機制，只算多久觸發一次（cycle.ts）
+  { id: 'hp', name: '血量' }, // 看的不是時間而是血量，掉到門檻就出招（hp/thresholds.ts）
 ]
 
 export const DEFAULT_MECHANIC = MECHANICS[0]

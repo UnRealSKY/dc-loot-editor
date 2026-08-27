@@ -25,7 +25,16 @@ export interface CycleBoss {
   cycles: Array<{ id: string; name: string; interval: number }>
 }
 
-export type Boss = ShieldBoss | CycleBoss
+// 血量門檻模板的王：關鍵不是時間而是血量，掉到門檻就會出招
+export interface HpBoss {
+  id: string
+  name: string
+  mechanic: 'hp'
+  /** 會出招的血量百分比，由高到低 */
+  thresholds: number[]
+}
+
+export type Boss = ShieldBoss | CycleBoss | HpBoss
 
 export const BOSSES: Boss[] = [
   { id: 'pika', name: '皮卡啾／粉豆', mechanic: 'shield', shieldDuration: 25, interval: 20, intervalFloat: 3 },
@@ -42,11 +51,13 @@ export const BOSSES: Boss[] = [
       { id: 'jail', name: '小黑屋', interval: 90 },
     ],
   },
+  { id: 'akairon', name: '阿卡伊農', mechanic: 'hp', thresholds: [80, 60, 40, 20] },
 ]
 
 // 套用某機制模板的王；頁面就是拿這個清單當王選單
 export function bossesOf(mechanicId: 'shield'): ShieldBoss[]
 export function bossesOf(mechanicId: 'cycle'): CycleBoss[]
+export function bossesOf(mechanicId: 'hp'): HpBoss[]
 export function bossesOf(mechanicId: string): Boss[]
 export function bossesOf(mechanicId: string): Boss[] {
   return BOSSES.filter((b) => b.mechanic === mechanicId)

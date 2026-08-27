@@ -4,6 +4,7 @@ import { mount } from '@vue/test-utils'
 import ShieldTimer from '#src/components/ShieldTimer.vue'
 import { BOSSES } from '#src/shield/bosses'
 import { clearAnchor } from '#src/shield/anchor'
+import { setHpNow, clearHpNow } from '#src/hp/current'
 
 // 皮卡啾／粉豆 反25 間20 浮動3；杜納斯 反20 間25 浮動0；魔消預設 20（玩家技能）
 const chips = (w: ReturnType<typeof mount>) => w.findAll('.boss-chip')
@@ -252,5 +253,66 @@ describe('對齊遊戲計時後顯示的是時間，而且不會一直跳', () =
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('阿卡伊農：血量掉到門檻就提醒', () => {
+  const akaironChip = (w: ReturnType<typeof mount>) =>
+    chips(w)[BOSSES.findIndex((b) => b.id === 'akairon')]
+
+  beforeEach(() => {
+    localStorage.clear()
+    clearAnchor()
+    clearHpNow()
+  })
+
+  it('沒有血量讀數時說明要先開擷取', async () => {
+    const w = mount(ShieldTimer)
+    await akaironChip(w).trigger('click')
+    expect(w.find('.need-capture').exists()).toBe(true)
+    expect(w.findAll('.mark').map((e) => e.text())).toEqual(['80%', '60%', '40%', '20%'])
+  })
+
+  it('報出距離下一個門檻還有多少', async () => {
+    const w = mount(ShieldTimer)
+    await akaironChip(w).trigger('click')
+    setHpNow(93.5, 0.5, Date.now())
+    await nextTick()
+    expect(w.find('.phase-title').text()).toBe('下一個 80%')
+    expect(w.find('.gap-value').text()).toContain('13.5')
+    expect(w.find('.chip-hp').text()).toBe('目前 93.5%')
+  })
+
+  it('進到提前量之內就轉成警戒色', async () => {
+    const w = mount(ShieldTimer)
+    await akaironChip(w).trigger('click')
+    setHpNow(84, 0.5, Date.now())
+    await nextTick()
+    expect(w.find('.phase-panel').classes()).toContain('phase-warn')
+  })
+
+  it('跨過門檻時標記已過並顯示機制來了', async () => {
+    const w = mount(ShieldTimer)
+    await akaironChip(w).trigger('click')
+    setHpNow(81, 0.5, Date.now())
+    await nextTick()
+    setHpNow(79, 0.5, Date.now())
+    await nextTick()
+    expect(w.find('.phase-title').text()).toContain('80%')
+    expect(w.findAll('.mark')[0].classes()).toContain('done')
+  })
+
+  it('一口氣掉很多時，中間的門檻也算過了', async () => {
+    const w = mount(ShieldTimer)
+    await akaironChip(w).trigger('click')
+    setHpNow(85, 1, Date.now())
+    await nextTick()
+    setHpNow(35, 1, Date.now())
+    await nextTick()
+    const marks = w.findAll('.mark')
+    expect(marks[0].classes()).toContain('done') // 80
+    expect(marks[1].classes()).toContain('done') // 60
+    expect(marks[2].classes()).toContain('done') // 40
+    expect(marks[3].classes()).not.toContain('done') // 20 還沒
   })
 })

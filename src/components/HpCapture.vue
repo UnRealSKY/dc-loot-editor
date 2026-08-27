@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
 import { scanHpBar, readRatioIn, type Rect } from '../hp/scan'
 import { pushPoint, recentDps, type HpPoint } from '../hp/history'
+import { setHpNow, clearHpNow } from '../hp/current'
 
 // 掃描頻率。血條變化不需要每幀讀，一秒一次就夠，
 // 而且瀏覽器切到背景時 setInterval 本來就會被壓到一秒一次。
@@ -44,6 +45,7 @@ async function start() {
 }
 
 function stop() {
+  clearHpNow()
   clearInterval(timer)
   timer = undefined
   stream.value?.getTracks().forEach((t) => t.stop())
@@ -73,12 +75,16 @@ function scan() {
     : scanHpBar(frame.data, frame.width, frame.height, { topFrac: 1 })
   if (!res || res.total === 0) {
     ratio.value = null
+    clearHpNow()
     return
   }
   ratio.value = res.ratio
   color.value = res.color
   nextColor.value = res.nextColor
-  points.value = pushPoint(points.value, Date.now(), res.ratio)
+  const at = Date.now()
+  points.value = pushPoint(points.value, at, res.ratio)
+  // 血量門檻的機制面板讀的是這份
+  setHpNow(res.ratio * 100, recentDps(points.value), at)
 }
 
 // 手動框選存的是比例，換個視窗大小也不用重框
@@ -147,9 +153,10 @@ const dragBox = computed(() => {
 })
 
 const percent = computed(() => (ratio.value == null ? null : Math.round(ratio.value * 1000) / 10))
+// 沒在掉血時顯示 0.0%，不要整個消失——不然會以為功能壞了
 const dps = computed(() => {
   const v = recentDps(points.value)
-  return v == null || v <= 0 ? null : Math.round(v * 10) / 10
+  return v == null ? null : Math.round(Math.max(0, v) * 10) / 10
 })
 const fillColor = computed(() => `rgb(${color.value ?? '200,40,40'})`)
 // 右邊剩下的：多條血時是下一條的底色，最後一條時就留空（灰槽）
@@ -183,7 +190,7 @@ onBeforeUnmount(stop)
         </div>
         <div class="hp-row">
           <div class="hp-percent">{{ percent.toFixed(1) }}<span class="unit">%</span></div>
-          <div v-if="dps" class="hp-dps">每秒 {{ dps.toFixed(1) }}%</div>
+          <div v-if="dps != null" class="hp-dps">每秒 {{ dps.toFixed(1) }}%</div>
         </div>
       </template>
     </template>
