@@ -213,6 +213,25 @@ describe('對齊遊戲計時後顯示的是時間，而且不會一直跳', () =
     }
   })
 
+  it('選女皇時遊戲計時照樣走——反盾狀態機停了，時鐘不能跟著停', async () => {
+    vi.useFakeTimers()
+    try {
+      const w = mount(ShieldTimer)
+      await chips(w)[BOSSES.findIndex((b) => b.id === 'queen')].trigger('click')
+      // 切到女皇之後過了一段時間才對齊，對齊當下就該顯示輸入的時間
+      vi.advanceTimersByTime(23_000)
+      await nextTick()
+      await align(w, '44:00')
+      await nextTick()
+      expect(w.find('.game-clock').text()).toBe('44:00')
+      vi.advanceTimersByTime(5_000)
+      await nextTick()
+      expect(w.find('.game-clock').text()).toBe('43:55')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('女皇：每個機制顯示下次觸發的遊戲時間，並列出接下來的時間表', async () => {
     vi.useFakeTimers()
     try {

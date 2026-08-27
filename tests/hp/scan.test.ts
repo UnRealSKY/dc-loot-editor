@@ -18,6 +18,8 @@ interface BarSpec {
   greyRight?: boolean
   /** 血條左邊（外框外）也放一段同色，模擬畫面縮小後外框旁糊掉的陰影 */
   greyLeft?: boolean
+  /** 血條下方再放一條同樣長的深色帶，模擬遊戲 UI 的橫帶 */
+  bandBelow?: boolean
 }
 
 function paint(spec: BarSpec = {}) {
@@ -58,6 +60,11 @@ function paint(spec: BarSpec = {}) {
   }
   // 內部：先鋪空槽，再從左邊依序畫有血的區段
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, empty)
+  if (spec.bandBelow) {
+    for (let y = y1 + 3; y <= y1 + 14 && y < height; y++) {
+      for (let x = x0 - 6; x <= x1 + 6; x++) set(x, y, empty)
+    }
+  }
   let cursor = x0
   for (const [len, color] of fills) {
     for (let y = y0; y <= y1; y++) {
@@ -136,6 +143,15 @@ describe('自動判讀血條', () => {
     const { data, width, height, x0, x1 } = paint({ greyLeft: true, fills: [[80, [220, 30, 10]]] })
     const res = scanHpBar(data, width, height, { topFrac: 1 })!
     expect(res.rect.x0).toBe(x0)
+    expect(res.rect.x1).toBe(x1)
+    expect(res.ratio).toBeCloseTo(80 / (x1 - x0 + 1), 2)
+  })
+
+  it('血條下方另有一條深色帶時，不會把它併進血條', () => {
+    // 併進來的話上下界就垮了，右端的整欄檢查會在空槽處失敗，
+    // 空槽整段被排除、血量算成滿的
+    const { data, width, height, x0, x1 } = paint({ bandBelow: true, fills: [[80, [220, 30, 10]]] })
+    const res = scanHpBar(data, width, height, { topFrac: 1 })!
     expect(res.rect.x1).toBe(x1)
     expect(res.ratio).toBeCloseTo(80 / (x1 - x0 + 1), 2)
   })

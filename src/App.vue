@@ -325,8 +325,6 @@ button { font-family: inherit; }
   display: flex; flex-wrap: wrap; align-content: flex-start;
 }
 .pip-body > * { flex: 0 0 100%; }
-.pip-body > .pip-clock { flex: 0 0 auto; align-self: center; margin-right: 6px; }
-.pip-body > .hp-card { flex: 1 1 180px; }
 .pip-body.app { max-width: none; padding: 5px; }
 .pip-body .card { margin-bottom: 4px; padding: 5px 7px; }
 .pip-body .phase-panel { padding: 6px 8px; }
@@ -352,8 +350,6 @@ button { font-family: inherit; }
   grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px;
   align-items: stretch;
 }
-.pip-body .cycle-head { margin-bottom: 2px; }
-.pip-body .cycle-head .btn { padding: 2px 8px; font-size: 11.5px; }
 .pip-body .cycle-item { padding: 4px 3px; gap: 2px; }
 .pip-body .cycle-item .phase-title { font-size: 13px; }
 .pip-body .cycle-item .phase-remaining { font-size: 19px; }
@@ -364,8 +360,10 @@ button { font-family: inherit; }
   padding: 0 2px 3px; margin-bottom: 3px;
   background: none; border: none; box-shadow: none;
 }
-.pip-body .pip-clock .anchor-row { justify-content: flex-start; gap: 4px; }
-.pip-body .pip-clock .anchor-input { flex: 0 0 92px; font-size: 11.5px; padding: 3px 6px; }
-.pip-body .pip-clock .btn { padding: 3px 7px; font-size: 11.5px; }
+.pip-body .anchor-row { justify-content: flex-start; gap: 4px; flex-wrap: nowrap; }
+.pip-body .anchor-input { flex: 0 0 74px; font-size: 11.5px; padding: 3px 6px; text-align: center; }
+.pip-body .cycle-head { margin-bottom: 3px; }
+.pip-body .cycle-head .btn { padding: 2px 8px; font-size: 11.5px; }
+.pip-body .anchor-row .btn { padding: 3px 7px; font-size: 11.5px; }
 .pip-body .game-clock { font-size: 13px; padding: 1px 7px; }
 </style>

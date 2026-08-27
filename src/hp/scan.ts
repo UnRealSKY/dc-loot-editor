@@ -94,22 +94,25 @@ function median(arr: number[]): number {
 
 // 一列裡最長的血條內部連續段。只容忍 1px 雜訊——這一步要的是穩，不是全。
 function rowRun(data: Pixels, width: number, y: number) {
-  let best = { len: 0, x0: 0, x1: 0 }
+  let best = { len: 0, x0: 0, x1: 0, fills: 0 }
   let run = 0
   let gap = 0
   let start = 0
+  let fills = 0
   for (let x = 0; x < width; x++) {
-    if (isInner(classify(...px(data, width, x, y)))) {
+    const kind = classify(...px(data, width, x, y))
+    if (kind === FILL) fills++
+    if (isInner(kind)) {
       if (run === 0) start = x
       run += gap + 1
       gap = 0
-      if (run > best.len) best = { len: run, x0: start, x1: x }
+      if (run > best.len) best = { len: run, x0: start, x1: x, fills: 0 }
     } else if (++gap > 1) {
       run = 0
       gap = 0
     }
   }
-  return best
+  return { ...best, fills }
 }
 
 /**
@@ -120,7 +123,7 @@ export function detectBand(data: Pixels, width: number, height: number, opts: Sc
   const rows = Math.max(1, Math.round(height * (opts.topFrac ?? 1)))
   const minWidth = (opts.minWidthFrac ?? 0.2) * width
   const minRows = opts.minRows ?? 5
-  const bands: Array<{ x0: number; x1: number; ys: number[] }> = []
+  const bands: Array<{ x0: number; x1: number; ys: number[]; bestY: number; bestFills: number }> = []
   let cur: (typeof bands)[number] | null = null
   for (let y = 0; y < rows; y++) {
     const r = rowRun(data, width, y)
@@ -131,16 +134,65 @@ export function detectBand(data: Pixels, width: number, height: number, opts: Sc
     if (cur && Math.abs(r.x0 - cur.x0) <= 3) {
       cur.ys.push(y)
       cur.x1 = Math.max(cur.x1, r.x1)
+      if (r.fills > cur.bestFills) {
+        cur.bestFills = r.fills
+        cur.bestY = y
+      }
     } else {
-      cur = { x0: r.x0, x1: r.x1, ys: [y] }
+      cur = { x0: r.x0, x1: r.x1, ys: [y], bestY: y, bestFills: r.fills }
       bands.push(cur)
     }
   }
   const valid = bands.filter((b) => b.ys.length >= minRows)
   if (!valid.length) return null
-  valid.sort((a, b) => b.x1 - b.x0 - (a.x1 - a.x0))
+  // 有血色的優先——血條下方的 UI 深色橫帶可能比血條還長，光比寬度會挑錯。
+  // 血量歸零的血條沒有血色，那時就純比寬度。
+  valid.sort(
+    (a, b) =>
+      Number(b.bestFills > 0) - Number(a.bestFills > 0) || b.x1 - b.x0 - (a.x1 - a.x0),
+  )
   const band = valid[0]
-  return { x0: band.x0, y0: band.ys[0], y1: band.ys[band.ys.length - 1] }
+  // 這一帶可能連同血條下方的深色 UI 橫帶一起框進來，中線取「有血色最多的那一列」，
+  // 才不會整條判讀跑到那條帶子上；全空的血條就退回幾何中線
+  const middle = Math.floor((band.ys[0] + band.ys[band.ys.length - 1]) / 2)
+  return {
+    x0: band.x0,
+    y0: band.ys[0],
+    y1: band.ys[band.ys.length - 1],
+    bestY: band.bestFills > 0 ? band.bestY : middle,
+  }
+}
+
+/**
+ * 從中線往上下擴，把血條的上下界收住。
+ * 逐列掃描很容易把血條下方的深色帶也當成同一條（它同樣是低飽和的中灰、同樣很長），
+ * 範圍一垮，右端的整欄檢查就會在空槽處失敗，把空槽整段排除、血量算成滿的。
+ * 血條上下就是外框，遇到外框或非血條像素就停。
+ */
+export function verticalBounds(
+  data: Pixels,
+  width: number,
+  height: number,
+  x: number,
+  mid: number,
+): { y0: number; y1: number } {
+  const base = px(data, width, x, mid)
+  const baseKind = classify(base[0], base[1], base[2])
+  const baseHue = hueOf(base[0], base[1], base[2])
+  // 同一條血上下只有明暗漸層，色相不動；白色外框與下方那條深色帶都不是這個色相。
+  // 起點若落在空槽（血量很低時），就改用「同樣是空槽的灰」當條件。
+  const sameBar = (y: number) => {
+    const p = px(data, width, x, y)
+    const k = classify(p[0], p[1], p[2])
+    if (k !== baseKind) return false
+    if (k !== FILL) return true
+    return hueDiff(hueOf(p[0], p[1], p[2]), baseHue) <= 30
+  }
+  let y0 = mid
+  let y1 = mid
+  while (y0 > 0 && sameBar(y0 - 1)) y0--
+  while (y1 < height - 1 && sameBar(y1 + 1)) y1++
+  return { y0, y1 }
 }
 
 /**
@@ -310,12 +362,17 @@ export function scanHpBar(
 ): HpReading | null {
   const band = detectBand(data, width, height, { topFrac: 0.2, ...opts })
   if (!band) return null
-  const ys: number[] = []
-  for (let y = band.y0; y <= band.y1; y++) ys.push(y)
-  const mid = Math.floor((band.y0 + band.y1) / 2)
-  const x0 = contentStart(data, width, mid, band.x0)
-  const x1 = extendRight(data, width, mid, x0, { columnYs: ys })
+  const guess = band.bestY
+  const x0 = contentStart(data, width, guess, band.x0)
+  // 用血條內部的一欄把上下界收乾淨，再回頭取真正的中線
+  const bounds = verticalBounds(data, width, height, Math.min(width - 1, x0 + 20), guess)
+  const mid = Math.floor((bounds.y0 + bounds.y1) / 2)
+  // 整欄檢查只看中間那幾列：上下緣有漸層與抗鋸齒，算進去只會添亂
+  const inset = Math.floor((bounds.y1 - bounds.y0) * 0.2)
+  const columnYs: number[] = []
+  for (let y = bounds.y0 + inset; y <= bounds.y1 - inset; y++) columnYs.push(y)
+  const x1 = extendRight(data, width, mid, x0, { columnYs: columnYs.length ? columnYs : [mid] })
   if (x1 - x0 < width * 0.1) return null // 只框到一小截，當作沒找到
-  const rect: Rect = { x0, x1, y0: band.y0, y1: band.y1 }
+  const rect: Rect = { x0, x1, y0: bounds.y0, y1: bounds.y1 }
   return { rect, ...readRatioIn(data, width, rect) }
 }

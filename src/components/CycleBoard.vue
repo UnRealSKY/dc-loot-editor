@@ -1,23 +1,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { CycleBoss } from '../shield/bosses'
-import {
-  secondsLeft,
-  cyclesElapsed,
-  nudgeClock,
-  triggerAt,
-  upcomingCycleEvents,
-  type CycleClock,
-} from '../shield/cycle'
+import { secondsLeft, cyclesElapsed } from '../shield/cycle'
+import { cycleClocks, triggerCycle, nudgeCycle, resetCycles, anyCycleRunning } from '../shield/cycleClocks'
 import { beep, ensureAudio } from '../shield/sound'
-import { anchorRef, setAnchor, calibrateAnchor, fmtTime, gameClock } from '../shield/anchor'
+import { fmtTime } from '../shield/anchor'
 
 const props = defineProps<{ boss: CycleBoss; soundOn: boolean }>()
 // 有循環在跑時要鎖住換王——換走會把計時丟掉
 const emit = defineEmits<{ running: [boolean] }>()
 
-// 每個機制記一個「最近觸發時刻」，之後自己每 interval 秒接下去數
-const clocks = reactive<Record<string, CycleClock>>({})
+// 每個機制記一個「最近觸發時刻」，之後自己每 interval 秒接下去數。
+// 狀態放在模組層——「接下來」時間表被拆到主視窗，兩邊要看同一份
+const clocks = cycleClocks()
 const now = ref(Date.now())
 let raf: number | undefined
 // 已響過鈴的輪數，每個機制一份；跨到新的一輪才響
@@ -26,11 +21,12 @@ const rung = reactive<Record<string, number>>({})
 // 剩幾秒內算「快來了」：反盾面板用整段顏色表達安全與否，這裡沿用同一組語意
 const WARN_SECONDS = 5
 
-const running = computed(() => props.boss.cycles.some((c) => clocks[c.id] != null))
+const running = computed(() => anyCycleRunning(props.boss.cycles))
 watch(running, (v) => emit('running', v), { immediate: true })
 
-// 換王時清乾淨，免得下次進來看到上一隻王的殘留
-watch(() => props.boss.id, resetAll)
+// 換王或重新進到這個面板時清乾淨，免得看到上一場的殘留。
+// 計時狀態放在模組層（時間表要共用），不會隨元件銷毀自動消失。
+watch(() => props.boss.id, resetAll, { immediate: true })
 
 function tick() {
   now.value = Date.now()
@@ -59,18 +55,16 @@ function onTrigger(id: string) {
   // 用同一個時間戳，倒數才不會在下次更新之前先閃一個大 1 秒的數字
   const t = Date.now()
   now.value = t
-  clocks[id] = triggerAt(t)
+  triggerCycle(id, t)
   rung[id] = 0
   ensureAudio()
 }
 function onNudge(id: string, deltaSec: number) {
-  clocks[id] = nudgeClock(clocks[id], deltaSec)
+  nudgeCycle(id, deltaSec)
 }
 function resetAll() {
-  for (const c of props.boss.cycles) {
-    clocks[c.id] = undefined
-    rung[c.id] = 0
-  }
+  resetCycles(props.boss.cycles)
+  for (const c of props.boss.cycles) rung[c.id] = 0
 }
 
 function leftOf(id: string, interval: number): number | null {
@@ -96,23 +90,14 @@ function progress(id: string, interval: number): number {
   return Math.min(100, Math.max(0, (elapsed / interval) * 100))
 }
 
-// ---- 遊戲計時對齊（與反盾面板共用同一個對齊點）----
-const gameInput = ref('')
-const anchor = anchorRef()
-function applyAnchor() {
-  setAnchor(gameInput.value, Date.now())
-}
-// 對齊後的當前遊戲計時，用來跟遊戲畫面核對
-const clockNow = computed(() => gameClock(now.value))
-
-const events = computed(() =>
-  upcomingCycleEvents(props.boss.cycles, clocks, now.value, 6),
-)
 </script>
 
 <template>
   <div class="cycle-board">
     <div class="cycle-head">
+      <!-- 子母畫面把遊戲計時塞在這裡，跟重置共用一列 -->
+      <slot name="lead" />
+      <div class="spacer" />
       <button type="button" class="btn btn-sm" :disabled="!running" @click="resetAll">重置</button>
     </div>
     <ul class="cycle-grid" :style="{ '--cycle-count': boss.cycles.length }">
@@ -145,35 +130,12 @@ const events = computed(() =>
       </li>
     </ul>
 
-    <!-- 接下來（與反盾面板同一套：對齊遊戲計時後就顯示遊戲時間）-->
-    <div class="card events-card">
-      <div class="section-head">
-        <h3>接下來</h3>
-        <div class="spacer" />
-        <div class="anchor-row">
-          <input v-model="gameInput" class="anchor-input" placeholder="遊戲計時 mm:ss" spellcheck="false"
-            @keyup.enter="applyAnchor" />
-          <button type="button" class="btn btn-sm" @click="applyAnchor">對齊</button>
-          <template v-if="anchor">
-            <button type="button" class="btn btn-sm" title="校準 -1 秒" @click="calibrateAnchor(-1)">−1s</button>
-            <button type="button" class="btn btn-sm" title="校準 +1 秒" @click="calibrateAnchor(1)">＋1s</button>
-            <span class="game-clock">{{ clockNow }}</span>
-          </template>
-        </div>
-      </div>
-      <p v-if="!events.length" class="muted">按下任何一個機制的「觸發」後，這裡會列出接下來的時間。</p>
-      <ul v-else class="event-list">
-        <li v-for="(e, i) in events" :key="i" class="event" :class="i === 0 ? 'ev-next' : 'ev-later'">
-          <span class="ev-time">{{ fmtTime(e.at, now) }}</span>
-          <span class="ev-label">{{ e.name }}</span>
-        </li>
-      </ul>
-    </div>
   </div>
 </template>
 
 <style scoped>
-.cycle-head { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.cycle-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cycle-head .spacer { flex: 1; }
 .cycle-grid {
   list-style: none; margin: 0; padding: 0;
   display: grid; gap: 10px;
@@ -200,15 +162,4 @@ const events = computed(() =>
 .not-started { color: var(--text-muted); }
 .trigger { margin-top: 10px; width: 100%; padding: 8px 10px; font-size: 14px; font-weight: 650; }
 
-.events-card { margin-top: 12px; }
-.section-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-.section-head h3 { margin: 0; }
-.section-head .spacer { flex: 1; }
-.event-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.event { display: flex; gap: 12px; align-items: center; padding: 7px 12px; border-radius: var(--radius-sm); font-size: 14.5px; }
-/* 只有「下一個要來的」標紅，其餘中性——整排都紅就等於沒有重點 */
-.ev-next { background: var(--danger-soft); color: var(--danger); font-weight: 650; }
-.ev-later { background: var(--surface-2); color: var(--text); }
-.ev-time { font-family: var(--mono); font-variant-numeric: tabular-nums; min-width: 64px; font-weight: 650; flex: none; }
-.ev-label { white-space: nowrap; }
 </style>

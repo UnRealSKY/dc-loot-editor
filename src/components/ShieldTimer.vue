@@ -33,6 +33,8 @@ import {
 } from '../shield/bosses'
 import CycleBoard from './CycleBoard.vue'
 import HpCapture from './HpCapture.vue'
+import AnchorRow from './AnchorRow.vue'
+import CycleEvents from './CycleEvents.vue'
 import { anchorRef, setAnchor, calibrateAnchor, fmtTime, gameClock } from '../shield/anchor'
 import { beep as playBeep, ensureAudio } from '../shield/sound'
 import { openPipWindow, pipSupported, keepFitted } from '../pip/documentPip'
@@ -96,8 +98,9 @@ let timer: number | undefined
 let remindedForPhase = 0 // 已提醒魔消的 phaseStart（每個間隔提醒一次）
 
 function tick() {
-  if (cycleBoss.value) return // 循環面板自己計時，反盾狀態機在旁邊空轉沒有意義
+  // now 一定要更新：遊戲計時的時鐘讀的就是它，停下來的話對齊會整個歪掉
   now.value = Date.now()
+  if (cycleBoss.value) return // 循環面板自己計時，反盾狀態機在旁邊空轉沒有意義
   const prev = state.value
   const next = advance(prev, now.value, params.value)
   if (next !== prev && (next.phase !== prev.phase || next.phaseStart !== prev.phaseStart)) {
@@ -328,25 +331,19 @@ const nextPhaseInfo = computed(() => {
     </div>
 
     <Teleport :to="pipBody" :disabled="!pipBody">
-    <!-- 小視窗裡看不到下面的事件表，遊戲計時要自己帶一份過去 -->
-    <div v-if="pipBody" class="card pip-clock">
-      <div class="anchor-row">
-        <input v-model="gameInput" class="anchor-input" placeholder="遊戲計時 mm:ss" spellcheck="false"
-          @keyup.enter="applyAnchor" />
-        <button type="button" class="btn btn-sm" @click="applyAnchor">對齊</button>
-        <template v-if="anchor">
-          <button type="button" class="btn btn-sm" title="校準 -1 秒" @click="calibrate(-1)">−1s</button>
-          <button type="button" class="btn btn-sm" title="校準 +1 秒" @click="calibrate(1)">＋1s</button>
-          <span class="game-clock">{{ clockNow }}</span>
-        </template>
-      </div>
-    </div>
-
     <HpCapture />
 
-    <CycleBoard v-if="cycleBoss" :boss="cycleBoss" :sound-on="soundOn" @running="cycleRunning = $event" />
+    <CycleBoard v-if="cycleBoss" :boss="cycleBoss" :sound-on="soundOn" @running="cycleRunning = $event">
+      <!-- 小視窗看不到下面的事件表，把遊戲計時放進重置那一列 -->
+      <template #lead>
+        <AnchorRow v-if="pipBody" />
+      </template>
+    </CycleBoard>
 
     <template v-else>
+    <!-- 小視窗看不到下面的事件表，遊戲計時要自己帶一份過去 -->
+    <div v-if="pipBody" class="card pip-clock"><AnchorRow /></div>
+
     <!-- 大字現況 -->
     <div class="card phase-panel" :class="[meta.cls, { 'dispel-active': dispelActive, 'flash-early': earlyFlash }]">
       <!-- 引信：邊框繞著色塊燒短，燒完就是本階段結束 -->
@@ -406,6 +403,9 @@ const nextPhaseInfo = computed(() => {
     </div>
     </template>
     </Teleport>
+
+    <!-- 時間表留在主視窗：子母畫面塞不下，大畫面才看得到完整的接下來 -->
+    <CycleEvents v-if="cycleBoss" :boss="cycleBoss" />
 
     <template v-if="!cycleBoss">
 
