@@ -315,4 +315,20 @@ button { font-family: inherit; }
   font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 750;
   padding: 3px 10px; border-radius: 6px; background: var(--primary-soft); color: var(--primary);
 }
+
+/* ---- 子母畫面：整組面板搬到一個很小的置頂視窗，字級與留白全部收緊 ---- */
+.pip-body { margin: 0; padding: 10px; background: var(--bg); overflow-y: auto; }
+.pip-body.app { max-width: none; padding: 10px; }
+.pip-body .card { margin-bottom: 8px; padding: 12px; }
+.pip-body .phase-panel { padding: 14px 12px; }
+.pip-body .phase-title { font-size: 17px; }
+.pip-body .phase-remaining { font-size: 38px; }
+.pip-body .phase-bar { margin-top: 8px; }
+.pip-body .ctrl { min-width: 0; padding: 10px 6px; font-size: 13px; }
+/* 小視窗放不下也不需要的：操作說明、事件表旁的長註解 */
+.pip-body .ctrl-hint, .pip-body .phase-note { display: none; }
+.pip-body .cycle-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+.pip-body .cycle-item .phase-remaining { font-size: 26px; }
+.pip-body .events-card { display: none; }
+.pip-body .hp-percent { font-size: 34px; }
 </style>

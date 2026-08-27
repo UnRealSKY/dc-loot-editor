@@ -35,6 +35,7 @@ import CycleBoard from './CycleBoard.vue'
 import HpCapture from './HpCapture.vue'
 import { anchorRef, setAnchor, calibrateAnchor, fmtTime, gameClock } from '../shield/anchor'
 import { beep as playBeep, ensureAudio } from '../shield/sound'
+import { openPipWindow, pipSupported } from '../pip/documentPip'
 
 const BOSS_KEY = 'dc-shield-boss'
 const OVERRIDES_KEY = 'dc-shield-overrides'
@@ -154,6 +155,23 @@ function onReset() {
 // 實況與倒數差一兩秒時就地校正，不必整段重按
 function onNudge(deltaSec: number) {
   state.value = nudge(state.value, deltaSec)
+}
+
+// ---- 子母畫面 ----
+// 打王時遊戲佔滿螢幕，這個視窗會浮在最上面，把血量與機制面板整組搬過去。
+const pipBody = ref<HTMLElement | null>(null)
+const canPip = pipSupported()
+async function togglePip() {
+  if (pipBody.value) {
+    // 關掉視窗，Teleport 就會把內容放回頁面原本的位置
+    ;(pipBody.value.ownerDocument.defaultView as Window | null)?.close()
+    pipBody.value = null
+    return
+  }
+  const win = await openPipWindow({ width: 460, height: 620 })
+  if (!win) return
+  win.addEventListener('pagehide', () => (pipBody.value = null))
+  pipBody.value = win.document.body
 }
 
 // ---- 選王與參數 ----
@@ -298,11 +316,15 @@ const nextPhaseInfo = computed(() => {
       </div>
       <span v-if="locked" class="muted lock-hint">計時中無法換王——請先按「重置」</span>
       <div class="spacer" />
+      <button v-if="canPip" type="button" class="btn btn-sm" @click="togglePip">
+        {{ pipBody ? '關閉子母畫面' : '子母畫面' }}
+      </button>
       <label class="sound-toggle">
         <input v-model="soundOn" type="checkbox" /> 聲音提醒
       </label>
     </div>
 
+    <Teleport :to="pipBody" :disabled="!pipBody">
     <HpCapture />
 
     <CycleBoard v-if="cycleBoss" :boss="cycleBoss" :sound-on="soundOn" @running="cycleRunning = $event" />
@@ -365,6 +387,10 @@ const nextPhaseInfo = computed(() => {
         對王有 {{ DISPEL_RESIST }} 秒耐性、技能本身 {{ DISPEL_COOLDOWN }} 秒冷卻。
       </p>
     </div>
+    </template>
+    </Teleport>
+
+    <template v-if="!cycleBoss">
 
     <!-- 時間軸 -->
     <div class="card">
