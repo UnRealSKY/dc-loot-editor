@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
 import { scanHpBar, readRatioIn, type Rect } from '../hp/scan'
-import { pushPoint, sparklinePoints, recentDps, type HpPoint } from '../hp/history'
+import { pushPoint, recentDps, type HpPoint } from '../hp/history'
 
 // 掃描頻率。血條變化不需要每幀讀，一秒一次就夠，
 // 而且瀏覽器切到背景時 setInterval 本來就會被壓到一秒一次。
@@ -151,7 +151,6 @@ const dps = computed(() => {
   const v = recentDps(points.value)
   return v == null || v <= 0 ? null : Math.round(v * 10) / 10
 })
-const curve = computed(() => sparklinePoints(points.value, 600, 100))
 const fillColor = computed(() => `rgb(${color.value ?? '200,40,40'})`)
 // 右邊剩下的：多條血時是下一條的底色，最後一條時就留空（灰槽）
 const restColor = computed(() => (nextColor.value ? `rgb(${nextColor.value})` : 'transparent'))
@@ -179,20 +178,13 @@ onBeforeUnmount(stop)
     <template v-if="capturing">
       <p v-if="percent == null" class="muted no-bar">找不到血條，可以用「框選血條」直接指定範圍</p>
       <template v-else>
-        <div class="hp-row">
-          <div class="hp-percent">{{ percent }}<span class="unit">%</span></div>
-          <div class="hp-side">
-            <div class="hp-bar" :style="{ background: restColor }">
-              <div class="hp-bar-fill"
-                :style="{ width: `${(ratio ?? 0) * 100}%`, background: fillColor }" />
-            </div>
-            <div v-if="dps" class="hp-dps">每秒 {{ dps }}%</div>
-          </div>
+        <div class="hp-bar" :style="{ background: restColor }">
+          <div class="hp-bar-fill" :style="{ width: `${(ratio ?? 0) * 100}%`, background: fillColor }" />
         </div>
-
-        <svg v-if="curve" class="hp-curve" viewBox="0 0 600 100" preserveAspectRatio="none">
-          <polyline :points="curve" />
-        </svg>
+        <div class="hp-row">
+          <div class="hp-percent">{{ percent.toFixed(1) }}<span class="unit">%</span></div>
+          <div v-if="dps" class="hp-dps">每秒 {{ dps.toFixed(1) }}%</div>
+        </div>
       </template>
     </template>
 
@@ -218,22 +210,23 @@ onBeforeUnmount(stop)
 .section-head .spacer { flex: 1; }
 .no-bar, .err { margin: 0; font-size: 13px; }
 
-.hp-row { display: flex; align-items: center; gap: 16px; }
-.hp-percent {
-  font-size: 44px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums;
-  font-family: var(--mono); letter-spacing: -1px; flex: none;
-}
-.hp-percent .unit { font-size: 18px; font-weight: 600; margin-left: 2px; }
-.hp-side { flex: 1; min-width: 0; }
 .hp-bar {
-  display: flex; height: 14px; border-radius: 999px; overflow: hidden;
+  display: flex; height: 18px; border-radius: 999px; overflow: hidden;
   background: var(--surface-2); border: 1px solid var(--border);
 }
 .hp-bar-fill { height: 100%; }
-.hp-dps { margin-top: 4px; font-size: 12.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-
-.hp-curve { width: 100%; height: 60px; margin-top: 10px; display: block; }
-.hp-curve polyline { fill: none; stroke: var(--danger); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.hp-row { display: flex; align-items: baseline; gap: 12px; margin-top: 8px; }
+/* 位數變動時版面不能跟著跳，所以固定字寬：最長就是 100.0 */
+.hp-percent {
+  font-size: 44px; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums; font-family: var(--mono); letter-spacing: -1px;
+  flex: none; min-width: 5ch; text-align: right;
+}
+.hp-percent .unit { font-size: 18px; font-weight: 600; margin-left: 2px; }
+.hp-dps {
+  font-size: 12.5px; color: var(--text-muted);
+  font-variant-numeric: tabular-nums; font-family: var(--mono);
+}
 
 .pick-dialog {
   background: var(--surface); border-radius: var(--radius); padding: 16px;

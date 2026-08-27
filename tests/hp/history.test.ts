@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pushPoint, sparklinePoints, recentDps, MAX_POINTS, type HpPoint } from '#src/hp/history'
+import { pushPoint, recentDps, MAX_POINTS, type HpPoint } from '#src/hp/history'
 
 const T0 = 1_000_000
 const at = (sec: number, ratio: number): HpPoint => ({ t: T0 + sec * 1000, ratio })
@@ -29,17 +29,6 @@ describe('血量曲線記錄', () => {
     for (let i = 0; i < MAX_POINTS + 10; i++) pts = pushPoint(pts, T0 + i * 1000, 1 - i / 10000)
     expect(pts.length).toBe(MAX_POINTS)
     expect(pts[0].t).toBeGreaterThan(T0)
-  })
-})
-
-describe('曲線座標', () => {
-  it('時間往右、血量往上', () => {
-    const pts = [at(0, 1), at(10, 0.5)]
-    expect(sparklinePoints(pts, 100, 40)).toBe('0.0,0.0 100.0,20.0')
-  })
-
-  it('只有一點畫不出線', () => {
-    expect(sparklinePoints([at(0, 1)], 100, 40)).toBe('')
   })
 })
 

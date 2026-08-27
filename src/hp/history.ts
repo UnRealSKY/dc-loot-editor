@@ -19,20 +19,6 @@ export function pushPoint(points: HpPoint[], t: number, ratio: number): HpPoint[
   return next.length > MAX_POINTS ? next.slice(next.length - MAX_POINTS) : next
 }
 
-/** SVG polyline 的點字串；不足兩點時回空字串（畫不出線） */
-export function sparklinePoints(points: HpPoint[], width: number, height: number): string {
-  if (points.length < 2) return ''
-  const t0 = points[0].t
-  const span = Math.max(1, points[points.length - 1].t - t0)
-  return points
-    .map((p) => {
-      const x = ((p.t - t0) / span) * width
-      const y = height - p.ratio * height
-      return `${x.toFixed(1)},${y.toFixed(1)}`
-    })
-    .join(' ')
-}
-
 /** 最近這段時間掉了多少血（每秒百分點）；資料不足回 null */
 export function recentDps(points: HpPoint[], windowMs = 20_000): number | null {
   if (points.length < 2) return null
