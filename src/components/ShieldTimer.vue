@@ -32,6 +32,7 @@ import {
   type CycleBoss,
 } from '../shield/bosses'
 import CycleBoard from './CycleBoard.vue'
+import HpCapture from './HpCapture.vue'
 import { anchorRef, setAnchor, calibrateAnchor, fmtTime, gameClock } from '../shield/anchor'
 import { beep as playBeep, ensureAudio } from '../shield/sound'
 
@@ -301,6 +302,8 @@ const nextPhaseInfo = computed(() => {
         <input v-model="soundOn" type="checkbox" /> 聲音提醒
       </label>
     </div>
+
+    <HpCapture />
 
     <CycleBoard v-if="cycleBoss" :boss="cycleBoss" :sound-on="soundOn" @running="cycleRunning = $event" />
 
