@@ -44,8 +44,10 @@ export interface HpReading {
   fill: number
   total: number
   ratio: number
-  /** 有血的部分出現了哪幾種顏色（多條血的王會有多種） */
-  colors: string[]
+  /** 目前這條血的顏色，"r,g,b" */
+  color: string | null
+  /** 右邊露出來的下一條血顏色；只剩最後一條時是 null（那時右邊是灰色空槽） */
+  nextColor: string | null
 }
 
 export interface ScanOptions {
@@ -64,6 +66,26 @@ function px(data: Pixels, width: number, x: number, y: number): [number, number,
 
 const diff = (a: number[], b: number[]) =>
   Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2])
+
+// 色相（0~360）。同一條血從左到右有明暗漸層，但色相幾乎不動；
+// 換成另一條血則是換一個色系——所以「是不是同一條血」要看色相，不能比 RGB 距離。
+export function hueOf(r: number, g: number, b: number): number {
+  const mx = Math.max(r, g, b)
+  const mn = Math.min(r, g, b)
+  const d = mx - mn
+  if (d === 0) return 0
+  let h: number
+  if (mx === r) h = ((g - b) / d) % 6
+  else if (mx === g) h = (b - r) / d + 2
+  else h = (r - g) / d + 4
+  h *= 60
+  return h < 0 ? h + 360 : h
+}
+
+export function hueDiff(a: number, b: number): number {
+  const d = Math.abs(a - b) % 360
+  return d > 180 ? 360 - d : d
+}
 
 function median(arr: number[]): number {
   const s = [...arr].sort((a, b) => a - b)
@@ -191,40 +213,61 @@ export function extendRight(
   return last
 }
 
-const colorKey = (r: number, g: number, b: number) =>
-  `${Math.round(r / 48) * 48},${Math.round(g / 48) * 48},${Math.round(b / 48) * 48}`
-
 /**
- * 第三步：在框好的範圍內算有血的比例。
+ * 第三步：在框好的範圍內算血量。
+ *
+ * 多條血的王，扣掉的部分會露出「下一條血」的顏色而不是灰色空槽，
+ * 所以血量只算「從左端數過來的第一段顏色」——右邊那段亮色是底，不是血。
  * 取中央幾列多數決，避開上下緣的漸層與外框。
  */
 export function readRatioIn(data: Pixels, width: number, rect: Rect): Omit<HpReading, 'rect'> {
   const mid = Math.floor((rect.y0 + rect.y1) / 2)
   const ys = [mid - 2, mid, mid + 2].filter((y) => y >= rect.y0 && y <= rect.y1)
-  const counts = new Map<string, number>()
-  let fill = 0
+  const hueTol = 25 // 同一條血的漸層色相頂多晃這麼多
+  const switchRun = 6 // 換色要連續這麼多欄才算數，短的是抗鋸齒過渡帶
   let total = 0
+  let fill = 0
+  let head: number[] | null = null // 目前這條血的顏色
+  let tail: number[] | null = null // 右邊露出來的顏色（下一條血）
+  let pending = 0 // 連續幾欄跟目前這條血不同色
+  let ended = false
   for (let x = rect.x0; x <= rect.x1; x++) {
     let f = 0
     let e = 0
+    const cols: number[][] = []
     for (const y of ys) {
-      const [r, g, b] = px(data, width, x, y)
-      const k = classify(r, g, b)
+      const p = px(data, width, x, y)
+      const k = classify(p[0], p[1], p[2])
       if (k === FILL) {
         f++
-        const key = colorKey(r, g, b)
-        counts.set(key, (counts.get(key) ?? 0) + 1)
+        cols.push(p)
       } else if (k === EMPTY) e++
     }
     if (f + e === 0) continue
     total++
-    if (f > e) fill++
+    if (f <= e) {
+      ended = true // 走到灰色空槽，血就是到這裡為止
+      continue
+    }
+    if (ended) continue
+    const c = [0, 1, 2].map((i) => median(cols.map((p) => p[i])))
+    if (!head) {
+      head = c
+      fill++
+      continue
+    }
+    if (hueDiff(hueOf(c[0], c[1], c[2]), hueOf(head[0], head[1], head[2])) <= hueTol) {
+      fill += 1 + pending // 剛才那幾欄只是過渡，補回來
+      pending = 0
+      continue
+    }
+    if (++pending >= switchRun) {
+      ended = true
+      tail = c
+    }
   }
-  const colors = [...counts.entries()]
-    .filter(([, n]) => n >= ys.length * 4) // 幾個像素的雜色不算一種血條顏色
-    .sort((a, b) => b[1] - a[1])
-    .map(([k]) => k)
-  return { fill, total, ratio: total ? fill / total : 0, colors }
+  const key = (c: number[] | null) => (c ? `${c[0]},${c[1]},${c[2]}` : null)
+  return { fill, total, ratio: total ? fill / total : 0, color: key(head), nextColor: key(tail) }
 }
 
 /** 自動判讀一整張畫面；找不到血條回 null */

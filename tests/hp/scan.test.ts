@@ -103,13 +103,22 @@ describe('自動判讀血條', () => {
     expect(scanHpBar(data, width, height, { topFrac: 1 })!.ratio).toBe(1)
   })
 
-  it('多條血：不同顏色的區段都算有血，並回報有幾種顏色', () => {
-    const { data, width, height } = paint({
-      fills: [[80, [4, 120, 207]], [81, [0, 202, 185]]], // 藍 + 青，滿血兩條
+  it('多條血：右邊露出的下一條底色不算血，只算最左邊那段', () => {
+    const { data, width, height, x0, x1 } = paint({
+      fills: [[80, [4, 120, 207]], [81, [0, 202, 185]]], // 藍＝剩下的血，青＝下一條的底
     })
     const res = scanHpBar(data, width, height, { topFrac: 1 })!
-    expect(res.ratio).toBe(1)
-    expect(res.colors.length).toBe(2)
+    expect(res.ratio).toBeCloseTo(80 / (x1 - x0 + 1), 2)
+    expect(res.color).toBe('4,120,207')
+    expect(res.nextColor).toBe('0,202,185')
+  })
+
+  it('最後一條血：右邊是灰色空槽，沒有下一條顏色', () => {
+    const { data, width, height, x0, x1 } = paint({ fills: [[60, [220, 30, 10]]] })
+    const res = scanHpBar(data, width, height, { topFrac: 1 })!
+    expect(res.ratio).toBeCloseTo(60 / (x1 - x0 + 1), 2)
+    expect(res.color).toBe('220,30,10')
+    expect(res.nextColor).toBeNull()
   })
 
   it('空槽右邊接著同色背景時，外框把右端收住', () => {

@@ -19,7 +19,8 @@ const capturing = computed(() => stream.value != null)
 const error = ref('')
 
 const ratio = ref<number | null>(null)
-const colors = ref<string[]>([])
+const color = ref<string | null>(null)
+const nextColor = ref<string | null>(null)
 const points = ref<HpPoint[]>([])
 const manualRect = ref<Rect | null>(null) // 手動框選（存畫面比例，視窗大小變了也還能用）
 const lastFrame = ref('') // 框選時要有一張畫面可以拖
@@ -75,7 +76,8 @@ function scan() {
     return
   }
   ratio.value = res.ratio
-  colors.value = res.colors
+  color.value = res.color
+  nextColor.value = res.nextColor
   points.value = pushPoint(points.value, Date.now(), res.ratio)
 }
 
@@ -150,7 +152,9 @@ const dps = computed(() => {
   return v == null || v <= 0 ? null : Math.round(v * 10) / 10
 })
 const curve = computed(() => sparklinePoints(points.value, 600, 100))
-const barColors = computed(() => (colors.value.length ? colors.value : ['200,40,40']))
+const fillColor = computed(() => `rgb(${color.value ?? '200,40,40'})`)
+// 右邊剩下的：多條血時是下一條的底色，最後一條時就留空（灰槽）
+const restColor = computed(() => (nextColor.value ? `rgb(${nextColor.value})` : 'transparent'))
 
 onBeforeUnmount(stop)
 </script>
@@ -178,9 +182,9 @@ onBeforeUnmount(stop)
         <div class="hp-row">
           <div class="hp-percent">{{ percent }}<span class="unit">%</span></div>
           <div class="hp-side">
-            <div class="hp-bar">
-              <div v-for="(c, i) in barColors" :key="i" class="hp-bar-fill"
-                :style="{ width: `${((ratio ?? 0) * 100) / barColors.length}%`, background: `rgb(${c})` }" />
+            <div class="hp-bar" :style="{ background: restColor }">
+              <div class="hp-bar-fill"
+                :style="{ width: `${(ratio ?? 0) * 100}%`, background: fillColor }" />
             </div>
             <div v-if="dps" class="hp-dps">每秒 {{ dps }}%</div>
           </div>
