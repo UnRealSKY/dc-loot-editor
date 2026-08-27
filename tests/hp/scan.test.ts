@@ -16,6 +16,8 @@ interface BarSpec {
   border?: [number, number, number]
   /** 血條右側的背景改成跟空槽同色，用來驗證外框有沒有把右端收住 */
   greyRight?: boolean
+  /** 血條左邊（外框外）也放一段同色，模擬畫面縮小後外框旁糊掉的陰影 */
+  greyLeft?: boolean
 }
 
 function paint(spec: BarSpec = {}) {
@@ -39,8 +41,10 @@ function paint(spec: BarSpec = {}) {
   }
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const rightOfBar = spec.greyRight && x > x1 && y >= y0 && y <= y1
-      set(x, y, rightOfBar ? empty : bg)
+      const inRow = y >= y0 && y <= y1
+      const rightOfBar = spec.greyRight && x > x1 && inRow
+      const leftOfBar = spec.greyLeft && x < x0 - 1 && x >= x0 - 4 && inRow
+      set(x, y, rightOfBar || leftOfBar ? empty : bg)
     }
   }
   // 外框：上下左右各一圈
@@ -124,6 +128,16 @@ describe('自動判讀血條', () => {
   it('空槽右邊接著同色背景時，外框把右端收住', () => {
     const { data, width, height, x1 } = paint({ greyRight: true })
     expect(scanHpBar(data, width, height, { topFrac: 1 })!.rect.x1).toBe(x1)
+  })
+
+  it('左外框外糊了一圈陰影時，起點要落在血條內容上', () => {
+    // 畫面縮小後外框旁常糊出一片跟空槽同色的陰影，
+    // 從那裡起算會在左外框就撞牆，整條血條只框到兩三個像素
+    const { data, width, height, x0, x1 } = paint({ greyLeft: true, fills: [[80, [220, 30, 10]]] })
+    const res = scanHpBar(data, width, height, { topFrac: 1 })!
+    expect(res.rect.x0).toBe(x0)
+    expect(res.rect.x1).toBe(x1)
+    expect(res.ratio).toBeCloseTo(80 / (x1 - x0 + 1), 2)
   })
 
   it('血條位置與長度換了也照樣讀得到——視窗大小會變', () => {

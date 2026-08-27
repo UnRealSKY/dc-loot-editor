@@ -144,7 +144,38 @@ export function detectBand(data: Pixels, width: number, height: number, opts: Sc
 }
 
 /**
- * 第二步：從左端沿著中線往右走到血條盡頭。
+ * 找出血條內容真正的起點。detectBand 給的左端可能落在外框、甚至外框外的陰影上
+ * （畫面被縮小時特別明顯），從那裡起算會在左外框就撞牆結束。
+ * 往右找第一段「連續且同色」的內部像素，那才是血條的第一格。
+ */
+export function contentStart(
+  data: Pixels,
+  width: number,
+  y: number,
+  x0: number,
+  opts: { run?: number; maxSkip?: number; colorTol?: number } = {},
+): number {
+  const run = opts.run ?? 6
+  const maxSkip = opts.maxSkip ?? 80
+  const colorTol = opts.colorTol ?? 50
+  for (let x = x0; x < Math.min(width - run, x0 + maxSkip); x++) {
+    const p = px(data, width, x, y)
+    if (!isInner(classify(p[0], p[1], p[2]))) continue
+    let ok = true
+    for (let k = 1; k < run; k++) {
+      const q = px(data, width, x + k, y)
+      if (!isInner(classify(q[0], q[1], q[2])) || diff(q, p) > colorTol) {
+        ok = false
+        break
+      }
+    }
+    if (ok) return x
+  }
+  return x0
+}
+
+/**
+ * 第三步：從左端沿著中線往右走到血條盡頭。
  * 同色就繼續；顏色跳掉時，只有「後面接著一段穩定的血條色」才算還在血條裡
  * （跨得過 有血→空槽 的抗鋸齒過渡帶，又不會滑進背景）。撞到外框就結束。
  */
@@ -214,7 +245,7 @@ export function extendRight(
 }
 
 /**
- * 第三步：在框好的範圍內算血量。
+ * 第四步：在框好的範圍內算血量。
  *
  * 多條血的王，扣掉的部分會露出「下一條血」的顏色而不是灰色空槽，
  * 所以血量只算「從左端數過來的第一段顏色」——右邊那段亮色是底，不是血。
@@ -282,7 +313,9 @@ export function scanHpBar(
   const ys: number[] = []
   for (let y = band.y0; y <= band.y1; y++) ys.push(y)
   const mid = Math.floor((band.y0 + band.y1) / 2)
-  const x1 = extendRight(data, width, mid, band.x0, { columnYs: ys })
-  const rect: Rect = { x0: band.x0, x1, y0: band.y0, y1: band.y1 }
+  const x0 = contentStart(data, width, mid, band.x0)
+  const x1 = extendRight(data, width, mid, x0, { columnYs: ys })
+  if (x1 - x0 < width * 0.1) return null // 只框到一小截，當作沒找到
+  const rect: Rect = { x0, x1, y0: band.y0, y1: band.y1 }
   return { rect, ...readRatioIn(data, width, rect) }
 }
