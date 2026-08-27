@@ -317,18 +317,33 @@ button { font-family: inherit; }
 }
 
 /* ---- 子母畫面：整組面板搬到一個很小的置頂視窗，字級與留白全部收緊 ---- */
-.pip-body { margin: 0; padding: 10px; background: var(--bg); overflow-y: auto; }
-.pip-body.app { max-width: none; padding: 10px; }
-.pip-body .card { margin-bottom: 8px; padding: 12px; }
-.pip-body .phase-panel { padding: 14px 12px; }
-.pip-body .phase-title { font-size: 17px; }
-.pip-body .phase-remaining { font-size: 38px; }
-.pip-body .phase-bar { margin-top: 8px; }
-.pip-body .ctrl { min-width: 0; padding: 10px 6px; font-size: 13px; }
-/* 小視窗放不下也不需要的：操作說明、事件表旁的長註解 */
-.pip-body .ctrl-hint, .pip-body .phase-note { display: none; }
-.pip-body .cycle-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-.pip-body .cycle-item .phase-remaining { font-size: 26px; }
-.pip-body .events-card { display: none; }
-.pip-body .hp-percent { font-size: 34px; }
+.pip-body { margin: 0; padding: 8px; background: var(--bg); overflow: hidden; }
+.pip-body.app { max-width: none; padding: 8px; }
+.pip-body .card { margin-bottom: 6px; padding: 8px 10px; }
+.pip-body .phase-panel { padding: 8px 10px; }
+.pip-body .phase-title { font-size: 15px; }
+.pip-body .phase-remaining { font-size: 26px; }
+.pip-body .until-label { margin-top: 2px; font-size: 11px; }
+.pip-body .phase-bar { margin-top: 6px; }
+.pip-body .remaining-row, .pip-body .seg-row { margin-top: 2px; gap: 6px; }
+.pip-body .ctrl { min-width: 0; padding: 6px 4px; font-size: 12px; }
+.pip-body .controls { gap: 5px; }
+/* 小視窗放不下也不需要的：操作說明、事件表、待機時的提示 */
+.pip-body .ctrl-hint, .pip-body .phase-note, .pip-body .events-card { display: none; }
+/* 小視窗裡排成一列：疊成多排會讓整體變高，等比縮下來字就小到看不清 */
+.pip-body .cycle-grid {
+  grid-template-columns: none !important;
+  grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 5px;
+}
+.pip-body .cycle-item { padding: 6px 4px; }
+.pip-body .cycle-item .phase-title { font-size: 13px; }
+.pip-body .cycle-item .phase-remaining { font-size: 19px; }
+.pip-body .cycle-item .trigger { margin-top: 5px; padding: 4px 6px; font-size: 12px; }
+.pip-body .cycle-head { margin-bottom: 5px; }
+/* 血量：標題那行收成一列小字，數字與血條擠在同一張卡裡 */
+.pip-body .hp-card .section-head { margin-bottom: 4px; }
+.pip-body .hp-card h3 { font-size: 13px; }
+.pip-body .hp-percent { font-size: 26px; min-width: 5ch; }
+.pip-body .hp-row { margin-top: 4px; }
+.pip-body .hp-bar { height: 14px; }
 </style>

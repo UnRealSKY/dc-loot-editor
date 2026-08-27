@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   IDLE,
   advance,
@@ -35,7 +35,7 @@ import CycleBoard from './CycleBoard.vue'
 import HpCapture from './HpCapture.vue'
 import { anchorRef, setAnchor, calibrateAnchor, fmtTime, gameClock } from '../shield/anchor'
 import { beep as playBeep, ensureAudio } from '../shield/sound'
-import { openPipWindow, pipSupported } from '../pip/documentPip'
+import { openPipWindow, pipSupported, keepFitted } from '../pip/documentPip'
 
 const BOSS_KEY = 'dc-shield-boss'
 const OVERRIDES_KEY = 'dc-shield-overrides'
@@ -168,10 +168,13 @@ async function togglePip() {
     pipBody.value = null
     return
   }
-  const win = await openPipWindow({ width: 460, height: 620 })
+  const win = await openPipWindow({ width: 480, height: 200 })
   if (!win) return
   win.addEventListener('pagehide', () => (pipBody.value = null))
   pipBody.value = win.document.body
+  // 內容搬進去之後才量得到高度
+  await nextTick()
+  keepFitted(win)
 }
 
 // ---- 選王與參數 ----
