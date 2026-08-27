@@ -321,10 +321,14 @@ button { font-family: inherit; }
    字反而看得更清楚。 */
 .pip-body {
   margin: 0; padding: 5px; background: var(--bg); overflow: hidden;
+  /* 小視窗上都是要連點的按鈕，手一滑就整片反白，看起來像壞掉 */
+  user-select: none; -webkit-user-select: none;
   /* 時鐘與血量擠成同一列，省下來的高度全部回饋到縮放倍率 */
   display: flex; flex-wrap: wrap; align-content: flex-start;
 }
 .pip-body > * { flex: 0 0 100%; }
+/* 只有輸入框留著可以選、可以編輯 */
+.pip-body input { user-select: text; -webkit-user-select: text; }
 .pip-body.app { max-width: none; padding: 5px; }
 .pip-body .card { margin-bottom: 4px; padding: 5px 7px; }
 .pip-body .phase-panel { padding: 6px 8px; }
