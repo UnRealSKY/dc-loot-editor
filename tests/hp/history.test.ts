@@ -6,6 +6,7 @@ import {
   peakDps,
   sameBar,
   MAX_POINTS,
+  etaSeconds,
   type HpPoint,
 } from '#src/hp/history'
 
@@ -143,5 +144,21 @@ describe('峰值速度', () => {
       { t: T0, dps: 1, color: RED },
       { t: T0 + 1000, dps: 2, color: RED },
     ])
+  })
+})
+
+describe('預估倒數', () => {
+  it('剩下的血除以目前的 DPS', () => {
+    expect(etaSeconds(50, 2)).toBe(25)
+    expect(etaSeconds(62.4, 1.8)).toBeCloseTo(34.7, 1)
+  })
+
+  it('沒在掉血就估不出來', () => {
+    expect(etaSeconds(50, 0)).toBeNull()
+    expect(etaSeconds(50, null)).toBeNull()
+  })
+
+  it('還沒讀到血量也估不出來', () => {
+    expect(etaSeconds(null, 2)).toBeNull()
   })
 })

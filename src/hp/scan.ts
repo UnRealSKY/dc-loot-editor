@@ -353,6 +353,41 @@ export function readRatioIn(data: Pixels, width: number, rect: Rect): Omit<HpRea
   return { fill, total, ratio: total ? fill / total : 0, color: key(head), nextColor: key(tail) }
 }
 
+/**
+ * 這一塊到底是不是血條——上下要有外框包著。
+ * 畫面上長條狀的色塊很多（UI 橫幅、地圖、背景），光看「夠長又夠齊」會把它們全當成血條，
+ * 沒在打王的時候也照樣給出讀數。外框是血條才有的東西，拿它當門檻。
+ * 只要求上下其中一邊：另一邊常被別的 UI 蓋住（例如剩餘時間面板壓在血條下緣）。
+ */
+export function hasBorder(
+  data: Pixels,
+  width: number,
+  height: number,
+  rect: Rect,
+  minRatio = 0.5,
+): boolean {
+  const samples = 20
+  const reach = 4 // 內部與外框之間還隔著漸層與抗鋸齒，往外找幾格
+  const span = rect.x1 - rect.x0
+  if (span <= 0) return false
+  const borderAt = (x: number, from: number, step: number) => {
+    for (let k = 1; k <= reach; k++) {
+      const y = from + step * k
+      if (y < 0 || y >= height) return false
+      if (classify(...px(data, width, x, y)) === BORDER) return true
+    }
+    return false
+  }
+  let top = 0
+  let bottom = 0
+  for (let i = 0; i < samples; i++) {
+    const x = Math.round(rect.x0 + (span * i) / (samples - 1))
+    if (borderAt(x, rect.y0, -1)) top++
+    if (borderAt(x, rect.y1, 1)) bottom++
+  }
+  return Math.max(top, bottom) / samples >= minRatio
+}
+
 /** 自動判讀一整張畫面；找不到血條回 null */
 export function scanHpBar(
   data: Pixels,
@@ -374,5 +409,8 @@ export function scanHpBar(
   const x1 = extendRight(data, width, mid, x0, { columnYs: columnYs.length ? columnYs : [mid] })
   if (x1 - x0 < width * 0.1) return null // 只框到一小截，當作沒找到
   const rect: Rect = { x0, x1, y0: bounds.y0, y1: bounds.y1 }
+  // 血條再高也就那麼高；整片色塊被框起來的話高度會離譜
+  if (rect.y1 - rect.y0 > height * 0.5) return null
+  if (!hasBorder(data, width, height, rect)) return null
   return { rect, ...readRatioIn(data, width, rect) }
 }

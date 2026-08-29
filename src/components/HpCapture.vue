@@ -1,7 +1,16 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
 import { scanHpBar, readRatioIn, type Rect } from '../hp/scan'
-import { pushPoint, recentDps, pushDps, peakDps, type HpPoint, type DpsSample } from '../hp/history'
+import {
+  pushPoint,
+  recentDps,
+  pushDps,
+  peakDps,
+  etaSeconds,
+  type HpPoint,
+  type DpsSample,
+} from '../hp/history'
+import { elapsedText } from '../hp/thresholds'
 import { setHpNow, clearHpNow } from '../hp/current'
 
 // 掃描頻率。血條變化不需要每幀讀，一秒一次就夠，
@@ -162,6 +171,11 @@ const percent = computed(() => (ratio.value == null ? null : Math.round(ratio.va
 const round1 = (v: number | null) => (v == null ? null : Math.round(v * 10) / 10)
 const dps = computed(() => round1(recentDps(points.value)))
 // 機制打斷、跑位、王無敵都會讓當下速度掉下來，峰值才看得出打得順時有多快
+// 照目前的 DPS 還要打多久
+const eta = computed(() => {
+  const sec = etaSeconds(percent.value, dps.value)
+  return sec == null ? null : elapsedText(sec * 1000)
+})
 // 只看目前這條血（左邊那段的顏色）；右邊那段是已經打掉後露出的下一條底色，不能拿來算
 const peak60 = computed(() => round1(peakDps(dpsSamples.value, 60_000, color.value)))
 const peakAll = computed(() => round1(peakDps(dpsSamples.value, undefined, color.value)))
@@ -198,10 +212,11 @@ onBeforeUnmount(stop)
         </div>
         <div class="hp-row">
           <div class="hp-percent">{{ percent.toFixed(1) }}<span class="unit">%</span></div>
+          <span v-if="eta" class="chip chip-eta">預估 {{ eta }}</span>
           <div v-if="dps != null" class="hp-dps">
-            每秒 {{ dps.toFixed(1) }}%
-            <span v-if="peak60 != null" class="peak">60s 峰值 {{ peak60.toFixed(1) }}%</span>
-            <span v-if="peakAll != null" class="peak">本條血 {{ peakAll.toFixed(1) }}%</span>
+            DPS {{ dps.toFixed(1) }}%
+            <span v-if="peak60 != null" class="peak">60秒最高 {{ peak60.toFixed(1) }}%</span>
+            <span v-if="peakAll != null" class="peak">整場最高 {{ peakAll.toFixed(1) }}%</span>
           </div>
         </div>
       </template>
@@ -234,7 +249,7 @@ onBeforeUnmount(stop)
   background: var(--surface-2); border: 1px solid var(--border);
 }
 .hp-bar-fill { height: 100%; }
-.hp-row { display: flex; align-items: baseline; gap: 12px; margin-top: 8px; }
+.hp-row { display: flex; align-items: baseline; gap: 10px; margin-top: 8px; flex-wrap: nowrap; }
 /* 位數變動時版面不能跟著跳，所以固定字寬：最長就是 100.0 */
 .hp-percent {
   font-size: 44px; font-weight: 800; line-height: 1;
@@ -243,11 +258,15 @@ onBeforeUnmount(stop)
 }
 .hp-percent .unit { font-size: 18px; font-weight: 600; margin-left: 2px; }
 .hp-dps {
-  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: nowrap; min-width: 0;
   font-size: 12.5px; color: var(--text-muted);
   font-variant-numeric: tabular-nums; font-family: var(--mono);
 }
 .peak { color: var(--primary); font-weight: 650; }
+.chip-eta {
+  background: var(--primary-soft); color: var(--primary);
+  font-family: var(--mono); font-variant-numeric: tabular-nums; flex: none;
+}
 
 .pick-dialog {
   background: var(--surface); border-radius: var(--radius); padding: 16px;

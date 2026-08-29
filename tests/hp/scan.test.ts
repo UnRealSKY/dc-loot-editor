@@ -20,6 +20,8 @@ interface BarSpec {
   greyLeft?: boolean
   /** 血條下方再放一條同樣長的深色帶，模擬遊戲 UI 的橫帶 */
   bandBelow?: boolean
+  /** 不畫外框：模擬畫面上其他長條色塊（UI 橫幅、地圖背景） */
+  noBorder?: boolean
 }
 
 function paint(spec: BarSpec = {}) {
@@ -50,13 +52,15 @@ function paint(spec: BarSpec = {}) {
     }
   }
   // 外框：上下左右各一圈
-  for (let x = x0 - 1; x <= x1 + 1; x++) {
-    set(x, y0 - 1, border)
-    set(x, y1 + 1, border)
-  }
-  for (let y = y0 - 1; y <= y1 + 1; y++) {
-    set(x0 - 1, y, border)
-    set(x1 + 1, y, border)
+  if (!spec.noBorder) {
+    for (let x = x0 - 1; x <= x1 + 1; x++) {
+      set(x, y0 - 1, border)
+      set(x, y1 + 1, border)
+    }
+    for (let y = y0 - 1; y <= y1 + 1; y++) {
+      set(x0 - 1, y, border)
+      set(x1 + 1, y, border)
+    }
   }
   // 內部：先鋪空槽，再從左邊依序畫有血的區段
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, empty)
@@ -162,6 +166,11 @@ describe('自動判讀血條', () => {
     expect(res.rect.x0).toBe(40)
     expect(res.rect.x1).toBe(260)
     expect(res.ratio).toBeCloseTo(110 / 221, 2)
+  })
+
+  it('沒有外框的長條色塊不算血條——沒在打王時不該有讀數', () => {
+    const { data, width, height } = paint({ noBorder: true, fills: [[80, [220, 30, 10]]] })
+    expect(scanHpBar(data, width, height, { topFrac: 1 })).toBeNull()
   })
 
   it('畫面上沒有血條就回 null', () => {

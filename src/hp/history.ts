@@ -114,3 +114,12 @@ export function peakDps(
   if (!inRange.length) return null
   return inRange.reduce((mx, s) => Math.max(mx, s.dps), 0)
 }
+
+/**
+ * 照目前的 DPS 推估還要幾秒打完剩下的血；算不出來（沒在掉血）回 null。
+ * 多條血的王只算現在這一條——後面幾條的長度與難度都不一樣，一起算只會誤導。
+ */
+export function etaSeconds(percent: number | null, dps: number | null): number | null {
+  if (percent == null || dps == null || dps <= 0) return null
+  return Math.round((percent / dps) * 10) / 10
+}
