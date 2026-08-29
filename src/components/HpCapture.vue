@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
 import { scanHpBar, readRatioIn, type Rect } from '../hp/scan'
-import { pushPoint, recentDps, type HpPoint } from '../hp/history'
+import { pushPoint, recentDps, pushDps, peakDps, type HpPoint, type DpsSample } from '../hp/history'
 import { setHpNow, clearHpNow } from '../hp/current'
 
 // 掃描頻率。血條變化不需要每幀讀，一秒一次就夠，
@@ -23,6 +23,7 @@ const ratio = ref<number | null>(null)
 const color = ref<string | null>(null)
 const nextColor = ref<string | null>(null)
 const points = ref<HpPoint[]>([])
+const dpsSamples = ref<DpsSample[]>([])
 const manualRect = ref<Rect | null>(null) // 手動框選（存畫面比例，視窗大小變了也還能用）
 const lastFrame = ref('') // 框選時要有一張畫面可以拖
 const picking = ref(false)
@@ -82,9 +83,12 @@ function scan() {
   color.value = res.color
   nextColor.value = res.nextColor
   const at = Date.now()
-  points.value = pushPoint(points.value, at, res.ratio)
+  points.value = pushPoint(points.value, at, res.ratio, res.color)
+  const speed = recentDps(points.value)
+  // 樣本帶著血條顏色，峰值才不會混到別的階段
+  if (speed != null) dpsSamples.value = pushDps(dpsSamples.value, at, speed, res.color)
   // 血量門檻的機制面板讀的是這份
-  setHpNow(res.ratio * 100, recentDps(points.value), at)
+  setHpNow(res.ratio * 100, speed, at)
 }
 
 // 手動框選存的是比例，換個視窗大小也不用重框
@@ -153,11 +157,14 @@ const dragBox = computed(() => {
 })
 
 const percent = computed(() => (ratio.value == null ? null : Math.round(ratio.value * 1000) / 10))
-// 沒在掉血時顯示 0.0%，不要整個消失——不然會以為功能壞了
-const dps = computed(() => {
-  const v = recentDps(points.value)
-  return v == null ? null : Math.round(Math.max(0, v) * 10) / 10
-})
+// 沒在掉血時顯示 0.0%，不要整個消失——不然會以為功能壞了。
+// 回血已經在 recentDps 裡忽略掉了，這裡不會拿到負數
+const round1 = (v: number | null) => (v == null ? null : Math.round(v * 10) / 10)
+const dps = computed(() => round1(recentDps(points.value)))
+// 機制打斷、跑位、王無敵都會讓當下速度掉下來，峰值才看得出打得順時有多快
+// 只看目前這條血（左邊那段的顏色）；右邊那段是已經打掉後露出的下一條底色，不能拿來算
+const peak60 = computed(() => round1(peakDps(dpsSamples.value, 60_000, color.value)))
+const peakAll = computed(() => round1(peakDps(dpsSamples.value, undefined, color.value)))
 const fillColor = computed(() => `rgb(${color.value ?? '200,40,40'})`)
 // 右邊剩下的：多條血時是下一條的底色，最後一條時就留空（灰槽）
 const restColor = computed(() => (nextColor.value ? `rgb(${nextColor.value})` : 'transparent'))
@@ -174,7 +181,8 @@ onBeforeUnmount(stop)
       <template v-if="capturing">
         <button type="button" class="btn btn-sm" @click="startPicking">框選血條</button>
         <button v-if="manualRect" type="button" class="btn btn-sm" @click="autoAgain">自動偵測</button>
-        <button v-if="points.length" type="button" class="btn btn-sm" @click="points = []">清除紀錄</button>
+        <button v-if="points.length" type="button" class="btn btn-sm"
+          @click="points = []; dpsSamples = []">清除紀錄</button>
         <button type="button" class="btn btn-sm" @click="stop">停止</button>
       </template>
       <button v-else type="button" class="btn btn-sm btn-primary" @click="start">擷取畫面</button>
@@ -190,7 +198,11 @@ onBeforeUnmount(stop)
         </div>
         <div class="hp-row">
           <div class="hp-percent">{{ percent.toFixed(1) }}<span class="unit">%</span></div>
-          <div v-if="dps != null" class="hp-dps">每秒 {{ dps.toFixed(1) }}%</div>
+          <div v-if="dps != null" class="hp-dps">
+            每秒 {{ dps.toFixed(1) }}%
+            <span v-if="peak60 != null" class="peak">60s 峰值 {{ peak60.toFixed(1) }}%</span>
+            <span v-if="peakAll != null" class="peak">本條血 {{ peakAll.toFixed(1) }}%</span>
+          </div>
         </div>
       </template>
     </template>
@@ -231,9 +243,11 @@ onBeforeUnmount(stop)
 }
 .hp-percent .unit { font-size: 18px; font-weight: 600; margin-left: 2px; }
 .hp-dps {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
   font-size: 12.5px; color: var(--text-muted);
   font-variant-numeric: tabular-nums; font-family: var(--mono);
 }
+.peak { color: var(--primary); font-weight: 650; }
 
 .pick-dialog {
   background: var(--surface); border-radius: var(--radius); padding: 16px;

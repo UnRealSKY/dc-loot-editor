@@ -302,6 +302,32 @@ describe('阿卡伊農：血量掉到門檻就提醒', () => {
     expect(w.findAll('.mark')[0].classes()).toContain('done')
   })
 
+  it('跨過門檻後開始算已過多久——隊友技能冷卻靠這個反推', async () => {
+    vi.useFakeTimers()
+    try {
+      const w = mount(ShieldTimer)
+      await akaironChip(w).trigger('click')
+      setHpNow(81, 0.5, Date.now())
+      await nextTick()
+      setHpNow(79, 0.5, Date.now())
+      await nextTick()
+      expect(w.find('.chip-since').text()).toBe('上個 80% 已過 0:00')
+      vi.advanceTimersByTime(95_000)
+      await nextTick()
+      expect(w.find('.chip-since').text()).toBe('上個 80% 已過 1:35')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('還沒跨過任何門檻時不顯示已過多久', async () => {
+    const w = mount(ShieldTimer)
+    await akaironChip(w).trigger('click')
+    setHpNow(93, 0.5, Date.now())
+    await nextTick()
+    expect(w.find('.chip-since').exists()).toBe(false)
+  })
+
   it('一口氣掉很多時，中間的門檻也算過了', async () => {
     const w = mount(ShieldTimer)
     await akaironChip(w).trigger('click')

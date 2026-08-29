@@ -43,3 +43,9 @@ export function thresholdState(
   const level = gap != null && gap <= leadPct ? 'near' : 'none'
   return { next, gap, level }
 }
+
+/** 經過時間 mm:ss；用來反推隊友技能的冷卻好了沒 */
+export function elapsedText(ms: number): string {
+  const sec = Math.max(0, Math.floor(ms / 1000))
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
+}

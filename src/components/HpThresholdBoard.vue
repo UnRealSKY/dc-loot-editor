@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { HpBoss } from '../shield/bosses'
 import { hpNow } from '../hp/current'
-import { crossedThresholds, thresholdState } from '../hp/thresholds'
+import { crossedThresholds, thresholdState, elapsedText } from '../hp/thresholds'
 import { beep } from '../shield/sound'
 
 const props = defineProps<{ boss: HpBoss; soundOn: boolean }>()
@@ -17,6 +17,12 @@ watch(lead, (v) => localStorage.setItem(LEAD_KEY, String(v)))
 const passed = ref<number[]>([])
 const justHit = ref<number | null>(null)
 let hitTimer: ReturnType<typeof setTimeout> | undefined
+// 最近一次跨過的門檻與時刻——用來反推隊友技能的冷卻好了沒
+const lastHit = ref<{ threshold: number; at: number } | null>(null)
+const now = ref(Date.now())
+let clock: ReturnType<typeof setInterval> | undefined
+onMounted(() => (clock = setInterval(() => (now.value = Date.now()), 500)))
+onBeforeUnmount(() => clearInterval(clock))
 
 watch(
   () => hp.percent,
@@ -28,6 +34,7 @@ watch(
     if (!hits.length) return
     passed.value = [...new Set([...passed.value, ...hits])]
     justHit.value = hits[hits.length - 1]
+    lastHit.value = { threshold: hits[hits.length - 1], at: Date.now() }
     if (props.soundOn) {
       beep(1250, 140)
       beep(1250, 140, 200)
@@ -43,6 +50,7 @@ watch(() => props.boss.id, reset, { immediate: true })
 function reset() {
   passed.value = []
   justHit.value = null
+  lastHit.value = null
 }
 
 const state = computed(() =>
@@ -55,6 +63,12 @@ const panelClass = computed(() => {
   if (state.value.level === 'hit') return 'phase-shield'
   return state.value.level === 'near' ? 'phase-warn' : 'phase-attack'
 })
+// 上一個門檻過了多久。隊友的技能冷卻是固定的，看這個數字就知道好了沒
+const sinceLast = computed(() =>
+  lastHit.value
+    ? { threshold: lastHit.value.threshold, text: elapsedText(now.value - lastHit.value.at) }
+    : null,
+)
 // 還要打掉多少才會碰到下一個門檻，換算成時間（有掉血速度才算得出來）
 const etaText = computed(() => {
   const gap = state.value.gap
@@ -83,6 +97,9 @@ const etaText = computed(() => {
     <div class="sub-row">
       <span v-if="percentText" class="chip chip-hp">目前 {{ percentText }}%</span>
       <span v-if="etaText" class="chip chip-eta">約 {{ etaText }} 後</span>
+      <span v-if="sinceLast" class="chip chip-since">
+        上個 {{ sinceLast.threshold }}% 已過 {{ sinceLast.text }}
+      </span>
       <label class="lead">
         提前
         <input v-model.number="lead" type="number" min="0" max="20" step="1" />
@@ -110,6 +127,7 @@ const etaText = computed(() => {
 .sub-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .chip-hp { background: var(--surface-2); color: var(--text-muted); }
 .chip-eta { background: var(--primary-soft); color: var(--primary); }
+.chip-since { background: var(--warn-soft); color: var(--warn); font-variant-numeric: tabular-nums; }
 .lead { display: flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
 /* 全域的 input{width:100%} 特異性較高，用 flex-basis 才鎖得住寬度 */
 .lead input { flex: 0 0 52px; text-align: right; padding: 3px 6px; font-size: 12.5px; }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { nextThreshold, crossedThresholds, thresholdState } from '#src/hp/thresholds'
+import { nextThreshold, crossedThresholds, thresholdState, elapsedText } from '#src/hp/thresholds'
 
 const T = [80, 60, 40, 20]
 
@@ -62,5 +62,18 @@ describe('要不要提醒', () => {
     expect(s.next).toBeNull()
     expect(s.gap).toBeNull()
     expect(s.level).toBe('none')
+  })
+})
+
+describe('過了多久', () => {
+  it('分秒格式', () => {
+    expect(elapsedText(0)).toBe('0:00')
+    expect(elapsedText(9_000)).toBe('0:09')
+    expect(elapsedText(90_000)).toBe('1:30')
+    expect(elapsedText(605_000)).toBe('10:05')
+  })
+
+  it('負的當作剛過', () => {
+    expect(elapsedText(-500)).toBe('0:00')
   })
 })
