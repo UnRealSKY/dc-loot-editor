@@ -1,62 +1,25 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed } from 'vue'
 import type { CycleBoss } from '../shield/bosses'
 import { secondsLeft, cyclesElapsed } from '../shield/cycle'
 import { cycleClocks, triggerCycle, nudgeCycle, resetCycles, anyCycleRunning } from '../shield/cycleClocks'
-import { beep, ensureAudio } from '../shield/sound'
+import { ensureAudio } from '../shield/sound'
 import { fmtTime } from '../shield/anchor'
+import { now, touchNow } from '../shield/clock'
 
-const props = defineProps<{ boss: CycleBoss; soundOn: boolean }>()
-// 有循環在跑時要鎖住換王——換走會把計時丟掉
-const emit = defineEmits<{ running: [boolean] }>()
+const props = defineProps<{ boss: CycleBoss }>()
 
-// 每個機制記一個「最近觸發時刻」，之後自己每 interval 秒接下去數。
-// 狀態放在模組層——「接下來」時間表被拆到主視窗，兩邊要看同一份
+// 計時狀態與響鈴都在模組層：這個面板會同時開在主視窗與抬頭顯示，
+// 放元件裡的話兩份會各走各的、還會響兩次
 const clocks = cycleClocks()
-const now = ref(Date.now())
-let raf: number | undefined
-// 已響過鈴的輪數，每個機制一份；跨到新的一輪才響
-const rung = reactive<Record<string, number>>({})
-
 // 剩幾秒內算「快來了」：反盾面板用整段顏色表達安全與否，這裡沿用同一組語意
 const WARN_SECONDS = 5
 
 const running = computed(() => anyCycleRunning(props.boss.cycles))
-watch(running, (v) => emit('running', v), { immediate: true })
-
-// 換王或重新進到這個面板時清乾淨，免得看到上一場的殘留。
-// 計時狀態放在模組層（時間表要共用），不會隨元件銷毀自動消失。
-watch(() => props.boss.id, resetAll, { immediate: true })
-
-function tick() {
-  now.value = Date.now()
-  for (const c of props.boss.cycles) {
-    const clock = clocks[c.id]
-    if (clock == null) continue
-    const done = cyclesElapsed(clock, c.interval, now.value)
-    if (done > (rung[c.id] ?? 0)) {
-      rung[c.id] = done
-      if (props.soundOn) beep(880, 200)
-    }
-  }
-}
-// 每一幀更新，倒數與引信才會連續移動
-function loop() {
-  tick()
-  raf = requestAnimationFrame(loop)
-}
-onMounted(() => (raf = requestAnimationFrame(loop)))
-onBeforeUnmount(() => {
-  if (raf != null) cancelAnimationFrame(raf)
-  emit('running', false)
-})
 
 function onTrigger(id: string) {
   // 用同一個時間戳，倒數才不會在下次更新之前先閃一個大 1 秒的數字
-  const t = Date.now()
-  now.value = t
-  triggerCycle(id, t)
-  rung[id] = 0
+  triggerCycle(id, touchNow())
   ensureAudio()
 }
 function onNudge(id: string, deltaSec: number) {
@@ -64,7 +27,6 @@ function onNudge(id: string, deltaSec: number) {
 }
 function resetAll() {
   resetCycles(props.boss.cycles)
-  for (const c of props.boss.cycles) rung[c.id] = 0
 }
 
 function leftOf(id: string, interval: number): number | null {
@@ -89,7 +51,6 @@ function progress(id: string, interval: number): number {
   const elapsed = ((now.value - clock) / 1000) % interval
   return Math.min(100, Math.max(0, (elapsed / interval) * 100))
 }
-
 </script>
 
 <template>

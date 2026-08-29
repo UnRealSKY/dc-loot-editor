@@ -4,6 +4,8 @@ import { mount } from '@vue/test-utils'
 import ShieldTimer from '#src/components/ShieldTimer.vue'
 import { BOSSES } from '#src/shield/bosses'
 import { clearAnchor } from '#src/shield/anchor'
+import { bossId, overrides, dispelDuration, resetSession } from '#src/shield/session'
+import { DEFAULT_DISPEL_DURATION, BOSSES as ALL_BOSSES } from '#src/shield/bosses'
 import { setHpNow, clearHpNow } from '#src/hp/current'
 
 // 皮卡啾／粉豆 反25 間20 浮動3；杜納斯 反20 間25 浮動0；魔消預設 20（玩家技能）
@@ -17,6 +19,10 @@ describe('ShieldTimer 選王', () => {
   beforeEach(() => {
     localStorage.clear()
     clearAnchor()
+    bossId.value = ALL_BOSSES[0].id
+    overrides.value = {}
+    dispelDuration.value = DEFAULT_DISPEL_DURATION
+    resetSession()
   })
 
   it('列出所有王，預設選第一隻', () => {
@@ -54,7 +60,14 @@ describe('ShieldTimer 選王', () => {
 })
 
 describe('ShieldTimer 參數覆寫', () => {
-  beforeEach(() => localStorage.clear())
+  beforeEach(() => {
+    localStorage.clear()
+    clearAnchor()
+    bossId.value = ALL_BOSSES[0].id
+    overrides.value = {}
+    dispelDuration.value = DEFAULT_DISPEL_DURATION
+    resetSession()
+  })
 
   it('改秒數只影響當下這隻王，並存進覆寫表', async () => {
     const w = mount(ShieldTimer)
@@ -93,6 +106,10 @@ describe('ShieldTimer 切到循環模板的王（女皇）', () => {
   beforeEach(() => {
     localStorage.clear()
     clearAnchor()
+    bossId.value = ALL_BOSSES[0].id
+    overrides.value = {}
+    dispelDuration.value = DEFAULT_DISPEL_DURATION
+    resetSession()
   })
 
   const queenChip = (w: ReturnType<typeof mount>) =>
@@ -167,6 +184,10 @@ describe('對齊遊戲計時後顯示的是時間，而且不會一直跳', () =
   beforeEach(() => {
     localStorage.clear()
     clearAnchor()
+    bossId.value = ALL_BOSSES[0].id
+    overrides.value = {}
+    dispelDuration.value = DEFAULT_DISPEL_DURATION
+    resetSession()
   })
 
   async function align(w: ReturnType<typeof mount>, mmss: string) {
@@ -185,7 +206,7 @@ describe('對齊遊戲計時後顯示的是時間，而且不會一直跳', () =
       await nextTick()
       expect(w.find('.game-clock').text()).toBe('11:55') // 跟著遊戲一起倒數
       // 校準 −1 秒後也要跟著改
-      await w.findAll('.anchor-row .btn')[1].trigger('click')
+      await w.find('.anchor-row .btn[title="校準 -1 秒"]').trigger('click')
       await nextTick()
       expect(w.find('.game-clock').text()).toBe('11:54')
     } finally {
@@ -207,8 +228,7 @@ describe('對齊遊戲計時後顯示的是時間，而且不會一直跳', () =
       vi.advanceTimersByTime(3_000)
       await nextTick()
       expect(w.find('.until-time').text()).toBe(at) // 秒數在走，時刻不該跟著漂
-      // 25 秒那段走掉 3 秒（更新是逐幀的，最後一幀落在 2992ms，進位後 23）
-      expect(w.find('.seg-remaining').text()).toBe('本段 23s')
+      expect(w.find('.seg-remaining').text()).toBe('本段 22s')
     } finally {
       vi.useRealTimers()
     }
@@ -264,6 +284,10 @@ describe('阿卡伊農：血量掉到門檻就提醒', () => {
     localStorage.clear()
     clearAnchor()
     clearHpNow()
+    bossId.value = ALL_BOSSES[0].id
+    overrides.value = {}
+    dispelDuration.value = DEFAULT_DISPEL_DURATION
+    resetSession()
   })
 
   it('沒有血量讀數時說明要先開擷取', async () => {
@@ -311,10 +335,10 @@ describe('阿卡伊農：血量掉到門檻就提醒', () => {
       await nextTick()
       setHpNow(79, 0.5, Date.now())
       await nextTick()
-      expect(w.find('.chip-since').text()).toBe('上個 80% 已過 0:00')
+      expect(w.find('.chip-since').text()).toBe('離 80% 已過 0:00')
       vi.advanceTimersByTime(95_000)
       await nextTick()
-      expect(w.find('.chip-since').text()).toBe('上個 80% 已過 1:35')
+      expect(w.find('.chip-since').text()).toBe('離 80% 已過 1:35')
     } finally {
       vi.useRealTimers()
     }
@@ -326,6 +350,38 @@ describe('阿卡伊農：血量掉到門檻就提醒', () => {
     setHpNow(93, 0.5, Date.now())
     await nextTick()
     expect(w.find('.chip-since').exists()).toBe(false)
+  })
+
+  it('跨過 20% 後開始 70 秒循環，到點自動接下一輪', async () => {
+    vi.useFakeTimers()
+    try {
+      const w = mount(ShieldTimer)
+      await akaironChip(w).trigger('click')
+      setHpNow(21, 0.5, Date.now())
+      await nextTick()
+      setHpNow(19, 0.5, Date.now())
+      await nextTick()
+      expect(w.find('.phase-title').text()).toBe('下一次機制')
+      expect(w.find('.gap-value').text()).toBe('70s')
+      vi.advanceTimersByTime(65_000)
+      await nextTick()
+      expect(w.find('.gap-value').text()).toBe('5s')
+      // 到點之後自己接下一輪
+      vi.advanceTimersByTime(6_000)
+      await nextTick()
+      expect(w.find('.gap-value').text()).toBe('69s')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('沒到 20% 之前不會出現循環倒數', async () => {
+    const w = mount(ShieldTimer)
+    await akaironChip(w).trigger('click')
+    setHpNow(45, 0.5, Date.now())
+    await nextTick()
+    expect(w.find('.phase-title').text()).toBe('下一個 40%')
+    expect(w.find('.cycle-row').exists()).toBe(false)
   })
 
   it('一口氣掉很多時，中間的門檻也算過了', async () => {
@@ -340,5 +396,27 @@ describe('阿卡伊農：血量掉到門檻就提醒', () => {
     expect(marks[1].classes()).toContain('done') // 60
     expect(marks[2].classes()).toContain('done') // 40
     expect(marks[3].classes()).not.toContain('done') // 20 還沒
+  })
+})
+
+describe('效率推估：只有血條，沒有機制面板', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    clearAnchor()
+    clearHpNow()
+    bossId.value = ALL_BOSSES[0].id
+    overrides.value = {}
+    dispelDuration.value = DEFAULT_DISPEL_DURATION
+    resetSession()
+  })
+
+  it('選了之後沒有任何機制面板，只留王血量那張卡', async () => {
+    const w = mount(ShieldTimer)
+    await chips(w)[BOSSES.findIndex((b) => b.id === 'dps')].trigger('click')
+    expect(w.find('.hp-card').exists()).toBe(true)
+    expect(w.find('.hp-threshold').exists()).toBe(false)
+    expect(w.find('.cycle-board').exists()).toBe(false)
+    expect(w.find('.controls').exists()).toBe(false) // 反盾的操作區
+    expect(w.find('.events-card').exists()).toBe(false)
   })
 })

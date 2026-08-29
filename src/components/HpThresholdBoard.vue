@@ -1,56 +1,34 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { HpBoss } from '../shield/bosses'
 import { hpNow } from '../hp/current'
-import { crossedThresholds, thresholdState, elapsedText } from '../hp/thresholds'
-import { beep } from '../shield/sound'
+import { thresholdState, elapsedText } from '../hp/thresholds'
+import { passed, justHit, lastHit, finalClock, startFinalCycle, nudgeFinalCycle } from '../hp/thresholdState'
+import { secondsLeft } from '../shield/cycle'
+import { ensureAudio } from '../shield/sound'
+import { now, touchNow } from '../shield/clock'
 
-const props = defineProps<{ boss: HpBoss; soundOn: boolean }>()
+const props = defineProps<{ boss: HpBoss }>()
 
+// 門檻的判定與響鈴都在模組層（thresholdState + session 的迴圈），
+// 這個面板會同時開在主視窗與抬頭顯示，放元件裡的話兩份會各判一次
 const hp = hpNow()
+
 // 提前多少百分點先喊。反應時間因人而異，所以可以自己調
 const LEAD_KEY = 'dc-hp-lead'
 const lead = ref(Number(localStorage.getItem(LEAD_KEY)) || 5)
 watch(lead, (v) => localStorage.setItem(LEAD_KEY, String(v)))
 
-// 已經跨過的門檻，跨過的當下閃一下並響鈴
-const passed = ref<number[]>([])
-const justHit = ref<number | null>(null)
-let hitTimer: ReturnType<typeof setTimeout> | undefined
-// 最近一次跨過的門檻與時刻——用來反推隊友技能的冷卻好了沒
-const lastHit = ref<{ threshold: number; at: number } | null>(null)
-const now = ref(Date.now())
-let clock: ReturnType<typeof setInterval> | undefined
-onMounted(() => (clock = setInterval(() => (now.value = Date.now()), 500)))
-onBeforeUnmount(() => clearInterval(clock))
-
-watch(
-  () => hp.percent,
-  (percent, prev) => {
-    if (percent == null) return
-    const from = hp.prevPercent ?? prev
-    if (from == null) return
-    const hits = crossedThresholds(from, percent, props.boss.thresholds)
-    if (!hits.length) return
-    passed.value = [...new Set([...passed.value, ...hits])]
-    justHit.value = hits[hits.length - 1]
-    lastHit.value = { threshold: hits[hits.length - 1], at: Date.now() }
-    if (props.soundOn) {
-      beep(1250, 140)
-      beep(1250, 140, 200)
-      beep(1250, 220, 400)
-    }
-    clearTimeout(hitTimer)
-    hitTimer = setTimeout(() => (justHit.value = null), 4000)
-  },
+// 進到固定循環之後，主角換成「下一次機制還有幾秒」
+const cycleLeft = computed(() =>
+  props.boss.finalCycle ? secondsLeft(finalClock.value, props.boss.finalCycle, now.value) : null,
 )
-
-// 換王或重新開打就把紀錄清掉
-watch(() => props.boss.id, reset, { immediate: true })
-function reset() {
-  passed.value = []
-  justHit.value = null
-  lastHit.value = null
+function onStartFinalCycle() {
+  startFinalCycle(touchNow())
+  ensureAudio()
+}
+function nudgeFinal(deltaSec: number) {
+  nudgeFinalCycle(deltaSec)
 }
 
 const state = computed(() =>
@@ -59,6 +37,7 @@ const state = computed(() =>
 const percentText = computed(() => (hp.percent == null ? null : hp.percent.toFixed(1)))
 // 依目前狀態決定整塊面板的顏色，跟其他機制面板同一組語意
 const panelClass = computed(() => {
+  if (cycleLeft.value != null) return cycleLeft.value <= 5 ? 'phase-shield' : 'phase-attack'
   if (hp.percent == null) return 'phase-idle'
   if (state.value.level === 'hit') return 'phase-shield'
   return state.value.level === 'near' ? 'phase-warn' : 'phase-attack'
@@ -82,23 +61,35 @@ const etaText = computed(() => {
 <template>
   <div class="card phase-panel hp-threshold" :class="panelClass">
     <div class="phase-title">
-      <template v-if="hp.percent == null">等待血量</template>
+      <template v-if="cycleLeft != null">下一次機制</template>
+      <template v-else-if="hp.percent == null">等待血量</template>
       <template v-else-if="state.level === 'hit'">{{ justHit }}% ⚠ 機制來了</template>
       <template v-else-if="state.next == null">門檻都過了</template>
       <template v-else>下一個 {{ state.next }}%</template>
     </div>
 
     <div class="phase-remaining gap-value">
-      <template v-if="hp.percent == null">—</template>
+      <template v-if="cycleLeft != null">{{ cycleLeft }}<span class="unit">s</span></template>
+      <template v-else-if="hp.percent == null">—</template>
       <template v-else-if="state.gap == null">{{ percentText }}<span class="unit">%</span></template>
       <template v-else>還有 {{ state.gap.toFixed(1) }}<span class="unit">%</span></template>
+    </div>
+
+    <div v-if="boss.finalCycle && state.next == null" class="cycle-row">
+      <button type="button" class="btn btn-sm nudge" :disabled="finalClock == null"
+        title="減 1 秒" @click="nudgeFinal(-1)">−1s</button>
+      <button type="button" class="btn btn-sm" @click="onStartFinalCycle">
+        {{ finalClock == null ? `開始 ${boss.finalCycle}s 循環` : '重新計時' }}
+      </button>
+      <button type="button" class="btn btn-sm nudge" :disabled="finalClock == null"
+        title="加 1 秒" @click="nudgeFinal(1)">＋1s</button>
     </div>
 
     <div class="sub-row">
       <span v-if="percentText" class="chip chip-hp">目前 {{ percentText }}%</span>
       <span v-if="etaText" class="chip chip-eta">約 {{ etaText }} 後</span>
       <span v-if="sinceLast" class="chip chip-since">
-        上個 {{ sinceLast.threshold }}% 已過 {{ sinceLast.text }}
+        離 {{ sinceLast.threshold }}% 已過 {{ sinceLast.text }}
       </span>
       <label class="lead">
         提前
@@ -123,6 +114,8 @@ const etaText = computed(() => {
 .phase-warn { background: var(--warn-soft); border-color: var(--warn); }
 .phase-warn .phase-title { color: var(--warn); }
 .gap-value { margin-top: 4px; }
+.cycle-row { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 8px; }
+.cycle-row .nudge { font-variant-numeric: tabular-nums; }
 .gap-value .unit { font-size: 20px; font-weight: 600; margin-left: 2px; }
 .sub-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .chip-hp { background: var(--surface-2); color: var(--text-muted); }

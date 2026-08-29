@@ -32,9 +32,18 @@ export interface HpBoss {
   mechanic: 'hp'
   /** 會出招的血量百分比，由高到低 */
   thresholds: number[]
+  /** 過了最後一個門檻之後，機制改成固定幾秒一輪 */
+  finalCycle?: number
 }
 
-export type Boss = ShieldBoss | CycleBoss | HpBoss
+// 只看血條與輸出，沒有機制要算
+export interface DpsBoss {
+  id: string
+  name: string
+  mechanic: 'dps'
+}
+
+export type Boss = ShieldBoss | CycleBoss | HpBoss | DpsBoss
 
 export const BOSSES: Boss[] = [
   { id: 'pika', name: '皮卡啾／粉豆', mechanic: 'shield', shieldDuration: 25, interval: 20, intervalFloat: 3 },
@@ -51,13 +60,21 @@ export const BOSSES: Boss[] = [
       { id: 'jail', name: '小黑屋', interval: 90 },
     ],
   },
-  { id: 'akairon', name: '阿卡伊農', mechanic: 'hp', thresholds: [80, 60, 40, 20] },
+  {
+    id: 'akairon',
+    name: '阿卡伊農',
+    mechanic: 'hp',
+    thresholds: [80, 60, 40, 20],
+    finalCycle: 70, // 20% 以下改成每 70 秒一次
+  },
+  { id: 'dps', name: '效率推估', mechanic: 'dps' },
 ]
 
 // 套用某機制模板的王；頁面就是拿這個清單當王選單
 export function bossesOf(mechanicId: 'shield'): ShieldBoss[]
 export function bossesOf(mechanicId: 'cycle'): CycleBoss[]
 export function bossesOf(mechanicId: 'hp'): HpBoss[]
+export function bossesOf(mechanicId: 'dps'): DpsBoss[]
 export function bossesOf(mechanicId: string): Boss[]
 export function bossesOf(mechanicId: string): Boss[] {
   return BOSSES.filter((b) => b.mechanic === mechanicId)
