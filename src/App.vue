@@ -44,7 +44,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
     <!-- appbar 是一個 grid：標題跨兩列，第一列放兩個工具箱與版本，第二列只有分寶
          那一欄有東西。同一列的東西共用一個 row、各自在 row 內置中，字級不同也不會
          參差。第二層的縮排跟著分頁寬度自己算，不寫死 -->
-    <header class="appbar" :class="{ 'has-sub': inLoot }">
+    <header class="appbar">
       <router-link to="/boss-toolkit" class="brand">
         <span class="logo">楓</span>
         <h1>天天的楓之谷工具箱</h1>
@@ -129,8 +129,9 @@ body {
 .appbar {
   position: sticky; top: 0; z-index: 30;
   margin: 0 -20px 26px; padding: 13px 20px;
-  /*  [標題]  [BOSS]  [分寶]     [版本]
-      [ 　  ]  [ 　 ]  [分寶第二層]        ← 只有分寶頁才有第二列  */
+  /*  [標題]  [BOSS]  [分寶]      [版本]
+      [ 空 ]  [ 空 ]  [分寶第二層]        ← 只有分寶頁才有第二列
+      標題待在第一列，不跨列——跨了會相對整條列置中，就跟第一列的分頁錯開  */
   display: grid;
   grid-template-columns: max-content max-content max-content 1fr;
   column-gap: 4px; row-gap: 5px;
@@ -139,11 +140,8 @@ body {
   backdrop-filter: saturate(1.4) blur(10px);
   border-bottom: 1px solid var(--border);
 }
-/* 第二列只有在分寶頁才存在。不先宣告的話 grid-row: 1 / -1 只會跨到第一列
-   （-1 指的是「明確定義的」格線盡頭，算不到隱式產生的那一列） */
-.appbar.has-sub { grid-template-rows: auto auto; }
 .nav { display: contents; }
-.brand { grid-row: 1 / -1; grid-column: 1; margin-right: 20px; }
+.brand { grid-row: 1; grid-column: 1; margin-right: 20px; }
 .nav-boss { grid-row: 1; grid-column: 2; }
 .nav-loot { grid-row: 1; grid-column: 3; }
 .subnav { grid-row: 2; grid-column: 3; display: flex; gap: 4px; }
@@ -285,7 +283,6 @@ button { font-family: inherit; }
     margin: 0 -14px 20px; padding: 10px 14px;
     grid-template-columns: max-content max-content 1fr; row-gap: 8px;
   }
-  .appbar.has-sub { grid-template-rows: auto auto auto; }
   .brand { grid-row: 1; grid-column: 1 / span 2; margin-right: 0; }
   .brand h1 { font-size: 16px; }
   .version { grid-row: 1; grid-column: 3; }
