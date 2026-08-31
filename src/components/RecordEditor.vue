@@ -399,7 +399,7 @@ function toggleSettle(i: number) {
 <template>
   <section v-if="record">
     <div class="editor-top">
-      <router-link to="/" class="btn btn-ghost btn-sm back">← 返回列表</router-link>
+      <router-link to="/loot" class="btn btn-ghost btn-sm back">← 返回列表</router-link>
       <div class="spacer" />
       <span v-if="syncState === 'checking'" class="sync-chip muted">⋯ 檢查中</span>
       <span v-else-if="syncState === 'inSync'" class="chip chip-ok sync-chip" title="DC 貼文內容與目前紀錄一致">✓ 與 DC 一致</span>

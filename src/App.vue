@@ -17,8 +17,11 @@ const store = useRecordsStore()
 const route = useRoute()
 const showUnsynced = ref(false)
 
+// 導覽分兩層：上面是兩個工具箱，分寶那邊的三個頁面收成第二層
+const inLoot = computed(() => route.path.startsWith('/loot'))
+
 const currentDirty = computed(() => {
-  if (!route.path.startsWith('/edit/')) return undefined
+  if (!route.path.startsWith('/loot/edit/')) return undefined
   const r = store.get(route.params.id as string)
   return r && dcSyncStatus(r) === 'dirty' ? r : undefined
 })
@@ -39,21 +42,26 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
 <template>
   <div class="app">
     <header class="appbar">
-      <router-link to="/" class="brand">
-        <span class="logo">王</span>
-        <h1>打王工具箱</h1>
+      <router-link to="/boss-toolkit" class="brand">
+        <span class="logo">楓</span>
+        <h1>天天的楓之谷工具箱</h1>
       </router-link>
       <nav class="nav">
-        <router-link to="/" class="nav-link" exact-active-class="nav-active">分寶紀錄</router-link>
-        <router-link to="/pending" class="nav-link" active-class="nav-active">未領總覽</router-link>
-        <router-link to="/shield" class="nav-link" active-class="nav-active">機制計算機</router-link>
+        <router-link to="/boss-toolkit" class="nav-link" active-class="nav-active">BOSS 工具箱</router-link>
+        <!-- /loot 與 /loot/xxx 是平行的路由紀錄，router-link 的 active 不會跨過去，要自己判斷 -->
+        <router-link to="/loot" class="nav-link" :class="{ 'nav-active': inLoot }">分寶工具箱</router-link>
       </nav>
       <div class="appbar-spacer" />
       <button type="button" class="btn btn-ghost btn-sm version" title="看更新內容"
         @click="showChangelog = true">v{{ version }}</button>
-      <router-link to="/settings" class="btn btn-icon gear" active-class="gear-active"
-        title="設定（DC 群組、名單、品名清單）">⚙</router-link>
     </header>
+
+    <!-- 分寶工具箱底下的頁面才有第二層 -->
+    <nav v-if="inLoot" class="subnav">
+      <router-link to="/loot" class="subnav-link" exact-active-class="subnav-active">分寶紀錄</router-link>
+      <router-link to="/loot/pending" class="subnav-link" active-class="subnav-active">未領總覽</router-link>
+      <router-link to="/loot/settings" class="subnav-link" active-class="subnav-active">設定</router-link>
+    </nav>
 
     <ChangelogDialog :open="showChangelog" @close="showChangelog = false" />
 
@@ -144,8 +152,17 @@ body {
   font-family: var(--mono); font-size: 12px; color: var(--text-muted); flex: none;
 }
 .version:hover { color: var(--text); }
-.gear { text-decoration: none; font-size: 17px; }
-.gear-active { color: var(--primary-hover); background: var(--primary-soft); }
+
+/* 二級導覽：跟一級同一套語彙但小一號，而且在 appbar 外面，看得出是下一層 */
+.subnav { display: flex; gap: 4px; margin: -12px 0 20px; }
+.subnav-link {
+  text-decoration: none; color: var(--text-muted);
+  font-size: 13.5px; font-weight: 550; padding: 5px 12px; border-radius: 999px;
+  transition: color .14s, background .14s;
+  white-space: nowrap;
+}
+.subnav-link:hover { color: var(--text); background: var(--surface-2); }
+.subnav-active { color: var(--primary-hover); background: var(--primary-soft); }
 
 /* ---- Buttons ---- */
 button { font-family: inherit; }
@@ -254,7 +271,7 @@ button { font-family: inherit; }
 @media (max-width: 720px) {
   .app { padding: 0 14px 56px; }
 
-  /* appbar 分兩行：brand ＋ 設定鈕一行，導覽列獨占第二行可橫捲 */
+  /* appbar 分兩行：brand ＋ 版本鈕一行，導覽列獨占第二行可橫捲 */
   .appbar { margin: 0 -14px 20px; padding: 10px 14px; gap: 10px; flex-wrap: wrap; }
   .brand h1 { font-size: 16px; }
   .nav { order: 3; width: 100%; overflow-x: auto; scrollbar-width: none; }

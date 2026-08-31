@@ -23,7 +23,7 @@ const LEGACY_SOURCE_KEY = 'dc-roster-source'
 
 // 舊的「預設來源」＝跟隨官方 repo，遷移後等價於指向這個網址的 url 模式
 export const DEFAULT_ROSTER_URL =
-  'https://raw.githubusercontent.com/UnRealSKY/boss-toolkit/main/members.json'
+  'https://raw.githubusercontent.com/UnRealSKY/maplestory-toolkit/main/members.json'
 
 export type RosterMode = 'url' | 'local'
 

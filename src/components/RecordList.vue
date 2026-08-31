@@ -28,12 +28,12 @@ const showImport = ref(false)
 
 function createNew() {
   const r = store.create()
-  router.push(`/edit/${r.id}`)
+  router.push(`/loot/edit/${r.id}`)
 }
 
 function onImported(parsed: LootRecord) {
   const r = store.create({ ...parsed })
-  router.push(`/edit/${r.id}`)
+  router.push(`/loot/edit/${r.id}`)
 }
 
 function remove(id: string) {
@@ -69,7 +69,7 @@ function toggleShelve(id: string) {
 
     <ul v-else class="record-list">
       <li v-for="r in sorted" :key="r.id" class="record-card">
-        <router-link :to="`/edit/${r.id}`" class="record-main">
+        <router-link :to="`/loot/edit/${r.id}`" class="record-main">
           <span class="record-title">{{ r.boss || '(未命名)' }}</span>
           <span class="record-meta">
             <span v-if="groupName(r.groupId)" class="record-group">{{ groupName(r.groupId) }}</span>

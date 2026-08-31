@@ -10,7 +10,7 @@ const router = useRouter()
 
 // 開新分頁進編輯頁並跳至分配名單（focus=dist 由 RecordEditor 處理捲動）
 function editHref(recordId: string): string {
-  return router.resolve({ path: `/edit/${recordId}`, query: { focus: 'dist' } }).href
+  return router.resolve({ path: `/loot/edit/${recordId}`, query: { focus: 'dist' } }).href
 }
 const blocks = computed(() => pendingBlocks(store.records, (handle, groupId) => displayNameIn(groupId, handle), distOptionsFor))
 

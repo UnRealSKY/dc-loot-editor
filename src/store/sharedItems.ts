@@ -4,7 +4,7 @@ import { loadListSource, type ListSource } from './roster'
 const STORAGE_KEY = 'dc-loot-items'
 const SOURCE_KEY = 'dc-items-source'
 // 執行期直讀 repo 的共用品名清單：更新只需 push git（改 items.json），不必發版。
-const RAW_URL = 'https://raw.githubusercontent.com/UnRealSKY/boss-toolkit/main/items.json'
+const RAW_URL = 'https://raw.githubusercontent.com/UnRealSKY/maplestory-toolkit/main/items.json'
 
 function onlyStrings(data: unknown): string[] {
   return Array.isArray(data) ? data.filter((x): x is string => typeof x === 'string') : []

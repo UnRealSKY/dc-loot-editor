@@ -102,7 +102,7 @@ const events = computed(() => upcomingEvents(shieldState.value, params.value, no
 <template>
   <section>
     <div class="page-head">
-      <h2>機制計算機</h2>
+      <h2>BOSS 工具箱</h2>
       <div class="boss-tabs" role="group" aria-label="選擇王">
         <button v-for="b in bosses" :key="b.id" type="button" class="btn btn-sm boss-chip"
           :class="{ 'boss-on': b.id === bossId }" :disabled="locked" :aria-pressed="b.id === bossId"
