@@ -4,15 +4,17 @@ import type { LootRecord } from '../types'
 import { runMigrations } from './migrations'
 import { deleteBlob } from '../db/imageBlobs'
 import { activeGroup } from './groups'
+import { RECORDS_KEY } from '../storageKeys'
 
-export const STORAGE_KEY = 'dc-loot-records'
+// 匯出／測試會用到，維持原本的名字
+export { RECORDS_KEY as STORAGE_KEY }
 
 // 遊戲交易手續費，新紀錄的預設值
 export const DEFAULT_SERVICE_FEE_PERCENT = 3
 
 function load(): LootRecord[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(RECORDS_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? (parsed as LootRecord[]) : []
@@ -34,20 +36,20 @@ function todayLocal(): string {
 export const useRecordsStore = defineStore('records', () => {
   // 一次性遷移：有變更立即寫回，避免「僅載入未編輯」時流失遷移結果
   const migrated = runMigrations(load())
-  if (migrated.changed) localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated.records))
+  if (migrated.changed) localStorage.setItem(RECORDS_KEY, JSON.stringify(migrated.records))
   const records = ref<LootRecord[]>(migrated.records)
 
   // flush: 'sync' 為刻意設計：確保紀錄異動立即寫入 localStorage，
   // 資料量小，不需為了效能批次延遲持久化。
   watch(
     records,
-    (val) => localStorage.setItem(STORAGE_KEY, JSON.stringify(val)),
+    (val) => localStorage.setItem(RECORDS_KEY, JSON.stringify(val)),
     { deep: true, flush: 'sync' },
   )
 
   // 跨分頁同步：其他分頁（如未領總覽開的編輯分頁）寫入時，本分頁狀態跟著更新
   window.addEventListener('storage', (e) => {
-    if (e.key !== STORAGE_KEY || e.newValue == null) return
+    if (e.key !== RECORDS_KEY || e.newValue == null) return
     try {
       const parsed = JSON.parse(e.newValue)
       if (Array.isArray(parsed)) records.value = parsed

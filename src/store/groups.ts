@@ -13,9 +13,8 @@ import {
   type ListSource,
   type RosterEntry,
 } from './roster'
+import { GROUPS_KEY, ACTIVE_GROUP_KEY } from '../storageKeys'
 
-const GROUPS_KEY = 'dc-groups'
-const ACTIVE_KEY = 'dc-active-group'
 // 遷移來源（舊的單一設定）
 const LEGACY_WEBHOOK_KEY = 'dc-webhook-url'
 const LEGACY_ROSTER_KEY = 'dc-loot-roster'
@@ -186,7 +185,7 @@ function loadGroups(): DcGroup[] {
 
 const groups = ref<DcGroup[]>(loadGroups())
 const activeId = ref<string>(
-  localStorage.getItem(ACTIVE_KEY) || groups.value[0]?.id || '',
+  localStorage.getItem(ACTIVE_GROUP_KEY) || groups.value[0]?.id || '',
 )
 
 function persist(): void {
@@ -203,7 +202,7 @@ export function activeGroup(): DcGroup | undefined {
 
 export function setActiveGroup(id: string): void {
   activeId.value = id
-  localStorage.setItem(ACTIVE_KEY, id)
+  localStorage.setItem(ACTIVE_GROUP_KEY, id)
 }
 
 export function createGroup(name: string): DcGroup {

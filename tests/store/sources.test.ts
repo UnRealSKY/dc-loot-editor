@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { GROUPS_KEY, ITEMS_SOURCE_KEY } from '#src/storageKeys'
 
 beforeEach(() => {
   localStorage.clear()
@@ -32,11 +33,11 @@ describe('群組名冊載入', () => {
     const [calledUrl] = fetchMock.mock.calls[0] as unknown as [string]
     expect(calledUrl).toContain('members.json')
     expect(groups.rosterHandlesIn(undefined)).toEqual(['@a'])
-    expect(JSON.parse(localStorage.getItem('dc-groups')!)[0].roster).toHaveLength(1)
+    expect(JSON.parse(localStorage.getItem(GROUPS_KEY)!)[0].roster).toHaveLength(1)
   })
 
   it('local 模式的群組不抓網路', async () => {
-    localStorage.setItem('dc-groups', JSON.stringify([
+    localStorage.setItem(GROUPS_KEY, JSON.stringify([
       { id: 'g1', name: 'A', webhookUrl: '', rosterMode: 'local', roster: [] },
     ]))
     const fetchMock = vi.fn()
@@ -47,7 +48,7 @@ describe('群組名冊載入', () => {
   })
 
   it('多個 url 群組各抓各的網址', async () => {
-    localStorage.setItem('dc-groups', JSON.stringify([
+    localStorage.setItem(GROUPS_KEY, JSON.stringify([
       { id: 'g1', name: 'A', webhookUrl: '', rosterMode: 'url', rosterUrl: 'https://x/a.json', roster: [] },
       { id: 'g2', name: 'B', webhookUrl: '', rosterMode: 'url', rosterUrl: 'https://x/b.json', roster: [] },
     ]))
@@ -62,7 +63,7 @@ describe('群組名冊載入', () => {
   })
 
   it('抓取失敗時沿用既有快取，不清空', async () => {
-    localStorage.setItem('dc-groups', JSON.stringify([
+    localStorage.setItem(GROUPS_KEY, JSON.stringify([
       {
         id: 'g1', name: 'A', webhookUrl: '', rosterMode: 'url', rosterUrl: 'https://x/a.json',
         roster: [{ discordHandle: '@cached', discordNickName: '快取' }],
@@ -107,14 +108,14 @@ describe('舊的單一設定遷移成群組', () => {
     localStorage.setItem('dc-webhook-url', 'https://x')
     localStorage.setItem('dc-roster-source', JSON.stringify({ mode: 'local' }))
     await import('#src/store/groups')
-    const stored = JSON.parse(localStorage.getItem('dc-groups')!)
+    const stored = JSON.parse(localStorage.getItem(GROUPS_KEY)!)
     expect(stored).toHaveLength(1)
     expect(stored[0].webhookUrl).toBe('https://x')
   })
 
   it('已有群組資料時不再遷移，舊的 webhook 不會蓋掉現有設定', async () => {
     localStorage.setItem('dc-webhook-url', 'https://old')
-    localStorage.setItem('dc-groups', JSON.stringify([
+    localStorage.setItem(GROUPS_KEY, JSON.stringify([
       { id: 'g1', name: 'A', webhookUrl: 'https://new', rosterMode: 'local', roster: [] },
     ]))
     const groups = await import('#src/store/groups')
@@ -124,7 +125,7 @@ describe('舊的單一設定遷移成群組', () => {
 
 describe('品名來源模式', () => {
   it('自訂 URL 模式抓指定網址並套用', async () => {
-    localStorage.setItem('dc-items-source', JSON.stringify({ mode: 'url', url: 'https://x/i.json' }))
+    localStorage.setItem(ITEMS_SOURCE_KEY, JSON.stringify({ mode: 'url', url: 'https://x/i.json' }))
     const fetchMock = vi.fn(async () => jsonResponse(200, ['大師附加', '附加奇幻']))
     vi.stubGlobal('fetch', fetchMock)
     const items = await import('#src/store/sharedItems')
@@ -135,7 +136,7 @@ describe('品名來源模式', () => {
   })
 
   it('本機自訂模式不抓網路，saveItemsLocal 生效', async () => {
-    localStorage.setItem('dc-items-source', JSON.stringify({ mode: 'local' }))
+    localStorage.setItem(ITEMS_SOURCE_KEY, JSON.stringify({ mode: 'local' }))
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
     const items = await import('#src/store/sharedItems')

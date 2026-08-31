@@ -4,6 +4,7 @@ import { mount } from '@vue/test-utils'
 import ShieldTimer from '#src/components/ShieldTimer.vue'
 import { BOSSES } from '#src/shield/bosses'
 import { clearAnchor } from '#src/shield/anchor'
+import { BOSS_KEY, OVERRIDES_KEY } from '#src/storageKeys'
 import { bossId, overrides, dispelDuration, resetSession } from '#src/shield/session'
 import { DEFAULT_DISPEL_DURATION, BOSSES as ALL_BOSSES } from '#src/shield/bosses'
 import { setHpNow, clearHpNow } from '#src/hp/current'
@@ -37,7 +38,7 @@ describe('ShieldTimer 選王', () => {
     expect(chips(w)[1].classes()).toContain('boss-on')
     expect(seconds(w, 0)).toBe('20') // 反盾持續
     expect(seconds(w, 1)).toBe('25') // 反盾間隔
-    expect(localStorage.getItem('dc-shield-boss')).toBe('dunas')
+    expect(localStorage.getItem(BOSS_KEY)).toBe('dunas')
   })
 
   it('魔消持續是玩家技能，換王不變', async () => {
@@ -73,7 +74,7 @@ describe('ShieldTimer 參數覆寫', () => {
     const w = mount(ShieldTimer)
     await chips(w)[1].trigger('click') // 杜納斯
     await numberInputs(w)[0].setValue(22)
-    expect(JSON.parse(localStorage.getItem('dc-shield-overrides')!)).toEqual({
+    expect(JSON.parse(localStorage.getItem(OVERRIDES_KEY)!)).toEqual({
       dunas: { shieldDuration: 22, interval: 25, intervalFloat: 0 },
     })
 
@@ -98,7 +99,7 @@ describe('ShieldTimer 參數覆寫', () => {
     await numberInputs(w)[0].setValue(26)
     await numberInputs(w)[0].setValue(25)
     expect(w.find('.reset-boss').exists()).toBe(false)
-    expect(JSON.parse(localStorage.getItem('dc-shield-overrides')!)).toEqual({})
+    expect(JSON.parse(localStorage.getItem(OVERRIDES_KEY)!)).toEqual({})
   })
 })
 

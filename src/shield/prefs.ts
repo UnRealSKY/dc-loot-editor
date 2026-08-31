@@ -2,8 +2,7 @@
 // session 與門檻偵測都要看聲音開關，但它們之間不該互相 import。
 
 import { ref, watch } from 'vue'
-
-const SOUND_KEY = 'dc-shield-sound'
+import { SOUND_KEY } from '../storageKeys'
 
 export const soundOn = ref(localStorage.getItem(SOUND_KEY) !== 'off')
 watch(soundOn, (v) => localStorage.setItem(SOUND_KEY, v ? 'on' : 'off'))

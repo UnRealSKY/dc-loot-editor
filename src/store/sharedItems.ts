@@ -1,8 +1,7 @@
 import { ref } from 'vue'
 import { loadListSource, type ListSource } from './roster'
+import { ITEMS_KEY, ITEMS_SOURCE_KEY } from '../storageKeys'
 
-const STORAGE_KEY = 'dc-loot-items'
-const SOURCE_KEY = 'dc-items-source'
 // 執行期直讀 repo 的共用品名清單：更新只需 push git（改 items.json），不必發版。
 const RAW_URL = 'https://raw.githubusercontent.com/UnRealSKY/maplestory-toolkit/main/items.json'
 
@@ -12,14 +11,14 @@ function onlyStrings(data: unknown): string[] {
 
 function loadCache(): string[] {
   try {
-    return onlyStrings(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'))
+    return onlyStrings(JSON.parse(localStorage.getItem(ITEMS_KEY) || '[]'))
   } catch {
     return []
   }
 }
 
 const items = ref<string[]>(loadCache())
-const source = ref<ListSource>(loadListSource(SOURCE_KEY))
+const source = ref<ListSource>(loadListSource(ITEMS_SOURCE_KEY))
 
 export function itemsSource() {
   return source
@@ -27,7 +26,7 @@ export function itemsSource() {
 
 export function setItemsSource(s: ListSource): void {
   source.value = s
-  localStorage.setItem(SOURCE_KEY, JSON.stringify(s))
+  localStorage.setItem(ITEMS_SOURCE_KEY, JSON.stringify(s))
 }
 
 // 共用品名清單背景載入中（autocomplete 顯示「載入中」提示用）
@@ -50,7 +49,7 @@ export async function fetchItems(url: string): Promise<string[]> {
 // 本機自訂模式的儲存（管理頁編輯用）
 export function saveItemsLocal(names: string[]): void {
   items.value = names
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(names))
+  localStorage.setItem(ITEMS_KEY, JSON.stringify(names))
 }
 
 // 開站呼叫一次：先用快取，背景再依來源模式更新並回寫

@@ -7,6 +7,7 @@ import { passed, justHit, lastHit, finalClock, startFinalCycle, nudgeFinalCycle 
 import { secondsLeft } from '../shield/cycle'
 import { ensureAudio } from '../shield/sound'
 import { now, touchNow } from '../shield/clock'
+import { HP_LEAD_KEY } from '../storageKeys'
 
 const props = defineProps<{ boss: HpBoss }>()
 
@@ -15,9 +16,8 @@ const props = defineProps<{ boss: HpBoss }>()
 const hp = hpNow()
 
 // 提前多少百分點先喊。反應時間因人而異，所以可以自己調
-const LEAD_KEY = 'dc-hp-lead'
-const lead = ref(Number(localStorage.getItem(LEAD_KEY)) || 5)
-watch(lead, (v) => localStorage.setItem(LEAD_KEY, String(v)))
+const lead = ref(Number(localStorage.getItem(HP_LEAD_KEY)) || 5)
+watch(lead, (v) => localStorage.setItem(HP_LEAD_KEY, String(v)))
 
 // 進到固定循環之後，主角換成「下一次機制還有幾秒」
 const cycleLeft = computed(() =>

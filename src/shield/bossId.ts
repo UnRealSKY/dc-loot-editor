@@ -2,8 +2,7 @@
 
 import { ref, watch } from 'vue'
 import { bossById } from './bosses'
-
-const BOSS_KEY = 'dc-shield-boss'
+import { BOSS_KEY } from '../storageKeys'
 
 export const bossId = ref(bossById(localStorage.getItem(BOSS_KEY) ?? '').id)
 watch(bossId, (v) => localStorage.setItem(BOSS_KEY, v))

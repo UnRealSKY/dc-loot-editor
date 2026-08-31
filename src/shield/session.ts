@@ -33,9 +33,8 @@ export { soundOn, bossId, now }
 import { anyCycleRunning, dueCycles, resetCycles } from './cycleClocks'
 import { tickFinalCycle, resetThresholds } from '../hp/thresholdState'
 import type { CycleBoss, HpBoss } from './bosses'
+import { OVERRIDES_KEY, DISPEL_KEY } from '../storageKeys'
 
-const OVERRIDES_KEY = 'dc-shield-overrides'
-const DISPEL_KEY = 'dc-shield-dispel'
 
 function loadOverrides(): BossOverrides {
   try {

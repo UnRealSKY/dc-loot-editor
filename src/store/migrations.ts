@@ -1,6 +1,6 @@
 import type { LootRecord } from '../types'
+import { MIGRATION_KEY as VERSION_KEY } from '../storageKeys'
 
-const VERSION_KEY = 'dc-loot-migration'
 const CURRENT_VERSION = 2
 
 // v1（2026-08-02）：品名標準化——潛能__%、手攻__%、大師附加、附加奇幻
