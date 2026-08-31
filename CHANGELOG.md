@@ -28,7 +28,7 @@
 
 ### Minor Changes
 
-- 98ffc4f: 改名為「天天的楓之谷工具箱」，網址換成 <https://unrealsky.github.io/maplestory-toolkit/>。⚠ 舊網址的書籤要重設。
+- 98ffc4f: 改名為「天天的楓之谷工具箱」，網址換成 [unrealsky.github.io/maplestory-toolkit](https://unrealsky.github.io/maplestory-toolkit/)。⚠ 舊網址的書籤要重設。
 
   上方導覽只剩兩個：**BOSS 工具箱**（原機制計算機）與**分寶工具箱**。分寶紀錄、未領總覽、設定收進分寶工具箱底下，右上的齒輪拿掉。開網址進來預設是 BOSS 工具箱。改版前的頁面網址會自動轉到新位置，存在瀏覽器裡的紀錄不受影響。
 

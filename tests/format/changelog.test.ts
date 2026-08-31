@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { rebaseLinks, stripNoise, CHANGELOG_RAW_URL, CHANGELOG_PAGE_URL } from '#src/format/changelog'
+import { rebaseLinks, stripNoise, expandAutolinks, CHANGELOG_RAW_URL, CHANGELOG_PAGE_URL } from '#src/format/changelog'
 
 describe('rebaseLinks', () => {
   it('圖片的相對路徑指向 raw（要拿到真的圖檔）', () => {
@@ -104,5 +104,22 @@ describe('stripNoise', () => {
 
   it('不會把像 hash 的中文內容當前綴刪掉', () => {
     expect(stripNoise('- abcdef: 只有六碼不是 hash')).toBe('- abcdef: 只有六碼不是 hash')
+  })
+})
+
+describe('expandAutolinks', () => {
+  it('<網址> 展開成正規連結——不展開的話 snarkdown 會把整個網址吃掉', () => {
+    expect(expandAutolinks('網址換成 <https://example.com/x/>。')).toBe(
+      '網址換成 [https://example.com/x/](https://example.com/x/)。',
+    )
+  })
+
+  it('已經是正規連結的不動', () => {
+    const md = '[官網](https://example.com)'
+    expect(expandAutolinks(md)).toBe(md)
+  })
+
+  it('不碰其他角括號內容', () => {
+    expect(expandAutolinks('比較 <@ID> 與 <b>')).toBe('比較 <@ID> 與 <b>')
   })
 })

@@ -13,6 +13,13 @@ export const CHANGELOG_PAGE_URL = `${BLOB_BASE}CHANGELOG.md`
 
 const ABSOLUTE = /^(https?:|data:|mailto:|#)/
 
+// <https://...> 是 markdown 的 autolink，但 snarkdown 不認得，會把它當成原始
+// HTML 吐出去、瀏覽器再當成不認識的標籤丟掉——網址就這樣整個消失。先展開成
+// 正規的連結寫法
+export function expandAutolinks(md: string): string {
+  return md.replace(/<(https?:\/\/[^\s<>]+)>/g, '[$1]($1)')
+}
+
 function join(base: string, path: string): string {
   return base + path.replace(/^\.?\//, '')
 }
@@ -42,5 +49,5 @@ export function stripNoise(md: string): string {
 export async function fetchChangelog(url: string = CHANGELOG_RAW_URL): Promise<string> {
   const res = await fetch(url, { cache: 'no-cache' })
   if (!res.ok) throw new Error(`抓取失敗（HTTP ${res.status}）`)
-  return rebaseLinks(stripNoise(await res.text()))
+  return rebaseLinks(expandAutolinks(stripNoise(await res.text())))
 }
