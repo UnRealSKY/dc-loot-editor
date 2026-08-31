@@ -41,27 +41,28 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
 
 <template>
   <div class="app">
-    <header class="appbar">
+    <!-- appbar 是一個 grid：標題跨兩列，第一列放兩個工具箱與版本，第二列只有分寶
+         那一欄有東西。同一列的東西共用一個 row、各自在 row 內置中，字級不同也不會
+         參差。第二層的縮排跟著分頁寬度自己算，不寫死 -->
+    <header class="appbar" :class="{ 'has-sub': inLoot }">
       <router-link to="/boss-toolkit" class="brand">
         <span class="logo">楓</span>
         <h1>天天的楓之谷工具箱</h1>
       </router-link>
-      <div class="nav-stack">
-        <nav class="nav">
-          <router-link to="/boss-toolkit" class="nav-link" active-class="nav-active">BOSS 工具箱</router-link>
-          <!-- /loot 與 /loot/xxx 是平行的路由紀錄，router-link 的 active 不會跨過去，要自己判斷 -->
-          <router-link to="/loot" class="nav-link" :class="{ 'nav-active': inLoot }">分寶工具箱</router-link>
-        </nav>
-        <!-- 第二層也留在 appbar 裡：浮在頁面上的話沒有底色也沒有框線撐著，
-             看不出那幾個字是可以點的。BOSS 工具箱的王選單不搬——那排數量多，
-             右邊還跟著抬頭顯示與聲音提醒 -->
-        <nav v-if="inLoot" class="subnav">
+      <!-- display: contents，讓這幾個連結直接當 appbar 的 grid 項目，
+           同時保留 nav 這個地標。第二層留在 appbar 裡是因為浮在頁面上時
+           沒有底色也沒有框線撐著，看不出那幾個字可以點。
+           BOSS 工具箱的王選單不搬——那排數量多，右邊還跟著抬頭顯示與聲音提醒 -->
+      <nav class="nav">
+        <router-link to="/boss-toolkit" class="nav-link nav-boss" active-class="nav-active">BOSS 工具箱</router-link>
+        <!-- /loot 與 /loot/xxx 是平行的路由紀錄，router-link 的 active 不會跨過去，要自己判斷 -->
+        <router-link to="/loot" class="nav-link nav-loot" :class="{ 'nav-active': inLoot }">分寶工具箱</router-link>
+        <div v-if="inLoot" class="subnav">
           <router-link to="/loot" class="nav-link subnav-link" exact-active-class="nav-active">分寶紀錄</router-link>
           <router-link to="/loot/pending" class="nav-link subnav-link" active-class="nav-active">未領總覽</router-link>
           <router-link to="/loot/settings" class="nav-link subnav-link" active-class="nav-active">設定</router-link>
-        </nav>
-      </div>
-      <div class="appbar-spacer" />
+        </div>
+      </nav>
       <button type="button" class="btn btn-ghost btn-sm version" title="看更新內容"
         @click="showChangelog = true">v{{ version }}</button>
     </header>
@@ -128,13 +129,25 @@ body {
 .appbar {
   position: sticky; top: 0; z-index: 30;
   margin: 0 -20px 26px; padding: 13px 20px;
-  display: flex; align-items: center; gap: 24px;
+  /*  [標題]  [BOSS]  [分寶]     [版本]
+      [ 　  ]  [ 　 ]  [分寶第二層]        ← 只有分寶頁才有第二列  */
+  display: grid;
+  grid-template-columns: max-content max-content max-content 1fr;
+  column-gap: 4px; row-gap: 5px;
+  align-items: center; justify-items: start;
   background: rgba(255, 255, 255, .82);
   backdrop-filter: saturate(1.4) blur(10px);
   border-bottom: 1px solid var(--border);
 }
-.nav { display: flex; gap: 4px; }
-.appbar-spacer { flex: 1; }
+/* 第二列只有在分寶頁才存在。不先宣告的話 grid-row: 1 / -1 只會跨到第一列
+   （-1 指的是「明確定義的」格線盡頭，算不到隱式產生的那一列） */
+.appbar.has-sub { grid-template-rows: auto auto; }
+.nav { display: contents; }
+.brand { grid-row: 1 / -1; grid-column: 1; margin-right: 20px; }
+.nav-boss { grid-row: 1; grid-column: 2; }
+.nav-loot { grid-row: 1; grid-column: 3; }
+.subnav { grid-row: 2; grid-column: 3; display: flex; gap: 4px; }
+.version { grid-row: 1; grid-column: 4; justify-self: end; }
 .nav-link {
   text-decoration: none; color: var(--text-muted);
   font-size: 14px; font-weight: 550; padding: 6px 13px; border-radius: 999px;
@@ -151,14 +164,9 @@ body {
   box-shadow: var(--shadow-sm);
 }
 .brand h1 { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: .01em; }
-.version {
-  font-family: var(--mono); font-size: 12px; color: var(--text-muted); flex: none;
-}
+.version { font-family: var(--mono); font-size: 12px; color: var(--text-muted); }
 .version:hover { color: var(--text); }
 
-/* 兩層導覽疊在一起，第二層對齊第一層的左緣 */
-.nav-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
-.subnav { display: flex; gap: 4px; }
 /* 第二層小一號，看得出是下一層 */
 .subnav-link { font-size: 13px; padding: 4px 11px; }
 
@@ -269,12 +277,21 @@ button { font-family: inherit; }
 @media (max-width: 720px) {
   .app { padding: 0 14px 56px; }
 
-  /* appbar 分兩行：brand ＋ 版本鈕一行，導覽列獨占第二行可橫捲 */
-  .appbar { margin: 0 -14px 20px; padding: 10px 14px; gap: 10px; flex-wrap: wrap; }
+  /* 窄螢幕改成：標題與版本鈕一列，導覽往下移一列（第二層再往下一列）
+     [標題　　][版本]
+     [BOSS][分寶]
+     [ 　 ][分寶第二層] */
+  .appbar {
+    margin: 0 -14px 20px; padding: 10px 14px;
+    grid-template-columns: max-content max-content 1fr; row-gap: 8px;
+  }
+  .appbar.has-sub { grid-template-rows: auto auto auto; }
+  .brand { grid-row: 1; grid-column: 1 / span 2; margin-right: 0; }
   .brand h1 { font-size: 16px; }
-  .nav-stack { order: 3; width: 100%; }
-  .nav, .subnav { width: 100%; overflow-x: auto; scrollbar-width: none; }
-  .nav::-webkit-scrollbar, .subnav::-webkit-scrollbar { display: none; }
+  .version { grid-row: 1; grid-column: 3; }
+  .nav-boss { grid-row: 2; grid-column: 1; }
+  .nav-loot { grid-row: 2; grid-column: 2; }
+  .subnav { grid-row: 3; grid-column: 2; }
 
   .card { padding: 14px; margin-bottom: 14px; }
   .section-head { flex-wrap: wrap; }
