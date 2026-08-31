@@ -123,7 +123,14 @@ export function detectBand(data: Pixels, width: number, height: number, opts: Sc
   const rows = Math.max(1, Math.round(height * (opts.topFrac ?? 1)))
   const minWidth = (opts.minWidthFrac ?? 0.2) * width
   const minRows = opts.minRows ?? 5
-  const bands: Array<{ x0: number; x1: number; ys: number[]; bestY: number; bestFills: number }> = []
+  const bands: Array<{
+    x0: number
+    x1: number
+    ys: number[]
+    bestY: number
+    bestFills: number
+    fillSum: number
+  }> = []
   let cur: (typeof bands)[number] | null = null
   for (let y = 0; y < rows; y++) {
     const r = rowRun(data, width, y)
@@ -134,23 +141,22 @@ export function detectBand(data: Pixels, width: number, height: number, opts: Sc
     if (cur && Math.abs(r.x0 - cur.x0) <= 3) {
       cur.ys.push(y)
       cur.x1 = Math.max(cur.x1, r.x1)
+      cur.fillSum += r.fills
       if (r.fills > cur.bestFills) {
         cur.bestFills = r.fills
         cur.bestY = y
       }
     } else {
-      cur = { x0: r.x0, x1: r.x1, ys: [y], bestY: y, bestFills: r.fills }
+      cur = { x0: r.x0, x1: r.x1, ys: [y], bestY: y, bestFills: r.fills, fillSum: r.fills }
       bands.push(cur)
     }
   }
   const valid = bands.filter((b) => b.ys.length >= minRows)
   if (!valid.length) return null
-  // 有血色的優先——血條下方的 UI 深色橫帶可能比血條還長，光比寬度會挑錯。
+  // 血色多的優先——血條下方的 UI 深色橫帶可能比血條還長，光比寬度會挑錯；
+  // 而那條帶子常跟血條最後一列黏在一起，所以「有沒有血色」也不夠，要比總量。
   // 血量歸零的血條沒有血色，那時就純比寬度。
-  valid.sort(
-    (a, b) =>
-      Number(b.bestFills > 0) - Number(a.bestFills > 0) || b.x1 - b.x0 - (a.x1 - a.x0),
-  )
+  valid.sort((a, b) => b.fillSum - a.fillSum || b.x1 - b.x0 - (a.x1 - a.x0))
   const band = valid[0]
   // 這一帶可能連同血條下方的深色 UI 橫帶一起框進來，中線取「有血色最多的那一列」，
   // 才不會整條判讀跑到那條帶子上；全空的血條就退回幾何中線
@@ -175,6 +181,7 @@ export function verticalBounds(
   height: number,
   x: number,
   mid: number,
+  maxReach = Number.POSITIVE_INFINITY,
 ): { y0: number; y1: number } {
   const base = px(data, width, x, mid)
   const baseKind = classify(base[0], base[1], base[2])
@@ -188,10 +195,12 @@ export function verticalBounds(
     if (k !== FILL) return true
     return hueDiff(hueOf(p[0], p[1], p[2]), baseHue) <= 30
   }
+  // 擴張距離要有上限：血量很低時基準欄落在空槽上，而空槽跟血條下方的
+  // 深色 UI 帶是同一種灰，外框一旦被遮住就會連成一片、範圍整個垮掉
   let y0 = mid
   let y1 = mid
-  while (y0 > 0 && sameBar(y0 - 1)) y0--
-  while (y1 < height - 1 && sameBar(y1 + 1)) y1++
+  while (y0 > 0 && mid - y0 < maxReach && sameBar(y0 - 1)) y0--
+  while (y1 < height - 1 && y1 - mid < maxReach && sameBar(y1 + 1)) y1++
   return { y0, y1 }
 }
 
@@ -399,8 +408,16 @@ export function scanHpBar(
   if (!band) return null
   const guess = band.bestY
   const x0 = contentStart(data, width, guess, band.x0)
-  // 用血條內部的一欄把上下界收乾淨，再回頭取真正的中線
-  const bounds = verticalBounds(data, width, height, Math.min(width - 1, x0 + 20), guess)
+  // 量上下界要挑「有血色」的那一欄：血量很低時 x0 附近就只剩幾格血，
+  // 隨便往右取一欄會落在空槽上，那條灰跟血條下方的 UI 帶分不出來
+  let probeX = Math.min(width - 1, x0 + 20)
+  for (let x = x0; x <= Math.min(width - 1, x0 + 200); x++) {
+    if (classify(...px(data, width, x, guess)) === FILL) {
+      probeX = x
+      break
+    }
+  }
+  const bounds = verticalBounds(data, width, height, probeX, guess, Math.max(6, height * 0.08))
   const mid = Math.floor((bounds.y0 + bounds.y1) / 2)
   // 整欄檢查只看中間那幾列：上下緣有漸層與抗鋸齒，算進去只會添亂
   const inset = Math.floor((bounds.y1 - bounds.y0) * 0.2)

@@ -20,6 +20,8 @@ interface BarSpec {
   greyLeft?: boolean
   /** 血條下方再放一條同樣長的深色帶，模擬遊戲 UI 的橫帶 */
   bandBelow?: boolean
+  /** 下緣外框被別的 UI 蓋掉，空槽會跟下方那條深色帶連成一片 */
+  coverBottom?: boolean
   /** 不畫外框：模擬畫面上其他長條色塊（UI 橫幅、地圖背景） */
   noBorder?: boolean
 }
@@ -66,6 +68,11 @@ function paint(spec: BarSpec = {}) {
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, empty)
   if (spec.bandBelow) {
     for (let y = y1 + 3; y <= y1 + 14 && y < height; y++) {
+      for (let x = x0 - 6; x <= x1 + 6; x++) set(x, y, empty)
+    }
+  }
+  if (spec.coverBottom) {
+    for (let y = y1; y <= Math.min(height - 1, y1 + 30); y++) {
       for (let x = x0 - 6; x <= x1 + 6; x++) set(x, y, empty)
     }
   }
@@ -171,6 +178,19 @@ describe('自動判讀血條', () => {
   it('沒有外框的長條色塊不算血條——沒在打王時不該有讀數', () => {
     const { data, width, height } = paint({ noBorder: true, fills: [[80, [220, 30, 10]]] })
     expect(scanHpBar(data, width, height, { topFrac: 1 })).toBeNull()
+  })
+
+  it('血量很低又碰上下緣被蓋住時照樣讀得到', () => {
+    // 這時候血條左邊只剩幾格血，量上下界的基準欄若落在空槽上，
+    // 那條灰會跟下方的 UI 帶連成一片，範圍一垮讀數就沒意義了
+    const { data, width, height, x0, x1 } = paint({
+      height: 200,
+      coverBottom: true,
+      fills: [[8, [220, 30, 10]]],
+    })
+    const res = scanHpBar(data, width, height, { topFrac: 1 })!
+    expect(res).not.toBeNull()
+    expect(res.ratio).toBeCloseTo(8 / (x1 - x0 + 1), 2)
   })
 
   it('畫面上沒有血條就回 null', () => {
