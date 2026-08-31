@@ -4,13 +4,13 @@ import { rebaseLinks, stripNoise, CHANGELOG_RAW_URL, CHANGELOG_PAGE_URL } from '
 describe('rebaseLinks', () => {
   it('圖片的相對路徑指向 raw（要拿到真的圖檔）', () => {
     expect(rebaseLinks('![截圖](docs/screenshots/01-list.png)')).toBe(
-      '![截圖](https://raw.githubusercontent.com/UnRealSKY/dc-loot-editor/main/docs/screenshots/01-list.png)',
+      '![截圖](https://raw.githubusercontent.com/UnRealSKY/boss-toolkit/main/docs/screenshots/01-list.png)',
     )
   })
 
   it('一般連結的相對路徑指向 GitHub 頁面（要能瀏覽）', () => {
     expect(rebaseLinks('[設定步驟](docs/discord-bot-setup.md)')).toBe(
-      '[設定步驟](https://github.com/UnRealSKY/dc-loot-editor/blob/main/docs/discord-bot-setup.md)',
+      '[設定步驟](https://github.com/UnRealSKY/boss-toolkit/blob/main/docs/discord-bot-setup.md)',
     )
   })
 
@@ -38,8 +38,8 @@ describe('rebaseLinks', () => {
 
   it('同一行有圖片也有連結時各自轉對', () => {
     const out = rebaseLinks('![圖](docs/a.png) 與 [文件](docs/b.md)')
-    expect(out).toContain('raw.githubusercontent.com/UnRealSKY/dc-loot-editor/main/docs/a.png')
-    expect(out).toContain('github.com/UnRealSKY/dc-loot-editor/blob/main/docs/b.md')
+    expect(out).toContain('raw.githubusercontent.com/UnRealSKY/boss-toolkit/main/docs/a.png')
+    expect(out).toContain('github.com/UnRealSKY/boss-toolkit/blob/main/docs/b.md')
   })
 
   it('沒有連結的內容原樣通過', () => {
@@ -57,7 +57,7 @@ describe('rebaseLinks', () => {
 
 describe('stripNoise', () => {
   const sample = [
-    '# dc-loot-editor',
+    '# boss-toolkit',
     '',
     '## 1.18.0',
     '',
@@ -80,7 +80,7 @@ describe('stripNoise', () => {
 
   it('去掉檔案開頭的套件名標題，但保留版本標題', () => {
     const out = stripNoise(sample)
-    expect(out).not.toContain('# dc-loot-editor')
+    expect(out).not.toContain('# boss-toolkit')
     expect(out).toContain('## 1.18.0')
     expect(out).toContain('### Minor Changes')
   })

@@ -40,8 +40,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
   <div class="app">
     <header class="appbar">
       <router-link to="/" class="brand">
-        <span class="logo">分</span>
-        <h1>DC 打王分寶 Editor</h1>
+        <span class="logo">王</span>
+        <h1>打王工具箱</h1>
       </router-link>
       <nav class="nav">
         <router-link to="/" class="nav-link" exact-active-class="nav-active">分寶紀錄</router-link>

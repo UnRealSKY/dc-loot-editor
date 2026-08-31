@@ -2,9 +2,9 @@
 // 改了 push 上去就看得到，不必為了改文案發一次版。
 //
 // 代價是相對路徑要自己處理：markdown 裡寫 ![](docs/x.png) 會相對於
-// github.io/dc-loot-editor/ 而失效，所以渲染前先改寫成絕對網址。
+// github.io/boss-toolkit/ 而失效，所以渲染前先改寫成絕對網址。
 
-const REPO = 'UnRealSKY/dc-loot-editor'
+const REPO = 'UnRealSKY/boss-toolkit'
 const RAW_BASE = `https://raw.githubusercontent.com/${REPO}/main/`
 const BLOB_BASE = `https://github.com/${REPO}/blob/main/`
 
