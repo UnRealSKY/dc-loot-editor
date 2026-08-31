@@ -1,5 +1,12 @@
 # dc-loot-editor
 
+## 1.35.0
+
+### Minor Changes
+
+- 36829ce: 存在瀏覽器裡的東西統一前綴：BOSS 工具箱的用 `maplestory-boss-toolkit-`，分寶工具箱的用 `dc-loot-`。原本兩邊混著站還叫 dc-loot-editor 時留下的名字（`dc-shield-*`、`dc-hp-lead`、`dc-groups`、`dc-active-group`、`dc-items-source`）。開頁面時會自動把舊的搬到新的並清掉，使用者不用做任何事；新舊都有值時以新的為準。更早期版本的遷移標記（`dc-webhook-url`、`dc-loot-roster`、`dc-roster-source`）刻意不改名——那是判斷有沒有舊資料的依據。
+- 98ffc4f: 改名並把導覽分成兩層。專案叫「天天的楓之谷工具箱」，repo 是 `maplestory-toolkit`，網址變成 <https://unrealsky.github.io/maplestory-toolkit/>。置頂導覽只剩兩個工具箱：**BOSS 工具箱**（原機制計算機）與**分寶工具箱**；分寶紀錄、未領總覽、設定收成第二層分頁，右上的齒輪按鈕拿掉。開網址進來預設是 BOSS 工具箱。改版前的網址（`#/shield`、`#/pending`、`#/settings`、`#/edit/xxx`）都會自動轉到新位置，舊書籤不會變成空白頁。存在瀏覽器裡的紀錄不受影響。
+
 ## 1.34.0
 
 ### Minor Changes
