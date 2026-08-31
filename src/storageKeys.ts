@@ -44,4 +44,43 @@ export function migrateRenamedKeys(): void {
   }
 }
 
+// 王的 id 改用 MapleStory 的英文名（皮卡啾＝Pink Bean、女皇＝Cygnus、
+// 阿卡伊農＝Arkarium），反盾的欄位也從 shield 改叫 reflect。
+// 這兩件事改的是「值」不是 key，上面那條 RENAMED 搬不到，得自己來——
+// 不搬的話使用者存好的自訂秒數會全部落空，上次選的王也會退回預設。
+const RENAMED_BOSS_IDS: Record<string, string> = {
+  pika: 'pink-bean',
+  queen: 'cygnus',
+  akairon: 'arkarium',
+}
+
+/** 覆寫表的一筆：`shieldDuration` 換名，其餘照抄 */
+function withRenamedFields(override: unknown): unknown {
+  if (!override || typeof override !== 'object') return override
+  const { shieldDuration, ...rest } = override as Record<string, unknown>
+  if (shieldDuration === undefined) return override
+  return { reflectDuration: shieldDuration, ...rest }
+}
+
+export function migrateRenamedBossIds(): void {
+  const boss = localStorage.getItem(BOSS_KEY)
+  if (boss && RENAMED_BOSS_IDS[boss]) localStorage.setItem(BOSS_KEY, RENAMED_BOSS_IDS[boss])
+
+  const raw = localStorage.getItem(OVERRIDES_KEY)
+  if (raw === null) return
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return // 壞資料留著，normalizeOverrides 會當作沒覆寫
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return
+  const out: Record<string, unknown> = {}
+  for (const [id, override] of Object.entries(parsed)) {
+    out[RENAMED_BOSS_IDS[id] ?? id] = withRenamedFields(override)
+  }
+  localStorage.setItem(OVERRIDES_KEY, JSON.stringify(out))
+}
+
 migrateRenamedKeys()
+migrateRenamedBossIds() // 一定要在 key 搬完之後：值是從新 key 讀的

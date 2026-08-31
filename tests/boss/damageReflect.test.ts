@@ -13,17 +13,17 @@ import {
   IDLE,
   startBlocked,
   startInterval,
-  startShield,
+  startReflect,
   upcomingEvents,
-} from '#src/shield/engine'
+} from '#src/boss/damageReflect'
 
 // 測試自己的固定參數：狀態機與產品預設值無關，改預設不該弄壞這裡
-const P = { shieldDuration: 25, interval: 20, dispelDuration: 5 }
+const P = { reflectDuration: 25, interval: 20, dispelDuration: 5 }
 const T0 = 1_000_000 // 任意基準 ms
 
 describe('階段轉換', () => {
   it('反盾 25 秒後自動進入間隔', () => {
-    const s = startShield(T0)
+    const s = startReflect(T0)
     expect(phaseEnd(s, P)).toBe(T0 + 25_000)
     const next = advance(s, T0 + 25_000, P)
     expect(next.phase).toBe('interval')
@@ -33,7 +33,7 @@ describe('階段轉換', () => {
   it('間隔結束無魔消 → 反盾開始', () => {
     const s = startInterval(T0)
     const next = advance(s, T0 + 20_000, P)
-    expect(next.phase).toBe('shield')
+    expect(next.phase).toBe('reflect')
   })
 
   it('間隔結束有有效魔消 → 反盾被阻止，25 秒後回間隔', () => {
@@ -46,14 +46,14 @@ describe('階段轉換', () => {
   })
 
   it('跨多段自動推進（反盾→間隔→無魔消→反盾）', () => {
-    const s = startShield(T0)
+    const s = startReflect(T0)
     const next = advance(s, T0 + 25_000 + 20_000 + 3_000, P)
-    expect(next.phase).toBe('shield')
+    expect(next.phase).toBe('reflect')
     expect(next.phaseStart).toBe(T0 + 45_000)
   })
 
   it('校準按鈕立即切換階段', () => {
-    expect(startShield(T0).phase).toBe('shield')
+    expect(startReflect(T0).phase).toBe('reflect')
     expect(startInterval(T0).phase).toBe('interval')
     expect(startBlocked(T0).phase).toBe('blocked')
   })
@@ -69,7 +69,7 @@ describe('魔消驗證', () => {
   })
 
   it('非間隔階段點魔消無效', () => {
-    expect(markDispel(startShield(T0), T0 + 16_000, P).result).toBe('wrongPhase')
+    expect(markDispel(startReflect(T0), T0 + 16_000, P).result).toBe('wrongPhase')
     expect(markDispel(startBlocked(T0), T0 + 16_000, P).result).toBe('wrongPhase')
   })
 
@@ -77,13 +77,13 @@ describe('魔消驗證', () => {
     const s = startInterval(T0)
     const { state } = markDispel(s, T0 + 5_000, P)
     expect(state.dispelValid).toBe(false)
-    expect(advance(state, T0 + 20_000, P).phase).toBe('shield')
+    expect(advance(state, T0 + 20_000, P).phase).toBe('reflect')
   })
 })
 
 describe('未來事件表', () => {
   it('反盾中：結束→魔消提醒→（無魔消）反盾開始', () => {
-    const s = startShield(T0)
+    const s = startReflect(T0)
     const events = upcomingEvents(s, P, T0, 3)
     expect(events.map((e) => e.label)).toEqual([
       '反盾結束（可輸出）',
@@ -117,28 +117,28 @@ describe('未來事件表', () => {
 describe('反盾間隔浮動', () => {
   // 反盾可能延到 間隔+浮動 才重施，buff 要撐到最晚那一刻才擋得住
   it('有效窗起點用「間隔＋浮動」往回推', () => {
-    expect(dispelWindowStart({ shieldDuration: 25, interval: 20, dispelDuration: 20, intervalFloat: 3 })).toBe(3)
+    expect(dispelWindowStart({ reflectDuration: 25, interval: 20, dispelDuration: 20, intervalFloat: 3 })).toBe(3)
   })
 
   it('沒有浮動時維持原本的算法', () => {
-    expect(dispelWindowStart({ shieldDuration: 20, interval: 25, dispelDuration: 20 })).toBe(5)
+    expect(dispelWindowStart({ reflectDuration: 20, interval: 25, dispelDuration: 20 })).toBe(5)
   })
 
   it('持續時間長到蓋過整段間隔時起點是 0，不會變負數', () => {
-    expect(dispelWindowStart({ shieldDuration: 25, interval: 20, dispelDuration: 60, intervalFloat: 3 })).toBe(0)
+    expect(dispelWindowStart({ reflectDuration: 25, interval: 20, dispelDuration: 60, intervalFloat: 3 })).toBe(0)
   })
 
   it('浮動不影響階段長度——可輸出時間仍以間隔本身為準', () => {
-    const p = { shieldDuration: 25, interval: 20, dispelDuration: 20, intervalFloat: 3 }
+    const p = { reflectDuration: 25, interval: 20, dispelDuration: 20, intervalFloat: 3 }
     expect(phaseDuration('interval', p)).toBe(20)
     const s = startInterval(T0)
     expect(phaseEnd(s, p)).toBe(T0 + 20_000)
-    expect(advance(s, T0 + 20_000, p).phase).toBe('shield')
+    expect(advance(s, T0 + 20_000, p).phase).toBe('reflect')
   })
 })
 
 describe('魔消耐性與冷卻', () => {
-  const P2 = { shieldDuration: 25, interval: 20, dispelDuration: 20, intervalFloat: 3 }
+  const P2 = { reflectDuration: 25, interval: 20, dispelDuration: 20, intervalFloat: 3 }
 
   it('沒有魔消紀錄時兩者都是 0', () => {
     expect(resistRemaining(IDLE, T0)).toBe(0)
@@ -181,7 +181,7 @@ describe('魔消耐性與冷卻', () => {
 })
 
 describe('事件表考慮耐性', () => {
-  const P2 = { shieldDuration: 25, interval: 20, dispelDuration: 20, intervalFloat: 3 }
+  const P2 = { reflectDuration: 25, interval: 20, dispelDuration: 20, intervalFloat: 3 }
 
   it('耐性還在的輪次不提示使用魔消', () => {
     // 剛在間隔開始時放過，接下來這一輪（第 20 秒結束）整段都在耐性內
@@ -197,22 +197,22 @@ describe('事件表考慮耐性', () => {
   })
 
   it('沒有魔消紀錄時每輪都提示', () => {
-    const labels = upcomingEvents(startShield(T0), P2, T0, 6).map((e) => e.label)
+    const labels = upcomingEvents(startReflect(T0), P2, T0, 6).map((e) => e.label)
     expect(labels.filter((l) => l === '使用魔消！').length).toBeGreaterThan(0)
   })
 })
 
 describe('微調當前階段', () => {
-  const P3 = { shieldDuration: 25, interval: 20, dispelDuration: 20, intervalFloat: 3 }
+  const P3 = { reflectDuration: 25, interval: 20, dispelDuration: 20, intervalFloat: 3 }
 
   it('+1 秒讓倒數多一秒（起點往後挪）', () => {
-    const s = nudge(startShield(T0), 1)
+    const s = nudge(startReflect(T0), 1)
     expect(s.phaseStart).toBe(T0 + 1000)
     expect(phaseEnd(s, P3)).toBe(T0 + 1000 + 25_000)
   })
 
   it('−1 秒讓倒數少一秒', () => {
-    expect(nudge(startShield(T0), -1).phaseStart).toBe(T0 - 1000)
+    expect(nudge(startReflect(T0), -1).phaseStart).toBe(T0 - 1000)
   })
 
   it('idle 時不動', () => {
@@ -226,23 +226,23 @@ describe('微調當前階段', () => {
   })
 
   it('不改動傳入的狀態', () => {
-    const s = startShield(T0)
+    const s = startReflect(T0)
     nudge(s, 1)
     expect(s.phaseStart).toBe(T0)
   })
 
   it('事件表跟著一起平移，不會只有倒數變', () => {
-    const before = upcomingEvents(startShield(T0), P3, T0, 1)[0].at
-    const after = upcomingEvents(nudge(startShield(T0), 1), P3, T0, 1)[0].at
+    const before = upcomingEvents(startReflect(T0), P3, T0, 1)[0].at
+    const after = upcomingEvents(nudge(startReflect(T0), 1), P3, T0, 1)[0].at
     expect(after - before).toBe(1000)
   })
 })
 
 describe('可輸出總計', () => {
-  const P4 = { shieldDuration: 25, interval: 20, dispelDuration: 20, intervalFloat: 3 }
+  const P4 = { reflectDuration: 25, interval: 20, dispelDuration: 20, intervalFloat: 3 }
 
   it('反盾中與待機都是 0', () => {
-    expect(attackRemaining(startShield(T0), P4, T0)).toBe(0)
+    expect(attackRemaining(startReflect(T0), P4, T0)).toBe(0)
     expect(attackRemaining(IDLE, P4, T0)).toBe(0)
   })
 
@@ -269,7 +269,7 @@ describe('可輸出總計', () => {
 })
 
 describe('可輸出到的時刻', () => {
-  const P = { shieldDuration: 25, interval: 20, dispelDuration: 20 }
+  const P = { reflectDuration: 25, interval: 20, dispelDuration: 20 }
   const T0 = 1_000_000
 
   it('是固定的一刻，不隨時間流逝而漂移', () => {
@@ -288,7 +288,7 @@ describe('可輸出到的時刻', () => {
   })
 
   it('反盾中與待機沒有可輸出時刻', () => {
-    expect(attackEndAt({ phase: 'shield', phaseStart: T0, dispelValid: false }, P)).toBeNull()
+    expect(attackEndAt({ phase: 'reflect', phaseStart: T0, dispelValid: false }, P)).toBeNull()
     expect(attackEndAt(IDLE, P)).toBeNull()
   })
 

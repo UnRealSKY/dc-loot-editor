@@ -5,7 +5,7 @@ import {
   nudgeClock,
   triggerAt,
   upcomingCycleEvents,
-} from '#src/shield/cycle'
+} from '#src/boss/cycle'
 
 const T0 = 1_000_000
 const sec = (n: number) => T0 + n * 1000

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { CycleBoss } from '../shield/bosses'
-import { secondsLeft, cyclesElapsed } from '../shield/cycle'
-import { cycleClocks, triggerCycle, nudgeCycle, resetCycles, anyCycleRunning } from '../shield/cycleClocks'
-import { ensureAudio } from '../shield/sound'
-import { fmtTime } from '../shield/anchor'
-import { now, touchNow } from '../shield/clock'
+import type { CycleBoss } from '../boss/bosses'
+import { secondsLeft, cyclesElapsed } from '../boss/cycle'
+import { cycleClocks, triggerCycle, nudgeCycle, resetCycles, anyCycleRunning } from '../boss/cycleClocks'
+import { ensureAudio } from '../boss/sound'
+import { fmtTime } from '../boss/anchor'
+import { now, touchNow } from '../boss/clock'
 
 const props = defineProps<{ boss: CycleBoss }>()
 
@@ -42,7 +42,7 @@ function nextAt(id: string, interval: number): number | null {
 function phaseClass(id: string, interval: number): string {
   const left = leftOf(id, interval)
   if (left == null) return 'phase-idle'
-  return left <= WARN_SECONDS ? 'phase-shield' : 'phase-attack'
+  return left <= WARN_SECONDS ? 'phase-reflect' : 'phase-attack'
 }
 // 引信與進度條共用同一個比例：本輪已經過多少
 function progress(id: string, interval: number): number {

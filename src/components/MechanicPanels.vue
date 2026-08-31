@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { CycleBoss, HpBoss } from '../shield/bosses'
-import { currentBoss } from '../shield/session'
+import type { CycleBoss, HpBoss } from '../boss/bosses'
+import { currentBoss } from '../boss/session'
 import HpCapture from './HpCapture.vue'
 import CycleBoard from './CycleBoard.vue'
 import HpThresholdBoard from './HpThresholdBoard.vue'
-import ShieldPanel from './ShieldPanel.vue'
+import DamageReflectPanel from './DamageReflectPanel.vue'
 import AnchorRow from './AnchorRow.vue'
 
 // 這一組面板會同時出現在主視窗與抬頭顯示——兩份各自渲染，讀的是同一份狀態。
@@ -15,7 +15,7 @@ const props = defineProps<{ compact?: boolean }>()
 const boss = computed(() => currentBoss())
 const cycleBoss = computed(() => (boss.value.mechanic === 'cycle' ? (boss.value as CycleBoss) : null))
 const hpBoss = computed(() => (boss.value.mechanic === 'hp' ? (boss.value as HpBoss) : null))
-const shieldBoss = computed(() => boss.value.mechanic === 'shield')
+const reflectBoss = computed(() => boss.value.mechanic === 'damage-reflect')
 </script>
 
 <template>
@@ -33,5 +33,5 @@ const shieldBoss = computed(() => boss.value.mechanic === 'shield')
     </template>
   </CycleBoard>
 
-  <ShieldPanel v-else-if="shieldBoss" />
+  <DamageReflectPanel v-else-if="reflectBoss" />
 </template>

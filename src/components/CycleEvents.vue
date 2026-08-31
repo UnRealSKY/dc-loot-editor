@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import type { CycleBoss } from '../shield/bosses'
-import { upcomingCycleEvents } from '../shield/cycle'
-import { cycleClocks } from '../shield/cycleClocks'
-import { fmtTime } from '../shield/anchor'
+import type { CycleBoss } from '../boss/bosses'
+import { upcomingCycleEvents } from '../boss/cycle'
+import { cycleClocks } from '../boss/cycleClocks'
+import { fmtTime } from '../boss/anchor'
 import AnchorRow from './AnchorRow.vue'
 
 // 「接下來」留在主視窗——子母畫面只搬面板，大畫面才有空間看完整的時間表

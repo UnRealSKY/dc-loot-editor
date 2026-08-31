@@ -17,7 +17,10 @@ const store = useRecordsStore()
 const route = useRoute()
 const showUnsynced = ref(false)
 
-// 導覽分兩層：上面是兩個工具箱，分寶那邊的三個頁面收成第二層
+// 導覽分兩層：上面是兩個工具箱，分寶那邊的三個頁面收成第二層。
+// 兩個工具箱的 active 都得自己判斷：/boss-toolkit 與 /boss-toolkit/:bossId、
+// /loot 與 /loot/xxx 都是平行的路由紀錄，router-link 的 active 不會跨過去
+const inBoss = computed(() => route.path.startsWith('/boss-toolkit'))
 const inLoot = computed(() => route.path.startsWith('/loot'))
 
 const currentDirty = computed(() => {
@@ -54,8 +57,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
            沒有底色也沒有框線撐著，看不出那幾個字可以點。
            BOSS 工具箱的王選單不搬——那排數量多，右邊還跟著抬頭顯示與聲音提醒 -->
       <nav class="nav">
-        <router-link to="/boss-toolkit" class="nav-link nav-boss" active-class="nav-active">BOSS 工具箱</router-link>
-        <!-- /loot 與 /loot/xxx 是平行的路由紀錄，router-link 的 active 不會跨過去，要自己判斷 -->
+        <router-link to="/boss-toolkit" class="nav-link nav-boss" :class="{ 'nav-active': inBoss }">BOSS 工具箱</router-link>
         <router-link to="/loot" class="nav-link nav-loot" :class="{ 'nav-active': inLoot }">分寶工具箱</router-link>
         <div v-if="inLoot" class="subnav">
           <router-link to="/loot" class="nav-link subnav-link" exact-active-class="nav-active">分寶紀錄</router-link>
@@ -307,7 +309,7 @@ button { font-family: inherit; }
 }
 
 /* ---- 機制計算機的色塊面板（反盾與女皇兩種模板共用同一套視覺語言）----
-   idle 灰＝還沒開始；attack 綠＝安全可打；shield 紅＝機制正在發生或即將發生。
+   idle 灰＝還沒開始；attack 綠＝安全可打；reflect 紅＝機制正在發生或即將發生。
    引信邊框與進度條都表示「本段剩多少」。 */
 .phase-panel {
   position: relative; text-align: center; padding: 26px 20px;
@@ -321,13 +323,13 @@ button { font-family: inherit; }
   x: 1.5px; y: 1.5px; width: calc(100% - 3px); height: calc(100% - 3px);
   rx: 11px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round;
 }
-.phase-shield .fuse rect { stroke: var(--danger); }
+.phase-reflect .fuse rect { stroke: var(--danger); }
 .phase-attack .fuse rect { stroke: var(--success); }
 .phase-idle { background: var(--surface-2); }
-.phase-shield { background: var(--danger-soft); border-color: var(--danger); }
+.phase-reflect { background: var(--danger-soft); border-color: var(--danger); }
 .phase-attack { background: var(--success-soft); border-color: var(--success); }
 .phase-title { font-size: 22px; font-weight: 750; }
-.phase-shield .phase-title { color: var(--danger); }
+.phase-reflect .phase-title { color: var(--danger); }
 .phase-attack .phase-title { color: var(--success); }
 .remaining-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
 .nudge { flex: none; font-variant-numeric: tabular-nums; }

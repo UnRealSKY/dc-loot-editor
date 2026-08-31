@@ -4,15 +4,15 @@
 // 反盾模板的王各自填反盾秒數；循環模板的王填一串「多久觸發一次」的機制。
 // 魔消是玩家自己放的技能，秒數與打哪隻王無關，因此不進王的資料，由呼叫端當全域值傳入。
 
-import type { ShieldParams } from './engine'
+import type { ReflectParams } from './damageReflect'
 import { DEFAULT_MECHANIC } from './mechanics'
 
 // 反盾模板的王：一組反盾節奏
-export interface ShieldBoss {
+export interface ReflectBoss {
   id: string
   name: string
-  mechanic: 'shield'
-  shieldDuration: number // 反盾持續（秒）
+  mechanic: 'damage-reflect'
+  reflectDuration: number // 反盾持續（秒）
   interval: number       // 反盾間隔（秒，實戰是「最少」這麼久）
   intervalFloat: number  // 間隔浮動（秒）：實際重施落在 interval ~ interval+float
 }
@@ -43,25 +43,25 @@ export interface DpsBoss {
   mechanic: 'dps'
 }
 
-export type Boss = ShieldBoss | CycleBoss | HpBoss | DpsBoss
+export type Boss = ReflectBoss | CycleBoss | HpBoss | DpsBoss
 
 export const BOSSES: Boss[] = [
-  { id: 'pika', name: '皮卡啾／粉豆', mechanic: 'shield', shieldDuration: 25, interval: 20, intervalFloat: 3 },
-  { id: 'dunas', name: '杜納斯', mechanic: 'shield', shieldDuration: 20, interval: 25, intervalFloat: 0 },
+  { id: 'pink-bean', name: '皮卡啾／粉豆', mechanic: 'damage-reflect', reflectDuration: 25, interval: 20, intervalFloat: 3 },
+  { id: 'dunas', name: '杜納斯', mechanic: 'damage-reflect', reflectDuration: 20, interval: 25, intervalFloat: 0 },
   {
-    id: 'queen',
+    id: 'cygnus',
     name: '女皇',
     mechanic: 'cycle',
     cycles: [
       { id: 'zombie', name: '活屍', interval: 60 },
       { id: 'seal', name: '鎖潛能', interval: 90 },
       { id: 'pig', name: '變豬', interval: 60 },
-      { id: 'shield', name: '反盾', interval: 80 },
+      { id: 'damage-reflect', name: '反盾', interval: 80 },
       { id: 'jail', name: '小黑屋', interval: 90 },
     ],
   },
   {
-    id: 'akairon',
+    id: 'arkarium',
     name: '阿卡伊農',
     mechanic: 'hp',
     thresholds: [80, 60, 40, 20],
@@ -71,7 +71,7 @@ export const BOSSES: Boss[] = [
 ]
 
 // 套用某機制模板的王；頁面就是拿這個清單當王選單
-export function bossesOf(mechanicId: 'shield'): ShieldBoss[]
+export function bossesOf(mechanicId: 'damage-reflect'): ReflectBoss[]
 export function bossesOf(mechanicId: 'cycle'): CycleBoss[]
 export function bossesOf(mechanicId: 'hp'): HpBoss[]
 export function bossesOf(mechanicId: 'dps'): DpsBoss[]
@@ -85,16 +85,16 @@ export function defaultBoss(): Boss {
 }
 
 // 反盾模板專用的取王：拿到別種模板的王就退回第一隻反盾王，讓反盾面板永遠有合法參數
-export function shieldBossById(id: string): ShieldBoss {
+export function reflectBossById(id: string): ReflectBoss {
   const b = bossById(id)
-  return b.mechanic === 'shield' ? b : bossesOf('shield')[0]
+  return b.mechanic === 'damage-reflect' ? b : bossesOf('damage-reflect')[0]
 }
 
 // 玩家的魔消技能持續（秒）
 export const DEFAULT_DISPEL_DURATION = 20
 
 export interface BossOverride {
-  shieldDuration: number
+  reflectDuration: number
   interval: number
   intervalFloat: number
 }
@@ -107,13 +107,13 @@ export function bossById(id: string): Boss {
 }
 
 export function paramsOf(
-  boss: ShieldBoss,
+  boss: ReflectBoss,
   overrides: BossOverrides,
   dispelDuration: number,
-): ShieldParams {
+): ReflectParams {
   const ov = overrides[boss.id]
   return {
-    shieldDuration: ov?.shieldDuration ?? boss.shieldDuration,
+    reflectDuration: ov?.reflectDuration ?? boss.reflectDuration,
     interval: ov?.interval ?? boss.interval,
     intervalFloat: ov?.intervalFloat ?? boss.intervalFloat,
     dispelDuration,
@@ -124,16 +124,16 @@ export function paramsOf(
 export function normalizeOverrides(raw: unknown): BossOverrides {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
   const out: BossOverrides = {}
-  for (const boss of bossesOf('shield')) {
+  for (const boss of bossesOf('damage-reflect')) {
     const ov = (raw as Record<string, unknown>)[boss.id]
     if (!ov || typeof ov !== 'object') continue
-    const { shieldDuration, interval, intervalFloat } = ov as Partial<BossOverride>
-    if (!(typeof shieldDuration === 'number' && shieldDuration > 0)) continue
+    const { reflectDuration, interval, intervalFloat } = ov as Partial<BossOverride>
+    if (!(typeof reflectDuration === 'number' && reflectDuration > 0)) continue
     if (!(typeof interval === 'number' && interval > 0)) continue
     // 浮動可以是 0（杜納斯就沒有），只擋負數與非數字；舊資料沒這欄就用王的預設
     const float =
       typeof intervalFloat === 'number' && intervalFloat >= 0 ? intervalFloat : boss.intervalFloat
-    out[boss.id] = { shieldDuration, interval, intervalFloat: float }
+    out[boss.id] = { reflectDuration, interval, intervalFloat: float }
   }
   return out
 }
@@ -141,12 +141,12 @@ export function normalizeOverrides(raw: unknown): BossOverrides {
 // 寫入覆寫；值與王的內建預設相同時移除該筆，「還原預設」按鈕便會自然消失
 export function setOverride(
   overrides: BossOverrides,
-  boss: ShieldBoss,
+  boss: ReflectBoss,
   patch: BossOverride,
 ): BossOverrides {
   const next = { ...overrides }
   if (
-    patch.shieldDuration === boss.shieldDuration &&
+    patch.reflectDuration === boss.reflectDuration &&
     patch.interval === boss.interval &&
     patch.intervalFloat === boss.intervalFloat
   ) {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { anchorRef, setAnchor, calibrateAnchor, gameClock } from '../shield/anchor'
+import { anchorRef, setAnchor, calibrateAnchor, gameClock } from '../boss/anchor'
 import { grabFrame, isCapturing } from '../hp/capture'
 import { readTimer } from '../hp/timer'
 

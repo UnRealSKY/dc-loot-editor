@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import type { HpBoss } from '../shield/bosses'
+import type { HpBoss } from '../boss/bosses'
 import { hpNow } from '../hp/current'
 import { thresholdState, elapsedText } from '../hp/thresholds'
 import { passed, justHit, lastHit, finalClock, startFinalCycle, nudgeFinalCycle } from '../hp/thresholdState'
-import { secondsLeft } from '../shield/cycle'
-import { ensureAudio } from '../shield/sound'
-import { now, touchNow } from '../shield/clock'
+import { secondsLeft } from '../boss/cycle'
+import { ensureAudio } from '../boss/sound'
+import { now, touchNow } from '../boss/clock'
 import { HP_LEAD_KEY } from '../storageKeys'
 
 const props = defineProps<{ boss: HpBoss }>()
@@ -37,9 +37,9 @@ const state = computed(() =>
 const percentText = computed(() => (hp.percent == null ? null : hp.percent.toFixed(1)))
 // 依目前狀態決定整塊面板的顏色，跟其他機制面板同一組語意
 const panelClass = computed(() => {
-  if (cycleLeft.value != null) return cycleLeft.value <= 5 ? 'phase-shield' : 'phase-attack'
+  if (cycleLeft.value != null) return cycleLeft.value <= 5 ? 'phase-reflect' : 'phase-attack'
   if (hp.percent == null) return 'phase-idle'
-  if (state.value.level === 'hit') return 'phase-shield'
+  if (state.value.level === 'hit') return 'phase-reflect'
   return state.value.level === 'near' ? 'phase-warn' : 'phase-attack'
 })
 // 上一個門檻過了多久。隊友的技能冷卻是固定的，看這個數字就知道好了沒

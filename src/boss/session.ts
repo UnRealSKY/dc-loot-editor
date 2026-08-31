@@ -14,13 +14,13 @@ import {
   resistRemaining,
   startBlocked,
   startInterval,
-  startShield,
-  type ShieldState,
-} from './engine'
+  startReflect,
+  type ReflectState,
+} from './damageReflect'
 import {
   DEFAULT_DISPEL_DURATION,
   bossById,
-  shieldBossById,
+  reflectBossById,
   normalizeOverrides,
   paramsOf,
   type BossOverrides,
@@ -46,7 +46,7 @@ function loadOverrides(): BossOverrides {
 
 export const overrides = ref<BossOverrides>(loadOverrides())
 export const dispelDuration = ref(Number(localStorage.getItem(DISPEL_KEY)) || DEFAULT_DISPEL_DURATION)
-export const shieldState = ref<ShieldState>(IDLE)
+export const reflectState = ref<ReflectState>(IDLE)
 export const dispelFeedback = ref<'valid' | 'tooEarly' | ''>('')
 /** 有循環在跑時要鎖住換王——換走會把計時丟掉 */
 export const cycleRunning = computed(() => {
@@ -62,8 +62,8 @@ export function currentBoss() {
   return bossById(bossId.value)
 }
 
-export function shieldParams() {
-  return paramsOf(shieldBossById(bossId.value), overrides.value, dispelDuration.value)
+export function reflectParams() {
+  return paramsOf(reflectBossById(bossId.value), overrides.value, dispelDuration.value)
 }
 
 export function beep(freq: number, ms: number, delayMs = 0): void {
@@ -90,13 +90,13 @@ function tick() {
     }
     return
   }
-  if (boss.mechanic !== 'shield') return // 只看血條的類型沒有東西要推進
-  const params = shieldParams()
-  const prev = shieldState.value
+  if (boss.mechanic !== 'damage-reflect') return // 只看血條的類型沒有東西要推進
+  const params = reflectParams()
+  const prev = reflectState.value
   const next = advance(prev, now.value, params)
   if (next !== prev && (next.phase !== prev.phase || next.phaseStart !== prev.phaseStart)) {
-    shieldState.value = next
-    if (next.phase === 'shield') {
+    reflectState.value = next
+    if (next.phase === 'reflect') {
       beep(440, 220)
       beep(330, 300, 260)
     } else {
@@ -104,7 +104,7 @@ function tick() {
     }
   }
   // 魔消提醒：間隔進入有效窗那一刻。王的耐性還在就不響——放了也擋不掉
-  const s = shieldState.value
+  const s = reflectState.value
   if (s.phase === 'interval' && remindedForPhase !== s.phaseStart) {
     const elapsed = (now.value - s.phaseStart) / 1000
     if (elapsed >= dispelWindowStart(params) && resistRemaining(s, now.value) === 0) {
@@ -140,33 +140,33 @@ export function stopSessionLoop(): void {
 }
 
 // ---- 操作 ----
-export function onStartShield() {
-  shieldState.value = startShield(Date.now())
+export function onStartReflect() {
+  reflectState.value = startReflect(Date.now())
 }
 export function onStartInterval() {
-  shieldState.value = startInterval(Date.now())
+  reflectState.value = startInterval(Date.now())
 }
 export function onStartBlocked() {
-  shieldState.value = startBlocked(Date.now())
+  reflectState.value = startBlocked(Date.now())
 }
 export function onDispel(): 'valid' | 'tooEarly' | 'wrongPhase' {
-  const { state, result } = markDispel(shieldState.value, Date.now(), shieldParams())
-  shieldState.value = state
+  const { state, result } = markDispel(reflectState.value, Date.now(), reflectParams())
+  reflectState.value = state
   if (result !== 'wrongPhase') dispelFeedback.value = result
   return result
 }
-export function onResetShield() {
-  shieldState.value = IDLE
+export function onResetReflect() {
+  reflectState.value = IDLE
   dispelFeedback.value = ''
   remindedForPhase = 0 // 清掉上一場殘留，換王後第一個間隔才會提醒魔消
 }
-export function onNudgeShield(deltaSec: number) {
-  shieldState.value = nudge(shieldState.value, deltaSec)
+export function onNudgeReflect(deltaSec: number) {
+  reflectState.value = nudge(reflectState.value, deltaSec)
 }
 
 /** 換王＝換一場，把上一隻王的計時與紀錄都清掉 */
 export function resetSession(): void {
-  onResetShield()
+  onResetReflect()
   const boss = currentBoss()
   if (boss.mechanic === 'cycle') resetCycles((boss as CycleBoss).cycles)
   resetThresholds()

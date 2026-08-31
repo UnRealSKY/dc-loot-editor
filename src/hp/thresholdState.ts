@@ -2,15 +2,15 @@
 // 面板會同時開在主視窗與抬頭顯示，狀態與響鈴都集中在這裡，元件只負責畫。
 
 import { ref, watch } from 'vue'
-import { bossById } from '../shield/bosses'
-import type { HpBoss } from '../shield/bosses'
+import { bossById } from '../boss/bosses'
+import type { HpBoss } from '../boss/bosses'
 import { crossedThresholds } from './thresholds'
 import { hpNow } from './current'
-import { triggerAt, cyclesElapsed, nudgeClock, type CycleClock } from '../shield/cycle'
-import { beep } from '../shield/sound'
-import { soundOn } from '../shield/prefs'
-import { bossId } from '../shield/bossId'
-import { touchNow } from '../shield/clock'
+import { triggerAt, cyclesElapsed, nudgeClock, type CycleClock } from '../boss/cycle'
+import { beep } from '../boss/sound'
+import { soundOn } from '../boss/prefs'
+import { bossId } from '../boss/bossId'
+import { touchNow } from '../boss/clock'
 
 export const passed = ref<number[]>([])
 /** 剛跨過的門檻，過幾秒自動消掉（面板用它閃一下） */

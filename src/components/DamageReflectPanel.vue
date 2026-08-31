@@ -8,26 +8,26 @@ import {
   resistRemaining,
   DISPEL_RESIST,
   DISPEL_COOLDOWN,
-} from '../shield/engine'
+} from '../boss/damageReflect'
 import {
-  shieldState,
-  shieldParams,
+  reflectState,
+  reflectParams,
   dispelFeedback,
-  onStartShield,
+  onStartReflect,
   onStartInterval,
   onStartBlocked,
   onDispel,
-  onResetShield,
-  onNudgeShield,
-} from '../shield/session'
-import { now } from '../shield/clock'
-import { ensureAudio } from '../shield/sound'
-import { fmtTime } from '../shield/anchor'
+  onResetReflect,
+  onNudgeReflect,
+} from '../boss/session'
+import { now } from '../boss/clock'
+import { ensureAudio } from '../boss/sound'
+import { fmtTime } from '../boss/anchor'
 
-// 反盾面板。狀態機在 shield/session 那一份跑，這裡只負責畫與接操作——
+// 反盾面板。狀態機在 boss/session 那一份跑，這裡只負責畫與接操作——
 // 這個面板會同時出現在主視窗與抬頭顯示，推進與音效不能各做一次。
-const state = shieldState
-const params = computed(() => shieldParams())
+const state = reflectState
+const params = computed(() => reflectParams())
 
 const remaining = computed(() => {
   if (state.value.phase === 'idle') return 0
@@ -45,7 +45,7 @@ const attackEnd = computed(() => attackEndAt(state.value, params.value))
 
 const PHASE_META = {
   idle: { cls: 'phase-idle', title: '待機', note: '開戰看到反盾出現時按「反盾開始」' },
-  shield: { cls: 'phase-shield', title: '反盾中 ⛔ 禁止輸出', note: '' },
+  reflect: { cls: 'phase-reflect', title: '反盾中 ⛔ 禁止輸出', note: '' },
   interval: { cls: 'phase-attack', title: '間隔 ⚔ 可輸出', note: '' },
   blocked: { cls: 'phase-attack', title: '反盾阻止成功 ⚔ 可輸出', note: '' },
 } as const
@@ -88,8 +88,8 @@ function dispel() {
   clearTimeout(feedbackTimer)
   feedbackTimer = setTimeout(() => (dispelFeedback.value = ''), 2000)
 }
-const startShield = () => {
-  onStartShield()
+const startReflect = () => {
+  onStartReflect()
   ensureAudio()
 }
 const startInterval = () => {
@@ -108,7 +108,7 @@ const nextPhaseInfo = computed(() => {
   const time = fmtTime(phaseEnd(s, params.value), now.value)
   if (!time.includes(':')) return null // 還沒對齊遊戲計時就沒有時刻可講
   const label =
-    s.phase === 'shield'
+    s.phase === 'reflect'
       ? '間隔（可輸出）'
       : s.phase === 'interval'
         ? s.dispelValid
@@ -133,19 +133,19 @@ const nextPhaseInfo = computed(() => {
       <div class="phase-remaining until-time">{{ fmtTime(attackEnd, now) }}</div>
       <div class="remaining-row seg-row">
         <button type="button" class="btn btn-sm nudge" title="當前階段減 1 秒"
-          @click="onNudgeShield(-1)">−1s</button>
+          @click="onNudgeReflect(-1)">−1s</button>
         <span class="seg-remaining">本段 {{ remaining }}s</span>
         <button type="button" class="btn btn-sm nudge" title="當前階段加 1 秒"
-          @click="onNudgeShield(1)">＋1s</button>
+          @click="onNudgeReflect(1)">＋1s</button>
       </div>
     </template>
     <!-- 反盾中沒得打，主角就是這段還要忍多久 -->
     <div v-else-if="state.phase !== 'idle'" class="remaining-row">
       <button type="button" class="btn btn-sm nudge" title="當前階段減 1 秒"
-        @click="onNudgeShield(-1)">−1s</button>
+        @click="onNudgeReflect(-1)">−1s</button>
       <div class="phase-remaining">{{ remaining }}<span class="unit">s</span></div>
       <button type="button" class="btn btn-sm nudge" title="當前階段加 1 秒"
-        @click="onNudgeShield(1)">＋1s</button>
+        @click="onNudgeReflect(1)">＋1s</button>
     </div>
     <div v-if="state.phase !== 'idle'" class="phase-bar">
       <div class="phase-bar-fill" :style="{ width: progress + '%' }" />
@@ -163,15 +163,15 @@ const nextPhaseInfo = computed(() => {
   <!-- 操作 -->
   <div class="card">
     <div class="controls">
-      <button type="button" class="btn ctrl ctrl-shield" @click="startShield">反盾開始</button>
+      <button type="button" class="btn ctrl ctrl-reflect" @click="startReflect">反盾開始</button>
       <button type="button" class="btn ctrl ctrl-interval" @click="startInterval">反盾結束</button>
       <button type="button" class="btn ctrl ctrl-interval" @click="startBlocked">反盾阻止成功</button>
       <button type="button" class="btn btn-primary ctrl" :disabled="state.phase !== 'interval'"
         @click="dispel">魔消成功</button>
-      <button type="button" class="btn btn-ghost ctrl" @click="onResetShield">重置</button>
+      <button type="button" class="btn btn-ghost ctrl" @click="onResetReflect">重置</button>
     </div>
     <p class="muted ctrl-hint">
-      反盾持續是標準 {{ params.shieldDuration }} 秒；間隔是「最少」{{ params.interval }} 秒，
+      反盾持續是標準 {{ params.reflectDuration }} 秒；間隔是「最少」{{ params.interval }} 秒，
       <template v-if="params.intervalFloat">最晚可能拖到 {{ params.interval + params.intervalFloat }} 秒才重施——</template>
       <template v-else>——</template>
       倒數到 0 會自動推進，看到遊戲內實況時按上方按鈕即可隨時校正。
@@ -201,8 +201,8 @@ const nextPhaseInfo = computed(() => {
 .dispel-feedback.tooEarly { color: var(--danger); }
 .controls { display: flex; gap: 10px; flex-wrap: wrap; }
 .ctrl { flex: 1; min-width: 120px; padding: 14px 16px; font-size: 15px; font-weight: 650; }
-.ctrl-shield { border-color: var(--danger); color: var(--danger); }
-.ctrl-shield:hover { background: var(--danger-soft); }
+.ctrl-reflect { border-color: var(--danger); color: var(--danger); }
+.ctrl-reflect:hover { background: var(--danger-soft); }
 .ctrl-interval { border-color: var(--success); color: var(--success); }
 .ctrl-interval:hover { background: var(--success-soft); }
 .ctrl-hint { margin: 12px 0 0; font-size: 13px; }
