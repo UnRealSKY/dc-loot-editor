@@ -1,10 +1,26 @@
 import { describe, it, expect } from 'vitest'
-import { readTimer, readDigit, splitDigits } from '#src/hp/timer'
+import { readTimer, readDigit } from '#src/hp/timer'
 
 // ---- 合成一個七段計時器：畫「mm 分 ss 秒」那四個數字 ----
-const ORANGE: [number, number, number] = [255, 196, 70]
-const GLOW: [number, number, number] = [255, 255, 255] // 上緣那一段在遊戲裡是白的
-const BG: [number, number, number] = [12, 12, 14]
+// 遊戲裡的筆畫是由上而下的漸層（白 → 奶油 → 琥珀 → 橘），這裡照著畫，
+// 只有最下面那截是飽和橘色的話會量錯字框
+const STOPS: [number, number[]][] = [
+  [0, [255, 255, 255]],
+  [0.15, [255, 244, 204]],
+  [0.3, [237, 220, 133]],
+  [0.6, [236, 193, 57]],
+  [1, [255, 188, 20]],
+]
+const BG = [12, 12, 14]
+
+function tone(t: number): number[] {
+  let i = 1
+  while (i < STOPS.length - 1 && STOPS[i][0] < t) i++
+  const [t0, a] = STOPS[i - 1]
+  const [t1, b] = STOPS[i]
+  const k = (t - t0) / (t1 - t0)
+  return a.map((v, j) => Math.round(v + (b[j] - v) * k))
+}
 
 const SEGS: Record<number, string> = {
   0: 'ABCDEF', 1: 'BC', 2: 'ABDEG', 3: 'ABCDG', 4: 'BCFG',
@@ -25,40 +41,61 @@ function blank(width: number, height: number): Canvas {
   return { data, width, height }
 }
 
-function fill(c: Canvas, x0: number, y0: number, x1: number, y1: number, color: number[]) {
-  for (let y = Math.max(0, y0); y <= Math.min(c.height - 1, y1); y++) {
-    for (let x = Math.max(0, x0); x <= Math.min(c.width - 1, x1); x++) {
-      const i = (y * c.width + x) * 4
-      c.data[i] = color[0]; c.data[i + 1] = color[1]; c.data[i + 2] = color[2]; c.data[i + 3] = 255
-    }
+function put(c: Canvas, x: number, y: number, color: number[]) {
+  if (x < 0 || y < 0 || x >= c.width || y >= c.height) return
+  const i = (y * c.width + x) * 4
+  c.data[i] = color[0]; c.data[i + 1] = color[1]; c.data[i + 2] = color[2]; c.data[i + 3] = 255
+}
+
+/** 填一塊筆畫；顏色照它在整個字裡的高度取漸層 */
+function stroke(c: Canvas, x0: number, y0: number, x1: number, y1: number, top: number, h: number) {
+  for (let y = y0; y <= y1; y++) {
+    const color = tone(Math.min(1, Math.max(0, (y - top) / h)))
+    for (let x = x0; x <= x1; x++) put(c, x, y, color)
   }
 }
 
-/** 畫一個七段數字；上橫用白色（跟遊戲一樣），其餘橘黃 */
+/**
+ * 畫一個七段數字。豎線照遊戲的畫法連成一條——中間那段沒亮的時候（像 0、1），
+ * 上下兩根豎線在遊戲裡是接起來的，不是斷開的兩截
+ */
 function drawDigit(c: Canvas, value: number, x: number, y: number, w: number) {
   const h = Math.round(w * 1.78)
   const t = Math.max(2, Math.round(w * 0.22)) // 筆畫粗細
+  const mid = y + Math.round(h / 2)
+  const half = Math.max(1, Math.round(t / 2))
   const on = SEGS[value]
   const has = (s: string) => on.includes(s)
-  if (has('A')) fill(c, x + t, y, x + w - t, y + t, GLOW)
-  if (has('F')) fill(c, x, y + t, x + t, y + Math.round(h / 2), ORANGE)
-  if (has('B')) fill(c, x + w - t, y + t, x + w, y + Math.round(h / 2), ORANGE)
-  if (has('G')) fill(c, x + t, y + Math.round(h / 2) - Math.round(t / 2), x + w - t, y + Math.round(h / 2) + Math.round(t / 2), ORANGE)
-  if (has('E')) fill(c, x, y + Math.round(h / 2), x + t, y + h - t, ORANGE)
-  if (has('C')) fill(c, x + w - t, y + Math.round(h / 2), x + w, y + h - t, ORANGE)
-  if (has('D')) fill(c, x + t, y + h - t, x + w - t, y + h, ORANGE)
+  const bar = (bx: number, up: boolean, down: boolean) => {
+    if (!up && !down) return
+    stroke(c, bx, up ? y + t : mid - half, bx + t, down ? y + h - t : mid + half, y, h)
+  }
+  if (has('A')) stroke(c, x + t, y, x + w - t, y + t, y, h)
+  if (has('G')) stroke(c, x + t, mid - half, x + w - t, mid + half, y, h)
+  if (has('D')) stroke(c, x + t, y + h - t, x + w - t, y + h, y, h)
+  bar(x, has('F'), has('E'))
+  bar(x + w - t, has('B'), has('C'))
 }
 
 /** 畫「mm ss」四位；分與秒之間留比較大的空隙（遊戲裡夾著「分」字） */
 function drawTimer(c: Canvas, text: string, x: number, y: number, w: number) {
   const gap = Math.round(w * 0.25)
   const wide = Math.round(w * 2)
-  const digits = text.split('')
   let cx = x
-  digits.forEach((ch, i) => {
+  text.split('').forEach((ch, i) => {
     drawDigit(c, Number(ch), cx, y, w)
     cx += w + (i === 1 ? wide : gap)
   })
+}
+
+/** 畫面上其他地方的橘字（聊天、傷害數字）：面積比計時器大得多 */
+function clutter(c: Canvas, y: number, rows: number) {
+  for (let r = 0; r < rows; r++) {
+    for (let i = 0; i < 24; i++) {
+      const x = 8 + i * 16
+      stroke(c, x, y + r * 22, x + 11, y + r * 22 + 17, y + r * 22, 18)
+    }
+  }
 }
 
 describe('七段數字', () => {
@@ -69,20 +106,6 @@ describe('七段數字', () => {
       const got = readDigit(c.data, c.width, { x0: 10, y0: 10, x1: 10 + 30, y1: 10 + Math.round(30 * 1.78) })
       expect(got, `數字 ${v}`).toBe(v)
     }
-  })
-})
-
-describe('把黏在一起的欄位切開', () => {
-  it('寬度是單一數字兩倍的群組要切成兩個', () => {
-    const out = splitDigits([{ x0: 0, x1: 19 }, { x0: 30, x1: 69 }, { x0: 80, x1: 99 }])
-    expect(out).toHaveLength(4)
-    expect(out[1]).toEqual({ x0: 30, x1: 49 })
-    expect(out[2]).toEqual({ x0: 50, x1: 69 })
-  })
-
-  it('沒有東西可切時原樣回傳', () => {
-    const groups = [{ x0: 0, x1: 19 }, { x0: 30, x1: 49 }]
-    expect(splitDigits(groups)).toEqual(groups)
   })
 })
 
@@ -103,6 +126,13 @@ describe('讀畫面上的計時器', () => {
     const c = blank(500, 400)
     drawTimer(c, '1234', 300, 300, 24)
     expect(readTimer(c.data, c.width, c.height)?.text).toBe('12:34')
+  })
+
+  it('畫面別處有更大片的橘色也不會被搶走', () => {
+    const c = blank(500, 400)
+    drawTimer(c, '4310', 40, 20, 22)
+    clutter(c, 180, 6) // 面積遠大於計時器，但湊不出七段數字
+    expect(readTimer(c.data, c.width, c.height)?.text).toBe('43:10')
   })
 
   it('畫面上沒有計時器就回 null', () => {
