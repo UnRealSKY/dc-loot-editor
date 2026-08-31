@@ -82,7 +82,16 @@ describe('stripNoise', () => {
     const out = stripNoise(sample)
     expect(out).not.toContain('# maplestory-toolkit')
     expect(out).toContain('## 1.18.0')
-    expect(out).toContain('### Minor Changes')
+  })
+
+  it('去掉 changeset 的分級標題——看更新的人不需要知道這是 minor 還是 patch', () => {
+    expect(stripNoise(sample)).not.toContain('Minor Changes')
+    expect(stripNoise('### Patch Changes\n\n- 修好了')).toBe('- 修好了')
+    expect(stripNoise('### Major Changes\n\n- 大改')).toBe('- 大改')
+  })
+
+  it('不會誤刪其他的三級標題', () => {
+    expect(stripNoise('### 已知問題\n\n- x')).toContain('### 已知問題')
   })
 
   it('沒有 hash 的條目原樣保留', () => {

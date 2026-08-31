@@ -29,10 +29,13 @@ export function rebaseLinks(md: string): string {
 }
 
 // 去掉只對開發者有意義的東西：changeset 加在每條前面的 commit hash，
-// 以及檔案開頭的套件名標題（彈窗本身已經叫「更新內容」）
+// 檔案開頭的套件名標題（彈窗本身已經叫「更新內容」），以及 changeset 依版號級距
+// 產生的 Minor / Patch Changes 分節標題——那是發版用的分級，對看更新的人沒有
+// 意義，而且每發一次版就會再長出來一份，只能在這裡拿掉
 export function stripNoise(md: string): string {
   return md
     .replace(/^#\s+\S[^\n]*\n+/, '')
+    .replace(/^###\s+(Major|Minor|Patch)\s+Changes\s*\n+/gm, '')
     .replace(/^(\s*[-*]\s+)[0-9a-f]{7,40}:\s*/gm, '$1')
 }
 
