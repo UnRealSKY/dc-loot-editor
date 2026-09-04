@@ -21,6 +21,10 @@ export const routes = [
   { path: '/pending', redirect: '/loot/pending' },
   { path: '/settings', redirect: '/loot/settings' },
   { path: '/edit/:id', redirect: (to: { params: Record<string, unknown> }) => `/loot/edit/${to.params.id}` },
+  // 上面那幾條管的是列舉得出來的舊網址，這條管列舉不出來的：打錯字、被截斷的
+  // 分享連結、更早以前的網址。少了它就是一片空白——header 與第二層頁籤是
+  // App.vue 自己畫的，照樣會在，看起來像壞掉而不是「這個網址不存在」
+  { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 
 export const router = createRouter({

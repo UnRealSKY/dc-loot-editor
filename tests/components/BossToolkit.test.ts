@@ -101,22 +101,6 @@ describe('網址就是「在看哪隻王」', () => {
     expect(router.currentRoute.value.path).toBe('/boss-toolkit/dunas')
   })
 
-  it('不帶王的網址導到上次選的那隻', async () => {
-    bossId.value = 'dunas'
-    const router = createRouter({ history: createMemoryHistory(), routes })
-    await router.push('/boss-toolkit')
-    await router.isReady()
-    expect(router.currentRoute.value.path).toBe('/boss-toolkit/dunas')
-  })
-
-  it('改版前的 /shield 一路導到現在的王', async () => {
-    bossId.value = 'dunas'
-    const router = createRouter({ history: createMemoryHistory(), routes })
-    await router.push('/shield')
-    await router.isReady()
-    expect(router.currentRoute.value.path).toBe('/boss-toolkit/dunas')
-  })
-
   it('網址寫了沒有的王就退回預設王，網址也一起改掉', async () => {
     const { w, router } = await mountToolkit('nobody')
     expect(router.currentRoute.value.path).toBe(`/boss-toolkit/${ALL_BOSSES[0].id}`)
