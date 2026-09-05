@@ -359,6 +359,10 @@ button { font-family: inherit; }
   display: flex; flex-wrap: wrap; align-content: flex-start;
 }
 .pip-body > * { flex: 0 0 100%; }
+/* ——除了這一對：時鐘只佔它需要的寬，血量吃掉同一列剩下的。上面那條 100% 會
+   讓它們各佔一列，時鐘那 43px 白白吃掉高度，等比縮放就得多縮兩成，字反而變小 */
+.pip-body > .pip-clock { flex: 0 0 auto; }
+.pip-body > .hp-card { flex: 1 1 0; min-width: 0; margin-left: 6px; }
 /* 只有輸入框留著可以選、可以編輯 */
 .pip-body input { user-select: text; -webkit-user-select: text; }
 .pip-body.app { max-width: none; padding: 5px; }
